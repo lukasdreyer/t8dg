@@ -52,3 +52,15 @@ void t8dg_sc_array_swap(sc_array_t ** parray1,sc_array_t ** parray2){
   *parray1 = *parray2;
   *parray2 = temp;
 }
+void t8dg_sc_array_block_double_print(sc_array_t *array){
+  int irow,icolumn;
+  double *row_array;
+  for(irow = 0; irow < array->elem_count ; irow++){
+    row_array = (double *)t8_sc_array_index_locidx(array,irow);
+    for(icolumn = 0; icolumn < array->elem_size/8 ; icolumn++){
+      printf("%f  ,  ",row_array[icolumn]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}

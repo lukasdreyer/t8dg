@@ -68,7 +68,6 @@ void rungekutta_timestep(int order,const double t,const double delta_t,const t8d
   /* k_0 = f(y_n,t)*/
   f_matrix(k_step,y_start,t,application_data);
 
-
   /*y_res has partial sums by weighting the intermediate values k*/
   t8dg_sc_array_block_double_zaxpy(y_res,rk_b[0]*delta_t,k_step,y_start);
 
@@ -76,10 +75,9 @@ void rungekutta_timestep(int order,const double t,const double delta_t,const t8d
     /*calculate the y-value for which the derivative needs to be evaluated
      * since a has only values on the first minor diagonal, only the k from the step before and the original y is needed*/
     t8dg_sc_array_block_double_zaxpy(y_step,rk_a[i]*delta_t,k_step,y_start);
-
     /* calculate the derivative at the step time and y value */
     f_matrix(k_step, y_step, t + rk_c[i] *delta_t , application_data);
-    /*add weighted summand to result*/
+      /*add weighted summand to result*/
     t8dg_sc_array_block_double_axpy(rk_b[i+1]*delta_t,k_step,y_res);
   }
 

@@ -14,9 +14,9 @@
 #include "t8dg_sc_array.h"
 
 /*Access Functions for the sc_arrays that get partitioned*/
-
+/*TODO: ASSERTS! */
 static double *
-t8_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
@@ -24,7 +24,14 @@ t8_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
 }
 
 static double *
-t8_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
+                           t8_locidx_t ielement, int faceindex)
+{
+  return ((double *)
+           t8_sc_array_index_locidx (problem->face_trafo_quad_weight[faceindex], ielement));
+}
+static double *
+t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
@@ -32,7 +39,7 @@ t8_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem_t
 }
 
 static double *
-t8_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_problem_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
@@ -44,7 +51,16 @@ t8_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_
  * for each element, iterate over quadrature points, use fine_to_coarse_geo and coarse_geo to find the image vertex;
  * Use problem->u_0 to fill dof array
  */
-static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
+static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_locidx_t ielement){
+  int idof;
+  double *element_dof_values;
+
+  element_dof_values = t8dg_advect_element_get_dof(problem,ielement);
+
+
+  for(idof = 0; idof < problem->functionbasis->number_of_dof; idof++){
+    element_dof_values[idof] = ielement * ielement + idof;
+  }
 
 }
 
@@ -67,6 +83,18 @@ static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_adve
 
 }
 
+static void t8dg_1D_advect_evolution(sc_array_t *dudt_array, const sc_array_t *u_array, double t, const void *application_data){
+  /** TODO: Only for testing purposes!!*/
+  T8_ASSERT(dudt_array->elem_count==u_array->elem_count);
+  T8_ASSERT(dudt_array->elem_size==u_array->elem_size);
+  unsigned i;
+  for(i = 0; i < dudt_array->elem_count * dudt_array->elem_size/sizeof(double); i++){
+      ((double *)dudt_array->array)[i] =  (2. / t) * ((double *)u_array->array)[i];
+  }
+  /*In reality du/dt = invMassmatrix(cAu - Bu + Mg)*/
+
+}
+
 static t8dg_1D_advect_problem_t *
 t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, double flow_velocity,
 				   int level, int number_LGL_points, sc_MPI_Comm comm)
@@ -84,9 +112,11 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
   problem->flow_velocity = flow_velocity;
   problem->u_0 = u_0;
   problem->comm = comm;
-  problem->T=1;
-  problem->t=0;
-  problem->cfl=1;
+
+  /*change to input!*/
+  problem->T=2;
+  problem->t=1;
+  problem->cfl=0.1;
 
 
   problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
@@ -94,6 +124,8 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
   problem->coarse_geometry = t8dg_1D_linear_geometry();
 
   problem->numerical_flux = upwind_flux_1D;
+
+  problem->evolution_matrix = t8dg_1D_advect_evolution;
 
   /*If basisfunctions and quadrature use different vertices, these matrices need to be precomputed once!*/
   problem->vandermonde = identity_matrix;
@@ -116,7 +148,7 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
 			num_elements);
 
   problem->jacobian_invers_at_quad =
-    sc_array_new_count (sizeof (double) * problem->dim * problem->dim * number_LGL_points,
+    sc_array_new_count (sizeof (double) * problem->dim * problem->dim * problem->quadrature->number_of_vertices,
 			num_elements);
 
   problem->element_trafo_quad_weight =
@@ -132,9 +164,15 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
 
   /*currently no ghost, since serial, but generally the dof_values need to be ghosted.*/
   problem->dof_values =
-    sc_array_new_count (sizeof (double) * problem->quadrature->number_of_vertices,
+    sc_array_new_count (sizeof (double) * problem->functionbasis->number_of_dof,
 			num_elements +
                         t8_forest_get_num_ghosts (problem->forest));
+
+
+  problem->dof_new =
+    sc_array_new_count (sizeof (double) * problem->functionbasis->number_of_dof,
+			num_elements);
+
 
   return problem;
 }
@@ -160,6 +198,7 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
   /* Free the arrays */
   sc_array_destroy (problem->element_values);
   sc_array_destroy (problem->dof_values);
+  sc_array_destroy (problem->dof_new);
   sc_array_destroy (problem->advance_element_data);
   sc_array_destroy (problem->element_trafo_quad_weight);
   sc_array_destroy (problem->jacobian_invers_at_quad);
@@ -250,6 +289,7 @@ void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, doubl
 
   /*Timeloop with Rungekutta timestepping: */
   while(problem->t < problem->T){
+      printf("time %f\n",problem->t);
       if(problem->t + problem->delta_t > problem->T){
 	  problem->delta_t = problem->T - problem->t;
       }
@@ -258,6 +298,8 @@ void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, doubl
       /*TODO: swap problem.dof_values and problem.dof_new*/
       t8dg_sc_array_swap(&problem->dof_values,&problem->dof_new);
   }
+
+  t8dg_sc_array_block_double_print(problem->dof_values);
 
 
   t8dg_1D_advect_problem_destroy(&problem);
