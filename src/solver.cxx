@@ -11,6 +11,7 @@
 #include "solver.hxx"
 #include "global.h"
 #include "timestepping.h"
+#include "t8dg_sc_array.h"
 
 /*Access Functions for the sc_arrays that get partitioned*/
 
@@ -50,8 +51,8 @@ static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_loc
 
 static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
   T8_ASSERT(problem->dim == 1);
-  double vertex[3];
-  double image_vertex[3];
+  double vertex[MAX_DIM];
+  double image_vertex[MAX_DIM];
   int i;
 
   for(i = 0; i < problem->quadrature->number_of_vertices; i++){
@@ -255,7 +256,7 @@ void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, doubl
       rungekutta_timestep(time_order,problem->t,problem->delta_t,problem->evolution_matrix,problem->dof_new,problem->dof_values,NULL);
       problem->t += problem->delta_t;
       /*TODO: swap problem.dof_values and problem.dof_new*/
-
+      t8dg_sc_array_swap(&problem->dof_values,&problem->dof_new);
   }
 
 

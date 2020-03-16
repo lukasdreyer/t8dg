@@ -46,3 +46,9 @@ void t8dg_sc_array_block_double_zaxpy(sc_array_t *z, double a, const sc_array_t 
   }
 }
 
+void t8dg_sc_array_swap(sc_array_t ** parray1,sc_array_t ** parray2){
+  sc_array_t *temp;
+  temp = *parray1;
+  *parray1 = *parray2;
+  *parray2 = temp;
+}

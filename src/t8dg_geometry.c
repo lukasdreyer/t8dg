@@ -12,16 +12,20 @@
 
 
 /*geometry_data are tree_vertices*/
-static void constant_1D_jacobian_fn(sc_dmatrix_t *jacobian, const double vertex[3], void *geometry_data){
-  T8_ASSERT(jacobian->m==1&&jacobian->n==1);
+static void constant_1D_jacobian_fn(jacobian_matrix_t jacobian, const double vertex[MAX_DIM], void *geometry_data){
+  T8_ASSERT(jacobian.dim == 1);
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
 
-  jacobian->e[0][0] = tree_vertices[3]-tree_vertices[0]; /*this is the lenght of the coarse line*/
+  /*tree-vertices is 3*number_of_vertices*/
+  double x_0 = tree_vertices[0];
+  double x_1 = tree_vertices[3];
+
+  jacobian.matrix[0][0] = x_1 - x_0; /*this is the lenght of the coarse line*/
 }
 
-static void linear_1D_geometry_fn(double image_vertex[3], const double vertex[3], void *geometry_data){
+static void linear_1D_geometry_fn(double image_vertex[MAX_DIM], const double vertex[MAX_DIM], void *geometry_data){
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL&&image_vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
@@ -46,8 +50,8 @@ void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_t **pgeometry){
 }
 
 /*TODO: implement*/
-void refined_to_coarse_geometry(double coarse_element_vertex[3], const double refined_element_vertex[3],
-				double scaling_factor,int idx_rotation_reflection, const double translation_vertex[3]){
+void refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], const double refined_element_vertex[MAX_DIM],
+				double scaling_factor,int idx_rotation_reflection, const double translation_vertex[MAX_DIM]){
 
 
 

@@ -34,6 +34,7 @@ struct t8dg_1D_advect_problem
   sc_array_t			*face_trafo_quad_weight[MAX_FACES]; /* FQ */
 
   sc_array_t			*dof_values;			/*those get ghosted*/
+  sc_array_t			*dof_new;			/*those are only needed locally to save the result of a rungekutta timestep*/
   sc_array_t			*advance_element_data;		/*those need to be recalculated for each time step, remain processor local*/
 
   int 				level;				/*uniform refinement level*/
