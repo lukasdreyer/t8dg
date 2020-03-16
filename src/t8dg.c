@@ -11,7 +11,7 @@
 #include "solver.hxx"
 
 
-
+//TODO:interface to choose
 double u_0(double x,double t){
   return x+t;
 }

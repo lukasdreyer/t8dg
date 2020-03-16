@@ -22,8 +22,9 @@ void face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, co
   T8_ASSERT (src->elem_count == 2);
   int faceindex = *((int*)  application_data);
   T8_ASSERT (faceindex >=0 && faceindex <=1);
-  *((double *)t8_sc_array_index_locidx(dest,0))= *((double *)t8_sc_array_index_locidx(src,faceindex));
-  dest->array[0] = src->array [faceindex];
+  double *double_dest = (double*) dest->array;
+  const double *double_src  = (double*) src->array;
+  double_dest[0]=double_src[faceindex];
 }
 
 /*application_data: faceindex integer*/
@@ -34,9 +35,10 @@ void face_vandermonde_transpose_1D_linear_LGL (sc_array_t *dest, const sc_array_
   int faceindex = *((int*)  application_data);
   T8_ASSERT (faceindex >=0 && faceindex <=1);
 
-  /* TODO: Falsch!!!  */
-  dest->array[faceindex] = src->array [0];
-  dest->array[1 - faceindex] = 0;
+  double *double_dest = (double*) dest->array;
+  const double *double_src = (double*) src->array;
+  double_dest[faceindex] = double_src[0];
+  double_dest[1-faceindex] = 0;
 }
 
 void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *src, const void *application_data){
@@ -44,9 +46,10 @@ void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *s
   T8_ASSERT (dest->elem_count == 2);
   T8_ASSERT (src->elem_count == 2);
 
-  /* TODO: Falsch!!!  */
-  dest->array[0]=src->array[0]+src->array[1];
-  dest->array[1]=-(src->array[0]+src->array[1]);
+  double *double_dest = (double*) dest->array;
+  const double *double_src = (double*) src->array;
+  double_dest[0] = double_src[0]+double_src[1];
+  double_dest[1] = -double_dest[0];
 }
 
 /*application data is flow_velocity*/
@@ -59,7 +62,7 @@ double upwind_flux_1D(const double u_minus,const double u_plus, const void *appl
 
 t8dg_quadrature_t * t8dg_1D_LGL_quadrature(int number_of_LGL)
 {
-  T8_ASSERT(number_of_LGL >=2);
+  T8_ASSERT(number_of_LGL ==2);
   t8dg_quadrature_t *rquad = T8_ALLOC(t8dg_quadrature_t,1);
   rquad->tensorflag =0;
   rquad->tensor1=NULL;
@@ -67,27 +70,44 @@ t8dg_quadrature_t * t8dg_1D_LGL_quadrature(int number_of_LGL)
   rquad->number_of_vertices = number_of_LGL;
   rquad->number_of_faces = 2;
   rquad->number_of_facevertices[0]=1;
-  rquad->number_of_facevertices[1]=1;/*TODO: Fill possible other values*/
+  rquad->number_of_facevertices[1]=1;
   rquad->vertices = sc_array_new_count(sizeof(double),rquad->number_of_vertices);
   rquad->weights = sc_array_new_count(sizeof(double),rquad->number_of_vertices);
 
-  T8_ASSERT(number_of_LGL == 2);
-  *((double *)t8_sc_array_index_locidx(rquad->vertices,0))=0;
-  *((double *)t8_sc_array_index_locidx(rquad->vertices,1))=1;
-  *((double *)t8_sc_array_index_locidx(rquad->weights,0))=0.5;
-  *((double *)t8_sc_array_index_locidx(rquad->weights,1))=0.5;
+  double *vertices, *weights;
+  vertices = (double *)rquad->vertices->array;
+  weights = (double *)rquad->weights->array;
 
+  switch(number_of_LGL){
+    case(2):
+	vertices[0] = 0;
+	vertices[1] = 1;
+	weights[0] = 0.5;
+	weights[1] = 0.5;
+	break;
+  }
   return rquad;
 }
-void t8_dg_quadrature_destroy(t8dg_quadrature_t **pquadrature){
+void t8dg_quadrature_destroy(t8dg_quadrature_t **pquadrature){
   sc_array_destroy((*pquadrature)->vertices);
   sc_array_destroy((*pquadrature)->weights);
   T8_FREE(*pquadrature);
   *pquadrature = NULL;
 }
 t8dg_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
-
+  T8_ASSERT(number_of_LGL==2);
+  t8dg_functionbasis_t *functionbasis = T8_ALLOC(t8dg_functionbasis_t,1);
+  functionbasis->number_of_dof = number_of_LGL;
+  switch(number_of_LGL){
+    case(2):
+	functionbasis->directional_derivative_matrix = directional_derivative_1D_LGL2_matrix;
+	break;
+  }
+  return functionbasis;
 }
-void t8dg_functionbasis_destroy(t8dg_functionbasis_t **pfunctionbasis);
+void t8dg_functionbasis_destroy(t8dg_functionbasis_t **pfunctionbasis){
+  T8_FREE(*pfunctionbasis);
+  *pfunctionbasis = NULL;
+}
 
 

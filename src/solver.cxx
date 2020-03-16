@@ -10,11 +10,59 @@
 #include <t8_forest.h>
 #include "solver.hxx"
 #include "global.h"
-#include "sc_array_access.h"
+//#include "t8dg_geometry.h"
+
+static double *
+t8_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
+                           t8_locidx_t ielement)
+{
+  return ((double *)
+           t8_sc_array_index_locidx (problem->dof_values, ielement));
+}
+
+static double *
+t8_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
+                           t8_locidx_t ielement)
+{
+  return ((double *)
+           t8_sc_array_index_locidx (problem->element_trafo_quad_weight, ielement));
+}
+
+static double *
+t8_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_problem_t * problem,
+                           t8_locidx_t ielement)
+{
+  return ((double *)
+           t8_sc_array_index_locidx (problem->jacobian_invers_at_quad, ielement));
+}
 
 
 
 
+
+static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
+
+}
+static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
+  T8_ASSERT(problem->dim == 1);
+  double vertex[3];
+  double image_vertex[3];
+  int i;
+
+  for(i = 0; i < problem->quadrature->number_of_vertices; i++){
+      /* for each quad point,calculate its position in the coarse element, calculate the coarse jacobian, take its determinant and invert it.
+       * save the inverse jacobian in a linear array, use the determinant to calculate the element_quad_trafo_weights
+       * In 1D, the facetrafo weights are 1, in 2D and 3D use tangential vektor and gram determinant
+       * Additionally in 2/3D we would need normalvectors.
+       */
+
+
+  }
+
+}
+static void t8dg_element_set_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
+
+}
 
 static t8dg_1D_advect_problem_t *
 t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, double flow_velocity,
@@ -30,16 +78,21 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
 
   problem->dim = 1;
   problem->flow_velocity = flow_velocity;
-  problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
-  problem->functionbasis = t8dg_1DLGL_functionbasis(number_LGL_points);
   problem->u_0 = u_0;
   problem->comm = comm;
+
+  problem->T=1;
+  problem->t=0;
+  problem->cfl=1;
 
   problem->vandermonde = identity_matrix;
   problem->vandermonde_transpose = identity_matrix;
   problem->face_vandermonde = face_vandermonde_1D_linear_LGL;
   problem->face_vandermonde_transpose = face_vandermonde_transpose_1D_linear_LGL;
-//  problem->directional_derivative_matrix = directional_derivative_1D_LGL2_matrix;
+
+  problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
+  problem->functionbasis = t8dg_1D_LGL_functionbasis(number_LGL_points);
+  problem->coarse_geometry = t8dg_1D_linear_geometry();
 
   problem->numerical_flux = upwind_flux_1D;
 
@@ -48,31 +101,33 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
   problem->forest =
     t8_forest_new_uniform (cmesh, default_scheme, level, 1, comm);
 
+  int num_elements = t8_forest_get_num_element (problem->forest);
+
   problem->element_values =
     sc_array_new_count (sizeof (t8dg_1D_advect_element_precomputed_values_t),
-                        t8_forest_get_num_element (problem->forest));
+			num_elements);
 
   problem->advance_element_data =
     sc_array_new_count (sizeof (t8dg_1D_advect_advance_element_data_t),
-                        t8_forest_get_num_element (problem->forest));
+			num_elements);
 
-  problem->jacobian_at_quad =
+  problem->jacobian_invers_at_quad =
     sc_array_new_count (sizeof (double) * problem->dim * problem->dim * number_LGL_points,
-                        t8_forest_get_num_element (problem->forest));
+			num_elements);
 
   problem->element_trafo_quad_weight =
     sc_array_new_count (sizeof (double) * problem->quadrature->number_of_vertices,
-                        t8_forest_get_num_element (problem->forest));
+			num_elements);
 
   for(iface=0; iface < problem->quadrature->number_of_faces; iface++){
       problem->face_trafo_quad_weight[iface] =
         sc_array_new_count (sizeof (double) * problem->quadrature->number_of_facevertices[iface],
-                            t8_forest_get_num_element (problem->forest));
-  }
+			    num_elements);
+  }/*rest auf NULL setzen*/
 
   problem->dof_values =
     sc_array_new_count (sizeof (double) * problem->quadrature->number_of_vertices,
-                        t8_forest_get_num_element (problem->forest) +
+			num_elements +
                         t8_forest_get_num_ghosts (problem->forest));
 
   return problem;
@@ -101,12 +156,14 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
   sc_array_destroy (problem->dof_values);
   sc_array_destroy (problem->advance_element_data);
   sc_array_destroy (problem->element_trafo_quad_weight);
-  sc_array_destroy (problem->jacobian_at_quad);
+  sc_array_destroy (problem->jacobian_invers_at_quad);
   for(iface = 0; iface <problem->quadrature->number_of_faces; iface++){
       sc_array_destroy (problem->face_trafo_quad_weight[iface]);
   }
 
-  t8_dg_quadrature_destroy(&(problem->quadrature));
+  t8dg_quadrature_destroy(&(problem->quadrature));
+  t8dg_functionbasis_destroy(&(problem->functionbasis));
+  t8dg_coarse_geometry_destroy(&(problem->coarse_geometry));
 
 
   /* Unref the forest */
@@ -121,10 +178,7 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
   t8_locidx_t			itree, ielement, idata;
   t8_locidx_t			num_trees, num_elems_in_tree;
   t8_element_t			*element;
-//  int				iface, ineigh, isubface;
   t8dg_1D_advect_element_precomputed_values_t	*element_values;
-//  t8dg_1D_advect_advance_element_data_t		*element_advance_data;
-//what about advance_data?
 
 
   t8_eclass_scheme_c 		*scheme;//, *neigh_scheme;
@@ -166,15 +220,8 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
       min_delta_t = SC_MIN (delta_t, min_delta_t);
 
       t8dg_element_set_dofs_initial(problem,idata);
-      t8dg_element_set_jacobian(problem,idata);
       t8dg_element_set_trafo_weights(problem,idata);
 
-#if 0
-      sc_array_t			*jacobian_at_quad;	/* d*d*Q */
-       sc_array_t			*element_trafo_quad_weight;
-       sc_array_t			*face_trafo_quad_weight[MAX_FACES];
-       sc_array_t			*dof_values;		/*those get ghosted*/
-#endif
 
     }
   }

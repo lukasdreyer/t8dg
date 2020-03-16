@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Change these entries to match your t8code library folder
+BASEDIR=$HOME/t8code
+T8_DIR=$BASEDIR/t8fixheader/local
+
+
+# Compiler settings
+
+
+# TODO: make a debug and a release version, maybe triggered with an command line argument
+CC=mpicxx
+CFLAGS='-Wall -pedantic -g'
+SOURCE='../src/solver.cxx ../src/global.c ../src/timestepping.c ../src/t8dg_sc_array.c ../src/t8dg_geometry.c'
+TESTSOURCE1='../test/timestepping_test.c'
+
+# There should be no need to change the following lines
+LIB=$T8_DIR/lib
+INCLUDE=$T8_DIR/include
+
+LIBS="-lt8 -lp4est -lsc -lm -lz"
+
+export LD_LIBRARY_PATH=$LIB:$LD_LIBRARY_PATH
+
+# compile line
+echo libraries in $LIB
+echo header in $INCLUDE
+
+echo "$CC $CFLAGS -o timestepping_test $TESTSOURCE1 $SOURCE -I$INCLUDE -I$INCLUDE/src -L$LIB $LIBS"
+$CC $CFLAGS -o timestepping_test $TESTSOURCE1 $SOURCE -I$INCLUDE -I$INCLUDE/src -L$LIB $LIBS
