@@ -41,6 +41,7 @@ void face_vandermonde_transpose_1D_linear_LGL (sc_array_t *dest, const sc_array_
   double_dest[1-faceindex] = 0;
 }
 
+/* f_0' =1/2*(f_0+f_1) for basisfunctions f_0(x) = x, f_1(x) = 1-x */
 void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8_ASSERT (dest->elem_size == src->elem_size);
   T8_ASSERT (dest->elem_count == 2);
@@ -52,6 +53,9 @@ void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *s
   double_dest[1] = -double_dest[0];
 }
 
+/*TODO: Include normal vector or guarantee that u_minus is always left and u_plus always right.
+ * Better: u_minus own value, u_plus neighbour value, normal vector and flow determine which value to chose!
+ * */
 /*application data is flow_velocity*/
 double upwind_flux_1D(const double u_minus,const double u_plus, const void *application_data){
   T8_ASSERT(application_data!=NULL);
@@ -94,6 +98,7 @@ void t8dg_quadrature_destroy(t8dg_quadrature_t **pquadrature){
   T8_FREE(*pquadrature);
   *pquadrature = NULL;
 }
+
 t8dg_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
   T8_ASSERT(number_of_LGL==2);
   t8dg_functionbasis_t *functionbasis = T8_ALLOC(t8dg_functionbasis_t,1);

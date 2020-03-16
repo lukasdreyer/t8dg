@@ -10,7 +10,12 @@
 
 #include<sc_containers.h>
 
+
+/* All array need to be allocated before*/
+/* y = ax+y, where both array have elem_size = multiple of sizeof(double)*/
 void t8dg_sc_array_block_double_axpy(double a, const sc_array_t *x, sc_array_t *y);
+
+/*z = ax+y, where both array have elem_size = multiple of sizeof(double)*/
 void t8dg_sc_array_block_double_zaxpy(sc_array_t *z, double a, const sc_array_t *x, const sc_array_t *y);
 
 

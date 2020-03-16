@@ -10,7 +10,9 @@
 #include <t8_forest.h>
 #include "solver.hxx"
 #include "global.h"
-//#include "t8dg_geometry.h"
+#include "timestepping.h"
+
+/*Access Functions for the sc_arrays that get partitioned*/
 
 static double *
 t8_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
@@ -37,12 +39,15 @@ t8_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_
 }
 
 
-
-
-
+/* fill the initial dof_values
+ * for each element, iterate over quadrature points, use fine_to_coarse_geo and coarse_geo to find the image vertex;
+ * Use problem->u_0 to fill dof array
+ */
 static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
 
 }
+
+
 static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
   T8_ASSERT(problem->dim == 1);
   double vertex[3];
@@ -60,9 +65,6 @@ static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_adve
   }
 
 }
-static void t8dg_element_set_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t idata){
-
-}
 
 static t8dg_1D_advect_problem_t *
 t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, double flow_velocity,
@@ -76,19 +78,15 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
   /* allocate problem */
   problem = T8_ALLOC (t8dg_1D_advect_problem_t, 1);
 
+
   problem->dim = 1;
   problem->flow_velocity = flow_velocity;
   problem->u_0 = u_0;
   problem->comm = comm;
-
   problem->T=1;
   problem->t=0;
   problem->cfl=1;
 
-  problem->vandermonde = identity_matrix;
-  problem->vandermonde_transpose = identity_matrix;
-  problem->face_vandermonde = face_vandermonde_1D_linear_LGL;
-  problem->face_vandermonde_transpose = face_vandermonde_transpose_1D_linear_LGL;
 
   problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
   problem->functionbasis = t8dg_1D_LGL_functionbasis(number_LGL_points);
@@ -96,6 +94,11 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
 
   problem->numerical_flux = upwind_flux_1D;
 
+  /*If basisfunctions and quadrature use different vertices, these matrices need to be precomputed once!*/
+  problem->vandermonde = identity_matrix;
+  problem->vandermonde_transpose = identity_matrix;
+  problem->face_vandermonde = face_vandermonde_1D_linear_LGL;
+  problem->face_vandermonde_transpose = face_vandermonde_transpose_1D_linear_LGL;
 
   default_scheme = t8_scheme_new_default_cxx ();
   problem->forest =
@@ -123,8 +126,10 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
       problem->face_trafo_quad_weight[iface] =
         sc_array_new_count (sizeof (double) * problem->quadrature->number_of_facevertices[iface],
 			    num_elements);
-  }/*rest auf NULL setzen*/
+  }/*rest auf NULL setzen ?*/
 
+
+  /*currently no ghost, since serial, but generally the dof_values need to be ghosted.*/
   problem->dof_values =
     sc_array_new_count (sizeof (double) * problem->quadrature->number_of_vertices,
 			num_elements +
@@ -144,8 +149,8 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
   if (problem == NULL) {
     return;
   }
-  /* destroy elements */
-//  t8_advect_problem_elements_destroy (problem);
+  /* destroy advance element data?  */
+//  t8dg_advect_problem_elements_destroy (problem);
 
   problem->dim = -1;
   problem->flow_velocity = 0;
@@ -181,7 +186,7 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
   t8dg_1D_advect_element_precomputed_values_t	*element_values;
 
 
-  t8_eclass_scheme_c 		*scheme;//, *neigh_scheme;
+  t8_eclass_scheme_c 		*scheme;
   double			*tree_vertices;
   double			min_delta_t,delta_t;
   double			speed;
@@ -219,10 +224,9 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
       }
       min_delta_t = SC_MIN (delta_t, min_delta_t);
 
+      /*precompute values for element idata*/
       t8dg_element_set_dofs_initial(problem,idata);
-      t8dg_element_set_trafo_weights(problem,idata);
-
-
+      t8dg_element_set_jacobian_invers_and_quad_trafo_weights(problem,idata);
     }
   }
   problem->delta_t = min_delta_t;
@@ -233,13 +237,26 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
 void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, double flow_velocity,
 			   int level, int number_LGL_points, sc_MPI_Comm comm)
 {
+  int time_order=2; /*TODO: change to input*/
   t8dg_1D_advect_problem_t	*problem;
+
+  t8_debugf("Start Advection Solve\n");
+
   problem = t8dg_1D_advect_problem_init (cmesh, u_0, flow_velocity,
   				   level, number_LGL_points, comm);
 
-
-  t8_debugf("Start Advection Solve\n");
   t8dg_1D_advect_problem_init_elements (problem);
+
+  /*Timeloop with Rungekutta timestepping: */
+  while(problem->t < problem->T){
+      if(problem->t + problem->delta_t > problem->T){
+	  problem->delta_t = problem->T - problem->t;
+      }
+      rungekutta_timestep(time_order,problem->t,problem->delta_t,problem->evolution_matrix,problem->dof_new,problem->dof_values,NULL);
+      problem->t += problem->delta_t;
+      /*TODO: swap problem.dof_values and problem.dof_new*/
+
+  }
 
 
   t8dg_1D_advect_problem_destroy(&problem);
