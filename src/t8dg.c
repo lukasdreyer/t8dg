@@ -8,12 +8,14 @@
 #include <t8_cmesh.h>
 #include <t8.h>
 
+#include "global.h"
 #include "solver.hxx"
 
 
 //TODO:interface to choose
-double u_0(double x,double t){
-  return x+t;
+double u_0(const double x[MAX_DIM]){
+  if(x[0]>=0.25 && x[0]<=0.75)return 1 - 4 * abs(x[0]);
+  return 0;
 }
 
 int

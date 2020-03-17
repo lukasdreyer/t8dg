@@ -12,13 +12,15 @@
 #include <sc_dmatrix.h>
 #include "global.h"
 
+
+typedef double      (*t8dg_scalar_function_MAX_DIMd_fn) (const double x[MAX_DIM]);
 typedef double square_MAX_DIM_matrix[MAX_DIM][MAX_DIM];
 typedef square_MAX_DIM_matrix jacobian_matrix_t;
 
 typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 /*TODO: change sc_dmatrix_t* jacobian to double jacobian[3][3], maybe also change 3 to MAX_DIM to optimize when only 1 or 2 dims are needed. */
-typedef void (*jacobian_fn)(jacobian_matrix_t jacobian,const double vertex[3], void *geometry_data);
-typedef void (*geometry_fn)(double image_vertex[3], const double vertex[3], void *geometry_data);
+typedef void (*jacobian_fn)(jacobian_matrix_t jacobian,const double vertex[MAX_DIM], void *geometry_data);
+typedef void (*geometry_fn)(double image_vertex[MAX_DIM], const double vertex[MAX_DIM], void *geometry_data);
 
 struct t8dg_coarse_geometry
 {

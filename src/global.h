@@ -6,13 +6,17 @@
 #include <t8_forest.h>
 #include <example/common/t8_example_common.h>
 
-//#include "t8dg_geometry.h"
+
 
 #define MAX_DIM 1
 #define MAX_FACES (2*MAX_DIM)
 #if 0
 #define MAX_SUBFACES (1<<(MAX_DIM - 1))
 #endif
+
+typedef double      (*t8dg_scalar_function_MAX_DIMd_fn) (const double x[MAX_DIM]);
+//#include "t8dg_geometry.h"
+
 
 typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 
@@ -30,7 +34,7 @@ typedef struct t8dg_1D_advect_advance_element_data t8dg_1D_advect_advance_elemen
 
 struct t8dg_1D_advect_problem
 {
-  t8_scalar_function_1d_fn 	u_0;
+  t8dg_scalar_function_MAX_DIMd_fn u_0;
   double flow_velocity;
 
   t8_forest_t			forest;
