@@ -1,0 +1,36 @@
+# Hier sammele ich Kommentare, die du einbauen solltest.
+# Wenn geschehen, bitte hier mit 'DONE' markieren.
+
+Zugriff auf SC arrays mit index funktionen.
+	- statt 'double *x = (double *) array->array; x[3] = 4;'
+	  solltest du
+	  '*(double *) sc_array_index (array, 3) = 4;'
+	  benutzen.
+	  Es gibt verschiedene Varianten: sc_array_index, ...index_int,...index_long
+	  und auch extra t8code varianten: t8_sc_array_index_locidx ...
+
+Code Formattierung
+Der Code sollte einheitlich formatiert sein.
+Wie kannst du dir aussuche, aber wir haben da schon ein paar Werkzeuge:
+	- Wir haben ein Skript p4estindent im p4est Ordner.
+	  Benenne das um in t8dgindent und aendere es nach belieben ab
+	  (zum Beispiele wuerde ich mehr als 80 Zeichen pro Spalte einstellen)
+	- Danach kannst du immer auf eine Datei das skript loslassen und es wird indentiert
+	- Profimodus: in t8code/scripts das Skript 'pre_commit' anpassen, so dass es t8dgindent
+	  aufruft und dann nach .git/hooks kopieren.
+	  Jetzt darfst du nur noch committen, wenn der Code indentiert ist.
+	- Wenn du gerade an Teil A in einer Datei schreibst und Teil B wird aber mit indentiert,
+	  dann mache am besten 2 Commits draus. Du kannst mit 'git add -p' genau auswaehlen welche Teile einer Datei du commitest.
+	- Manchmal spinnt das Skript. Zum Beispiel auch gerne bei C++ spezifischen Sachen.
+	  In dem Fall musst du dann doch manuell den Code korrigieren und kannst mit
+	  /* *INDENT-OFF* */
+	  Code der nicht indentiert wird
+	  /* *INDENT-ON* */
+	  das indenting temporaer ausschalten.
+	- Wenn du ein besseres indent Programm kennst, als das vom Skript genutzte. Und vielleicht auch eins, was mit C++ besser klar kommt.
+	  Dann baue ich das gerne ein.
+
+Kommentare
+	- Bei jeder Funktion kurz erklaeren, was sie macht
+	- Idealerweise auch input/output parameter dokumentieren
+	- Leerzeichen. /* das ist lesbarer */ /*als das*/ (Wird vielleicht vom indent skript geloest)
