@@ -11,7 +11,7 @@
 #include <t8_cmesh.h>
 #include <example/common/t8_example_common.h>
 
-#include "t8dg_global.h"
+#include "t8dh.h"
 
 
 

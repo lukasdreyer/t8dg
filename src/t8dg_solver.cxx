@@ -81,19 +81,15 @@ static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_loc
     //fine_to_coarse
     problem->coarse_geometry->geometry(image_vertex,coarse_vertex,tree_vertices);
     //coarse
-
-    //u_0(coarse_vertex)
-
-    //TEST!!
-    element_dof_values[idof] = ielement * ielement + idof;
+    element_values[idof] = problem->u_0(image_vertex);
   }
 }
 static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_jacobian_matrix_t jacobian_matrix, int dim){
   int ixdim,iydim;
   for(ixdim=0; ixdim < dim; ixdim++){
-      for(iydim = 0; iydim < dim ; iydim++){
-	  flat_array[ixdim * dim + iydim] = jacobian_matrix[ixdim][iydim];
-      }
+    for(iydim = 0; iydim < dim ; iydim++){
+      flat_array[ixdim * dim + iydim] = jacobian_matrix[ixdim][iydim];
+    }
   }
 }
 
@@ -140,11 +136,11 @@ static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_adve
 /*TODO: get_quadrature_weight */
       element_quad_trafo[iquad] = det * ((double *) problem->quadrature->weights->array)[iquad];
   }
-  for(iface = 0; iface < element_values->num_faces; iface ++){
-      if(problem->dim == 1){
-	  /*only one facequadrature point, with weight 1*/
-	  face_quad_trafo[iface][0] = 1;
-      }
+  if(problem->dim == 1){
+      /*only one facequadrature point, with weight 1*/
+    for(iface = 0; iface < element_values->num_faces; iface ++){
+      face_quad_trafo[iface][0] = 1;
+    }
   }
 }
 

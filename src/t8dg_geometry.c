@@ -6,6 +6,7 @@
  */
 
 #include <t8.h>
+#include <t8dg.h>
 #include "t8dg_geometry.h"
 
 //#include <t8_vec.h>

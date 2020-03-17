@@ -64,44 +64,61 @@ double t8dg_upwind_flux_1D(const double u_minus,const double u_plus, const void 
   return u_plus;
 }
 
-t8dg_quadrature_t * t8dg_1D_LGL_quadrature(int number_of_LGL)
-{
-  T8_ASSERT(number_of_LGL ==2);
-  t8dg_quadrature_t *rquad = T8_ALLOC(t8dg_quadrature_t,1);
-  rquad->tensorflag =0;
-  rquad->tensor1=NULL;
-  rquad->tensor2=NULL;
-  rquad->number_of_vertices = number_of_LGL;
-  rquad->number_of_faces = 2;
-  rquad->number_of_facevertices[0]=1;
-  rquad->number_of_facevertices[1]=1;
-  rquad->vertices = sc_array_new_count(sizeof(double),rquad->number_of_vertices);
-  rquad->weights = sc_array_new_count(sizeof(double),rquad->number_of_vertices);
+static t8dg_LGL_vertex_set_t *
+t8dg_1D_LGL_vertex_set(int number_of_LGL_vertices){
+  T8_ASSERT(number_of_LGL_vertices >=1 && number_of_LGL_vertices<=4);
+  t8dg_LGL_vertex_set_t *vertices = T8_ALLOC(t8dg_LGL_vertex_set_t, 1);
+  vertices->dim = 1;
 
-  double *vertices, *weights;
-  vertices = (double *)rquad->vertices->array;
+
+}
+static t8dg_LGL_quadrature_t *
+t8dg_1D_LGL_quadrature(t8dg_LGL_vertex_set_t *vertex_set)
+{
+  T8_ASSERT(vertex_set->dim == 1);
+  t8dg_LGL_quadrature_t *rquad = T8_ALLOC(t8dg_LGL_quadrature_t,1);
+  rquad->vertices = vertex_set;
+
+  rquad->weights = sc_array_new_count(sizeof(double),vertex_set->number_of_vertices);
+
+  double  *weights;
   weights = (double *)rquad->weights->array;
 
-  switch(number_of_LGL){
+  switch(vertex_set->number_of_vertices){
+    case(1):
+	weights[0]= 1;
+	break;
     case(2):
-	vertices[0] = 0;
-	vertices[1] = 1;
-	weights[0] = 0.5;
+	weights[0] = 0.5;//Auf Referenzelement [0,1]
 	weights[1] = 0.5;
 	break;
+    case(3):
+	weights[0] = 1./3;
+	weights[1] = 4./3;
+	weights[2] = 1./3;
+	break;
+    case(4):
+	weights[0] = 1./6;
+	weights[1] = 5./6;
+	weights[2] = 5./6;
+	weights[3] = 1./6;
+	break;
+    default:
+      printf("Not yet implemented!\n");
+      T8_ASSERT(0);
   }
   return rquad;
 }
-void t8dg_quadrature_destroy(t8dg_quadrature_t **pquadrature){
+void t8dg_quadrature_destroy(t8dg_LGL_quadrature_t **pquadrature){
   sc_array_destroy((*pquadrature)->vertices);
   sc_array_destroy((*pquadrature)->weights);
   T8_FREE(*pquadrature);
   *pquadrature = NULL;
 }
 
-t8dg_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
+t8dg_LGL_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
   T8_ASSERT(number_of_LGL==2);
-  t8dg_functionbasis_t *functionbasis = T8_ALLOC(t8dg_functionbasis_t,1);
+  t8dg_LGL_functionbasis_t *functionbasis = T8_ALLOC(t8dg_LGL_functionbasis_t,1);
   functionbasis->number_of_dof = number_of_LGL;
   switch(number_of_LGL){
     case(2):
@@ -110,7 +127,7 @@ t8dg_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
   }
   return functionbasis;
 }
-void t8dg_functionbasis_destroy(t8dg_functionbasis_t **pfunctionbasis){
+void t8dg_functionbasis_destroy(t8dg_LGL_functionbasis_t **pfunctionbasis){
   T8_FREE(*pfunctionbasis);
   *pfunctionbasis = NULL;
 }
