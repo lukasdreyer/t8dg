@@ -8,7 +8,7 @@
 #ifndef SRC_TIMESTEPPING_H_
 #define SRC_TIMESTEPPING_H_
 #include <sc_containers.h>
-#include "t8dg_global.h"
+#include "t8dg.h"
 
 
 /*src nicht const wegen sc_array_copy*/

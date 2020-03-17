@@ -9,26 +9,36 @@
 #define SRC_T8DG_GEOMETRY_H_
 
 #include <sc_containers.h>
-#include <sc_dmatrix.h>
-#include "t8dg_global.h"
+#include "t8dg.h"
 
 
-
-struct t8dg_coarse_geometry
+struct t8dg_coarse_geometry_3D
 {
-  t8dg_jacobian_fn		jacobian;
-  t8dg_geometry_fn		geometry;
+  t8dg_jacobian_fn_3D		jacobian;
+  t8dg_geometry_fn_3D		geometry;
 };
 
-t8dg_coarse_geometry_t *t8dg_1D_linear_geometry();
 
-void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_t **pgeometry);
+struct t8dg_element_fine_to_coarse_geometry_data
+{
+/* those are needed for the transformation from reference element to the location in the coarse tree*/
+  double scaling_factor;
+  double translation_vector[DIM3];
+  int idx_rotation_reflection;
+};
 
-void t8dg_refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], double refined_element_vertex[MAX_DIM],
-				t8dg_1D_advect_element_precomputed_values_t *element_values);
 
-void t8dg_invert_jacobian_matrix(t8dg_jacobian_matrix_t jacobian_invers, t8dg_jacobian_matrix_t jacobian_matrix, int dim);
 
-void t8dg_determinant_jacobian_matrix(double *det, t8dg_jacobian_matrix_t jacobian_matrix, int dim);
+
+t8dg_coarse_geometry_3D_t *t8dg_1D_linear_geometry();
+
+void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_3D_t **pgeometry);
+
+void t8dg_fine_to_coarse_geometry(double coarse_element_vertex[DIM3], double refined_element_vertex[DIM3],
+				t8dg_element_fine_to_coarse_geometry_data_t *element_data);
+
+void t8dg_invert_sub_square_matrix(t8dg_square_3D_matrix_t matrix_invers, t8dg_square_3D_matrix_t matrix, int dim);
+
+void t8dg_determinant_sub_square_matrix(double *det, t8dg_square_3D_matrix_t matrix, int dim);
 
 #endif /* SRC_T8DG_GEOMETRY_H_ */

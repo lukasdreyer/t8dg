@@ -6,9 +6,8 @@
  */
 
 #include<sc_containers.h>
-#include <t8.h>
 #include "t8dg_sc_array.h"
-#include "t8dg_global.h"
+#include "t8dg.h"
 
 
 /*pre computed butcher tableau values for rk with values only on first diagonal*/
@@ -25,11 +24,11 @@ static const double rk4_b[4] = {1./6,1./3,1./3,1./6};
 
 void t8dg_rungekutta_timestep(int order,const double t,const double delta_t,const t8dg_time_matrix_application f_matrix ,
 			 sc_array_t *dest, sc_array_t *src, const void *application_data){
-  T8_ASSERT(order>0&&order<=4);
-  T8_ASSERT(f_matrix!=NULL);
-  T8_ASSERT(dest!=NULL&&src!=NULL);
-  T8_ASSERT(dest->elem_count==src->elem_count);
-  T8_ASSERT(dest->elem_size==src->elem_size);
+  T8DG_ASSERT(order>0&&order<=4);
+  T8DG_ASSERT(f_matrix!=NULL);
+  T8DG_ASSERT(dest!=NULL&&src!=NULL);
+  T8DG_ASSERT(dest->elem_count==src->elem_count);
+  T8DG_ASSERT(dest->elem_size==src->elem_size);
 
   const double *rk_a,*rk_b,*rk_c;
   size_t count=src->elem_count;

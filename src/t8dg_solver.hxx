@@ -9,15 +9,13 @@
 #define SRC_SOLVER_H_
 
 #include <t8_cmesh.h>
-#include <example/common/t8_example_common.h>
-
-#include "t8dh.h"
-
+#include "t8dg.h"
+#include "t8dg_LGL.h"
 
 
 
 
-void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn u_0, double flow_velocity,
+void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8dg_scalar_function_3d_fn u_0, double flow_velocity,
 			   int level, int number_LGL_points, sc_MPI_Comm comm);
 
 

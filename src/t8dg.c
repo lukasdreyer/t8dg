@@ -8,11 +8,11 @@
 #include <t8_cmesh.h>
 #include <t8.h>
 
-#include "t8dg_global.h"
+#include "t8dg.h"
 #include "t8dg_solver.hxx"
 
 
-double u_0(const double x[MAX_DIM]){
+double u_0(const double x[DIM3]){
   if(x[0]>=0.25 && x[0]<=0.75)return 1 - 4 * abs(x[0]);
   return 0;
 }

@@ -10,15 +10,55 @@
 #include <t8_forest.h>
 
 #include "t8dg_solver.hxx"
-#include "t8dg_global.h"
+#include "t8dg.h"
 #include "t8dg_timestepping.h"
 #include "t8dg_sc_array.h"
 #include "t8dg_geometry.h"
+#include "t8dg_LGL.h"
+#include "t8dg_numerical_flux.h"
+
+typedef struct t8dg_advect_problem_linear_1D
+{
+  int 				dim = 1;
+
+/*TODO: add source term functions*/
+  t8dg_scalar_function_3d_fn 	u_0;
+  double 			flow_velocity;
+
+
+  t8_forest_t			forest;
+
+  sc_array_t			*element_fine_to_coarse_geometry_data;		/*those get partitioned*/
+  sc_array_t			*element_jacobian_invers_at_quad;	/* d*d*Q */
+  sc_array_t			*element_trafo_quad_weight;	/* Q */
+  sc_array_t			*face_trafo_quad_weight[MAX_FACES]; /* FQ */
+
+  sc_array_t			*dof_values;			/*those get ghosted*/
+  sc_array_t			*dof_new;			/*those are only needed locally to save the result of a rungekutta timestep*/
+  sc_array_t			*face_mortar[MAX_FACES];			/*those need to be recalculated for each time step, remain processor local*/
+
+  int 				uniform_refinement_level;				/*uniform refinement level*/
+
+  double			delta_t;/*time step*/
+  double 			t;/*current time*/
+  double 			T;/*end time*/
+  double			cfl;
+
+  t8dg_LGL_quadrature_t			*quadrature;
+  t8dg_LGL_functionbasis_t		*functionbasis;
+  t8dg_coarse_geometry_3D_t		*coarse_geometry;
+  t8dg_numerical_flux_1D_fn		numerical_flux;
+
+  t8dg_time_matrix_application		evolution_matrix;
+
+  sc_MPI_Comm				comm;
+}t8dg_advect_problem_linear_1D_t;
+
 
 /*Access Functions for the sc_arrays that get partitioned*/
 /*TODO: ASSERTS! */
 static double *
-t8dg_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_dof (const t8dg_advect_problem_linear_1D_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
@@ -26,23 +66,15 @@ t8dg_advect_element_get_dof (const t8dg_1D_advect_problem_t * problem,
 }
 
 
-static t8dg_1D_advect_element_precomputed_values_t *
-t8dg_advect_element_get_element_values (const t8dg_1D_advect_problem_t * problem,
-                           t8_locidx_t ielement)
-{
-  return ((t8dg_1D_advect_element_precomputed_values_t *)
-           t8_sc_array_index_locidx (problem->element_values, ielement));
-}
-
 static double *
-t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem,
                            t8_locidx_t ielement, int faceindex)
 {
   return ((double *)
            t8_sc_array_index_locidx (problem->face_trafo_quad_weight[faceindex], ielement));
 }
 static double *
-t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
@@ -50,11 +82,11 @@ t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_1D_advect_problem
 }
 
 static double *
-t8dg_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advect_problem_t * problem,
+t8dg_advect_element_get_element_jacobian_invers_linear_array(const t8dg_advect_problem_linear_1D_t * problem,
                            t8_locidx_t ielement)
 {
   return ((double *)
-           t8_sc_array_index_locidx (problem->jacobian_invers_at_quad, ielement));
+           t8_sc_array_index_locidx (problem->element_jacobian_invers_at_quad, ielement));
 }
 
 
@@ -62,29 +94,30 @@ t8dg_advect_element_get_element_jacobian_invers_linear_array(const t8dg_1D_advec
  * for each element, iterate over quadrature points, use fine_to_coarse_geo and coarse_geo to find the image vertex;
  * Use problem->u_0 to fill dof array
  */
-static void t8dg_element_set_dofs_initial(t8dg_1D_advect_problem *problem,t8_locidx_t ielement, double *tree_vertices){
+static void t8dg_element_set_dofs_initial(t8dg_advect_problem_linear_1D_t *problem,t8_locidx_t ielement, double *tree_vertices){
   int idof;
   double *element_dof_values;
-  double reference_vertex[MAX_DIM];
-  double coarse_vertex[MAX_DIM];
-  double image_vertex[MAX_DIM];
+  double reference_vertex[DIM3];
+  double coarse_vertex[DIM3];
+  double image_vertex[DIM3];
 
-  t8dg_1D_advect_element_precomputed_values_t *element_values = t8dg_advect_element_get_element_values(problem,ielement);
+  t8dg_element_fine_to_coarse_geometry_data_t *element_data;
 
+//  element_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,ielement);
   element_dof_values = t8dg_advect_element_get_dof(problem,ielement);
 
 
-  for(idof = 0; idof < problem->functionbasis->number_of_dof; idof++){
+  for(idof = 0; idof < problem->dim; idof++){
 //    get_functionbasis_vertex(reference_vertex,ielement,idof);
     //get_basisfunction_nodal vertex
-    t8dg_refined_to_coarse_geometry(coarse_vertex,reference_vertex,element_values);
+    t8dg_fine_to_coarse_geometry(coarse_vertex,reference_vertex,element_data);
     //fine_to_coarse
     problem->coarse_geometry->geometry(image_vertex,coarse_vertex,tree_vertices);
     //coarse
-    element_values[idof] = problem->u_0(image_vertex);
+    element_dof_values[idof] = problem->u_0(image_vertex);
   }
 }
-static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_jacobian_matrix_t jacobian_matrix, int dim){
+static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_square_3D_matrix_t jacobian_matrix, int dim){
   int ixdim,iydim;
   for(ixdim=0; ixdim < dim; ixdim++){
     for(iydim = 0; iydim < dim ; iydim++){
@@ -93,25 +126,30 @@ static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_jacobian_matrix
   }
 }
 
-static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_advect_problem *problem,t8_locidx_t ielement,
+static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_advect_problem_linear_1D_t *problem,t8_locidx_t ielement,
 								    double *tree_vertices)
 {
   T8_ASSERT(problem->dim == 1);
-  double vertex[MAX_DIM];
-  double coarse_vertex[MAX_DIM];
+  double vertex[DIM3];
+  double coarse_vertex[DIM3];
   double det;
-  t8dg_jacobian_matrix_t coarse_jacobian_matrix,coarse_jacobian_invers,fine_jacobian_invers;
+  t8dg_square_3D_matrix_t coarse_jacobian_matrix,coarse_jacobian_invers,fine_jacobian_invers;
   int iquad,iface;
 
-  t8dg_1D_advect_element_precomputed_values_t *element_values = t8dg_advect_element_get_element_values(problem,ielement);
+  t8dg_element_fine_to_coarse_geometry_data_t *element_data;
+
+//  element_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,ielement);
+
+
+
   double *jacobian_invers_linear_array = t8dg_advect_element_get_element_jacobian_invers_linear_array(problem,ielement);
   double *element_quad_trafo = t8dg_advect_element_get_element_quad_trafo_weights(problem,ielement);
   double *face_quad_trafo[MAX_FACES];
-  for(iface = 0; iface < element_values->num_faces; iface++){
+  for(iface = 0; iface < problem->quadrature->vertices->number_of_faces; iface++){
    face_quad_trafo[iface] = t8dg_advect_element_get_face_quad_trafo_weights(problem,ielement,iface);
   }
 
-  for(iquad = 0; iquad < problem->quadrature->number_of_vertices; iquad++){
+  for(iquad = 0; iquad < problem->quadrature->vertices->number_of_vertices; iquad++){
       /* for each quad point,calculate its position in the coarse element, calculate the coarse jacobian, take its determinant and invert it.
        * save the inverse jacobian in a linear array, use the determinant to calculate the element_quad_trafo_weights
        * In 1D, the facetrafo weights are 1, in 2D and 3D use tangential vektor and gram determinant
@@ -120,10 +158,10 @@ static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_adve
 
 //TODO:      get_quadrature_vertex(vertex,problem,iquad);
 
-      t8dg_refined_to_coarse_geometry(coarse_vertex, vertex,element_values);
+      t8dg_fine_to_coarse_geometry(coarse_vertex, vertex,element_data);
 
       problem->coarse_geometry->jacobian(coarse_jacobian_matrix,coarse_vertex,tree_vertices);
-      t8dg_invert_jacobian_matrix(coarse_jacobian_invers, coarse_jacobian_matrix, problem->dim);
+//      t8dg_invert_jacobian_matrix(coarse_jacobian_invers, coarse_jacobian_matrix, problem->dim);
       //apply rotation-reflection-matrix R to jacobian invers
 //TODO:      apply_rotation_reflection_matrix_to_matrix(fine_jacobian_invers,coarse_jacobian_invers,element_values->idx_rotation_reflection);
       //scale by h
@@ -131,14 +169,14 @@ static void t8dg_element_set_jacobian_invers_and_quad_trafo_weights(t8dg_1D_adve
       //flatten and save in jacobian_invers_linear array
       t8dg_flatten_jacobian_matrix(jacobian_invers_linear_array, fine_jacobian_invers,problem->dim);
 
-      t8dg_determinant_jacobian_matrix(&det, coarse_jacobian_matrix, problem->dim);
+//      t8dg_determinant_jacobian_matrix(&det, coarse_jacobian_matrix, problem->dim);
       //multiply det with quadweight and save
 /*TODO: get_quadrature_weight */
       element_quad_trafo[iquad] = det * ((double *) problem->quadrature->weights->array)[iquad];
   }
   if(problem->dim == 1){
       /*only one facequadrature point, with weight 1*/
-    for(iface = 0; iface < element_values->num_faces; iface ++){
+    for(iface = 0; iface < problem->quadrature->vertices->number_of_faces; iface ++){
       face_quad_trafo[iface][0] = 1;
     }
   }
@@ -156,17 +194,17 @@ static void t8dg_1D_advect_evolution(sc_array_t *dudt_array, const sc_array_t *u
 
 }
 
-static t8dg_1D_advect_problem_t *
-t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn u_0, double flow_velocity,
+static t8dg_advect_problem_linear_1D_t *
+t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8dg_scalar_function_3d_fn u_0, double flow_velocity,
 				   int level, int number_LGL_points, sc_MPI_Comm comm)
 {
-  t8dg_1D_advect_problem_t 		*problem;
+  t8dg_advect_problem_linear_1D_t 		*problem;
   t8_scheme_cxx_t			*default_scheme;
   int					iface;
 
 
   /* allocate problem */
-  problem = T8_ALLOC (t8dg_1D_advect_problem_t, 1);
+  problem = T8_ALLOC (t8dg_advect_problem_linear_1D_t, 1);
 
 
   problem->dim = 1;
@@ -180,19 +218,14 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn 
   problem->cfl=0.1;
 
 
-  problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
-  problem->functionbasis = t8dg_1D_LGL_functionbasis(number_LGL_points);
+  t8dg_1D_LGL_new_quadrature_and_functionbasis(&problem->quadrature,&problem->functionbasis,number_LGL_points);
+//  problem->quadrature = t8dg_1D_LGL_quadrature(number_LGL_points);/*allocates*/
+//  problem->functionbasis = t8dg_1D_LGL_functionbasis(number_LGL_points);
   problem->coarse_geometry = t8dg_1D_linear_geometry();
 
   problem->numerical_flux = t8dg_upwind_flux_1D;
 
   problem->evolution_matrix = t8dg_1D_advect_evolution;
-
-  /*If basisfunctions and quadrature use different vertices, these matrices need to be precomputed once!*/
-  problem->vandermonde = t8dg_identity_matrix;
-  problem->vandermonde_transpose = t8dg_identity_matrix;
-  problem->face_vandermonde = t8dg_face_vandermonde_1D_linear_LGL;
-  problem->face_vandermonde_transpose = t8dg_face_vandermonde_transpose_1D_linear_LGL;
 
   default_scheme = t8_scheme_new_default_cxx ();
   problem->forest =
@@ -201,25 +234,25 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn 
   int num_elements = t8_forest_get_num_element (problem->forest);
 
 
-  problem->element_values =
-    sc_array_new_count (sizeof (t8dg_1D_advect_element_precomputed_values_t),
+  problem->element_fine_to_coarse_geometry_data =
+    sc_array_new_count (sizeof (t8dg_element_fine_to_coarse_geometry_data_t),
 			num_elements);
 
-  problem->advance_element_data =
-    sc_array_new_count (sizeof (t8dg_1D_advect_advance_element_data_t),
-			num_elements);
 
-  problem->jacobian_invers_at_quad =
-    sc_array_new_count (sizeof (double) * problem->dim * problem->dim * problem->quadrature->number_of_vertices,
+  problem->element_jacobian_invers_at_quad =
+    sc_array_new_count (sizeof (double) * problem->dim * problem->dim * problem->quadrature->vertices->number_of_vertices,
 			num_elements);
 
   problem->element_trafo_quad_weight =
-    sc_array_new_count (sizeof (double) * problem->quadrature->number_of_vertices,
+    sc_array_new_count (sizeof (double) * problem->quadrature->vertices->number_of_vertices,
 			num_elements);
 
-  for(iface=0; iface < problem->quadrature->number_of_faces; iface++){
+  for(iface=0; iface < problem->quadrature->vertices->number_of_faces; iface++){
       problem->face_trafo_quad_weight[iface] =
-        sc_array_new_count (sizeof (double) * problem->quadrature->number_of_facevertices[iface],
+        sc_array_new_count (sizeof (double) * problem->quadrature->vertices->number_of_facevertices[iface],
+			    num_elements);
+      problem->face_mortar[iface] =
+        sc_array_new_count (sizeof (double) * problem->quadrature->vertices->number_of_facevertices[iface],
 			    num_elements);
   }/*rest auf NULL setzen ?*/
 
@@ -240,9 +273,9 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn 
 }
 
 static void
-t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
+t8dg_1D_advect_problem_destroy (t8dg_advect_problem_linear_1D_t ** pproblem)
 {
-  t8dg_1D_advect_problem_t *problem;
+  t8dg_advect_problem_linear_1D_t *problem;
   int iface;
 
   T8_ASSERT (pproblem != NULL);
@@ -260,19 +293,17 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
 
 
   /* Free the arrays */
-  sc_array_destroy (problem->element_values);
+  sc_array_destroy (problem->element_fine_to_coarse_geometry_data);
   sc_array_destroy (problem->dof_values);
   sc_array_destroy (problem->dof_new);
-  sc_array_destroy (problem->advance_element_data);
   sc_array_destroy (problem->element_trafo_quad_weight);
-  sc_array_destroy (problem->jacobian_invers_at_quad);
-  for(iface = 0; iface <problem->quadrature->number_of_faces; iface++){
+  sc_array_destroy (problem->element_jacobian_invers_at_quad);
+  for(iface = 0; iface <problem->quadrature->vertices->number_of_faces; iface++){
       sc_array_destroy (problem->face_trafo_quad_weight[iface]);
+      sc_array_destroy (problem->face_mortar[iface]);
   }
 
-  t8dg_quadrature_destroy(&(problem->quadrature));
-  t8dg_functionbasis_destroy(&(problem->functionbasis));
-  t8dg_coarse_geometry_destroy(&(problem->coarse_geometry));
+  t8dg_LGL_quadrature_and_functionbasis_destroy(&problem->quadrature,&problem->functionbasis);
 
 
   /* Unref the forest */
@@ -282,12 +313,11 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
   *pproblem = NULL;
 }
 static void
-t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
+t8dg_advect_problem_linear_1D_init_elements (t8dg_advect_problem_linear_1D_t * problem)
 {
   t8_locidx_t			itree, ielement, idata, idim;
   t8_locidx_t			num_trees, num_elems_in_tree;
   t8_element_t			*element;
-  t8dg_1D_advect_element_precomputed_values_t	*element_values;
 
 
   t8_eclass_scheme_c 		*scheme;
@@ -313,8 +343,10 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
       element =
         t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+#if 0
       element_values = (t8dg_1D_advect_element_precomputed_values_t *)
-            t8_sc_array_index_locidx (problem->element_values, idata);
+
+        t8_sc_array_index_locidx (problem->element_values, idata);
 
       element_values->diameter =
         t8_forest_element_diam (problem->forest, itree, element,
@@ -329,11 +361,12 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
       /*TODO: is vertex0 really always the translation vector?*/
       double vertex[3];
       t8_forest_element_coordinate(problem->forest,itree,element,tree_vertices,0,vertex);
-      for(idim = 0 ; idim < MAX_DIM ; idim++){
+      for(idim = 0 ; idim < DIM3 ; idim++){
 	  element_values->translation_vector[idim] = vertex[idim];
       }
+#endif
       if (speed > 0) {
-        delta_t = problem->cfl * element_values->diameter / speed;
+        delta_t = 0.1 ;//problem->cfl * element_values->diameter / speed;
       }
       min_delta_t = SC_MIN (delta_t, min_delta_t);
 
@@ -347,18 +380,18 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
 
 
 
-void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8dg_scalar_function_MAX_DIMd_fn u_0, double flow_velocity,
+void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8dg_scalar_function_3d_fn u_0, double flow_velocity,
 			   int level, int number_LGL_points, sc_MPI_Comm comm)
 {
   int time_order=2; /*TODO: change to input*/
-  t8dg_1D_advect_problem_t	*problem;
+  t8dg_advect_problem_linear_1D_t	*problem;
 
   t8_debugf("Start Advection Solve\n");
 
   problem = t8dg_1D_advect_problem_init (cmesh, u_0, flow_velocity,
   				   level, number_LGL_points, comm);
 
-  t8dg_1D_advect_problem_init_elements (problem);
+  t8dg_advect_problem_linear_1D_init_elements (problem);
 
   t8dg_sc_array_block_double_print(problem->dof_values);
 

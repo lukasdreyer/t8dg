@@ -6,14 +6,14 @@
  */
 
 #include <t8.h>
-#include <t8dg.h>
+#include "t8dg.h"
 #include "t8dg_geometry.h"
 
 //#include <t8_vec.h>
 
 
 /*geometry_data are tree_vertices*/
-static void t8dg_constant_1D_jacobian_fn(t8dg_jacobian_matrix_t jacobian, const double vertex[MAX_DIM], void *geometry_data){
+static void t8dg_constant_1D_jacobian_fn(t8dg_square_3D_matrix_t jacobian, const double vertex[DIM3], void *geometry_data){
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
@@ -25,7 +25,7 @@ static void t8dg_constant_1D_jacobian_fn(t8dg_jacobian_matrix_t jacobian, const 
   jacobian[0][0] = x_1 - x_0; /*this is the lenght of the coarse line*/
 }
 
-static void t8dg_linear_1D_geometry_fn(double image_vertex[MAX_DIM], const double vertex[MAX_DIM], void *geometry_data){
+static void t8dg_linear_1D_geometry_fn(double image_vertex[DIM3], const double vertex[DIM3], void *geometry_data){
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL&&image_vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
@@ -37,42 +37,35 @@ static void t8dg_linear_1D_geometry_fn(double image_vertex[MAX_DIM], const doubl
 }
 
 
-t8dg_coarse_geometry_t *t8dg_1D_linear_geometry(){
-  t8dg_coarse_geometry_t *geometry = T8_ALLOC(t8dg_coarse_geometry_t,1);
+t8dg_coarse_geometry_3D_t *t8dg_1D_linear_geometry(){
+  t8dg_coarse_geometry_3D_t *geometry = T8_ALLOC(t8dg_coarse_geometry_3D_t,1);
   geometry->geometry = t8dg_linear_1D_geometry_fn;
   geometry->jacobian = t8dg_constant_1D_jacobian_fn;
   return geometry;
 }
 
-void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_t **pgeometry){
+void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_3D_t **pgeometry){
   T8_FREE(*pgeometry);
   *pgeometry = NULL;
 }
 
 /*TODO: implement*/
-void t8dg_refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], double refined_element_vertex[MAX_DIM],
-				t8dg_1D_advect_element_precomputed_values_t *element_values){
-  T8_ASSERT(element_values->idx_rotation_reflection >=0 && element_values->idx_rotation_reflection <=1);
-  T8_ASSERT(coarse_element_vertex!=NULL && refined_element_vertex != NULL);
+void t8dg_refined_to_coarse_geometry(double coarse_element_vertex[DIM3], double fine_element_vertex[DIM3],
+				t8dg_element_fine_to_coarse_geometry_data_t *element_data){
+  T8_ASSERT(element_data->idx_rotation_reflection ==0);
+  T8_ASSERT(coarse_element_vertex!=NULL && fine_element_vertex != NULL);
   int idim;
 
   /*x=Rx*/
   // apply_rotation_reflection(coarse_element_vertex, refined_element_vertex, element_values->idx_rotation_reflection);
 
   /*hx+x_0*/
-  /*TODO: implement vector functions!*/
-  for(idim = 0; idim < element_values->dim ; idim++){
-      coarse_element_vertex[idim] = element_values->scaling_factor * coarse_element_vertex[idim]
-		+ element_values->translation_vector[idim];
-  }
-  /*not needed if rot/reflection already sets unused values to 0 */
-  for(idim = element_values->dim ; idim < MAX_DIM; idim++){
-      coarse_element_vertex[idim] = 0;
-  }
-}
+  /*TODO: implement vector functions! -> can now be done by t8_vec*/
 
-void t8dg_invert_jacobian_matrix(t8dg_jacobian_matrix_t jacobian_invers, t8dg_jacobian_matrix_t jacobian_matrix, int dim){
-  T8_ASSERT(dim > 0 && dim <= MAX_DIM);
+}
+#if 0
+void t8dg_invert_jacobian_matrix(t8dg_square_3D_matrix_t jacobian_invers, t8dg_square_3D_matrix_t jacobian_matrix, int dim){
+  T8_ASSERT(dim > 0 && dim <= DIM3);
   double det;
   t8dg_determinant_jacobian_matrix(&det,jacobian_matrix,dim);
   if(dim ==1){
@@ -89,8 +82,8 @@ void t8dg_invert_jacobian_matrix(t8dg_jacobian_matrix_t jacobian_invers, t8dg_ja
   }
 }
 
-void t8dg_determinant_jacobian_matrix(double *det, t8dg_jacobian_matrix_t jacobian_matrix, int dim){
-  T8_ASSERT(dim > 0 && dim <= MAX_DIM);
+void t8dg_determinant_jacobian_matrix(double *det, t8dg_square_3D_matrix_t jacobian_matrix, int dim){
+  T8_ASSERT(dim > 0 && dim <= DIM3);
   if(dim ==1){
       *det = jacobian_matrix[0][0];
   }
@@ -101,3 +94,4 @@ void t8dg_determinant_jacobian_matrix(double *det, t8dg_jacobian_matrix_t jacobi
       SC_ABORT("not yet implemented");
   }
 }
+#endif
