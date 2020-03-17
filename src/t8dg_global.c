@@ -8,7 +8,7 @@
 #include <t8.h>
 #include <sc_containers.h>
 
-void identity_matrix (sc_array_t *dest, const sc_array_t *src, const void *application_data){
+void t8dg_identity_matrix (sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8_ASSERT (dest->elem_size == src->elem_size);
   T8_ASSERT (dest->elem_count == src->elem_count);
   /* Copy the elem_count*elem_size many bits from src to dest*/
@@ -16,7 +16,7 @@ void identity_matrix (sc_array_t *dest, const sc_array_t *src, const void *appli
 }
 
 /*application_data is faceindex integer*/
-void face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
+void t8dg_face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8_ASSERT (dest->elem_size == src->elem_size);
   T8_ASSERT (dest->elem_count == 1);
   T8_ASSERT (src->elem_count == 2);
@@ -28,7 +28,7 @@ void face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, co
 }
 
 /*application_data: faceindex integer*/
-void face_vandermonde_transpose_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
+void t8dg_face_vandermonde_transpose_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8_ASSERT (dest->elem_size == src->elem_size);
   T8_ASSERT (dest->elem_count == 2);
   T8_ASSERT (src->elem_count == 1);
@@ -42,7 +42,7 @@ void face_vandermonde_transpose_1D_linear_LGL (sc_array_t *dest, const sc_array_
 }
 
 /* f_0' =1/2*(f_0+f_1) for basisfunctions f_0(x) = x, f_1(x) = 1-x */
-void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *src, const void *application_data){
+void t8dg_directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8_ASSERT (dest->elem_size == src->elem_size);
   T8_ASSERT (dest->elem_count == 2);
   T8_ASSERT (src->elem_count == 2);
@@ -57,7 +57,7 @@ void directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array_t *s
  * Better: u_minus own value, u_plus neighbour value, normal vector and flow determine which value to chose!
  * */
 /*application data is flow_velocity*/
-double upwind_flux_1D(const double u_minus,const double u_plus, const void *application_data){
+double t8dg_upwind_flux_1D(const double u_minus,const double u_plus, const void *application_data){
   T8_ASSERT(application_data!=NULL);
   double *c = (double*) application_data;
   if(*c > 0)return u_minus;
@@ -105,7 +105,7 @@ t8dg_functionbasis_t * t8dg_1D_LGL_functionbasis(int number_of_LGL){
   functionbasis->number_of_dof = number_of_LGL;
   switch(number_of_LGL){
     case(2):
-	functionbasis->directional_derivative_matrix = directional_derivative_1D_LGL2_matrix;
+	functionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;
 	break;
   }
   return functionbasis;

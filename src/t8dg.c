@@ -12,7 +12,6 @@
 #include "t8dg_solver.hxx"
 
 
-//TODO:interface to choose
 double u_0(const double x[MAX_DIM]){
   if(x[0]>=0.25 && x[0]<=0.75)return 1 - 4 * abs(x[0]);
   return 0;

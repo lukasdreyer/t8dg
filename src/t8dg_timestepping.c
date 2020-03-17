@@ -23,7 +23,7 @@ static const double rk3_b[3] = {1./4,0,3./4};
 static const double rk4_a[4] = {0.5,0.5,1};
 static const double rk4_b[4] = {1./6,1./3,1./3,1./6};
 
-void rungekutta_timestep(int order,const double t,const double delta_t,const t8dg_time_matrix_application f_matrix ,
+void t8dg_rungekutta_timestep(int order,const double t,const double delta_t,const t8dg_time_matrix_application f_matrix ,
 			 sc_array_t *dest, sc_array_t *src, const void *application_data){
   T8_ASSERT(order>0&&order<=4);
   T8_ASSERT(f_matrix!=NULL);

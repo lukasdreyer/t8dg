@@ -12,7 +12,7 @@
 
 
 /*geometry_data are tree_vertices*/
-static void constant_1D_jacobian_fn(jacobian_matrix_t jacobian, const double vertex[MAX_DIM], void *geometry_data){
+static void t8dg_constant_1D_jacobian_fn(t8dg_jacobian_matrix_t jacobian, const double vertex[MAX_DIM], void *geometry_data){
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
@@ -24,7 +24,7 @@ static void constant_1D_jacobian_fn(jacobian_matrix_t jacobian, const double ver
   jacobian[0][0] = x_1 - x_0; /*this is the lenght of the coarse line*/
 }
 
-static void linear_1D_geometry_fn(double image_vertex[MAX_DIM], const double vertex[MAX_DIM], void *geometry_data){
+static void t8dg_linear_1D_geometry_fn(double image_vertex[MAX_DIM], const double vertex[MAX_DIM], void *geometry_data){
   T8_ASSERT(geometry_data!=NULL);
   T8_ASSERT(vertex!=NULL&&image_vertex!=NULL);
   double *tree_vertices = (double*) geometry_data;
@@ -38,8 +38,8 @@ static void linear_1D_geometry_fn(double image_vertex[MAX_DIM], const double ver
 
 t8dg_coarse_geometry_t *t8dg_1D_linear_geometry(){
   t8dg_coarse_geometry_t *geometry = T8_ALLOC(t8dg_coarse_geometry_t,1);
-  geometry->geometry = linear_1D_geometry_fn;
-  geometry->jacobian = constant_1D_jacobian_fn;
+  geometry->geometry = t8dg_linear_1D_geometry_fn;
+  geometry->jacobian = t8dg_constant_1D_jacobian_fn;
   return geometry;
 }
 
@@ -49,7 +49,7 @@ void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_t **pgeometry){
 }
 
 /*TODO: implement*/
-void refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], double refined_element_vertex[MAX_DIM],
+void t8dg_refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], double refined_element_vertex[MAX_DIM],
 				t8dg_1D_advect_element_precomputed_values_t *element_values){
   T8_ASSERT(element_values->idx_rotation_reflection >=0 && element_values->idx_rotation_reflection <=1);
   T8_ASSERT(coarse_element_vertex!=NULL && refined_element_vertex != NULL);
@@ -70,10 +70,10 @@ void refined_to_coarse_geometry(double coarse_element_vertex[MAX_DIM], double re
   }
 }
 
-void invert_jacobian_matrix(jacobian_matrix_t jacobian_invers, jacobian_matrix_t jacobian_matrix, int dim){
+void t8dg_invert_jacobian_matrix(t8dg_jacobian_matrix_t jacobian_invers, t8dg_jacobian_matrix_t jacobian_matrix, int dim){
   T8_ASSERT(dim > 0 && dim <= MAX_DIM);
   double det;
-  determinant_jacobian_matrix(&det,jacobian_matrix,dim);
+  t8dg_determinant_jacobian_matrix(&det,jacobian_matrix,dim);
   if(dim ==1){
       jacobian_invers[0][0] = 1. / det;
   }
@@ -88,7 +88,7 @@ void invert_jacobian_matrix(jacobian_matrix_t jacobian_invers, jacobian_matrix_t
   }
 }
 
-void determinant_jacobian_matrix(double *det, jacobian_matrix_t jacobian_matrix, int dim){
+void t8dg_determinant_jacobian_matrix(double *det, t8dg_jacobian_matrix_t jacobian_matrix, int dim){
   T8_ASSERT(dim > 0 && dim <= MAX_DIM);
   if(dim ==1){
       *det = jacobian_matrix[0][0];
