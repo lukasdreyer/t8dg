@@ -4,7 +4,7 @@
  *  Created on: Mar 13, 2020
  *      Author: lukas
  */
-#include "global.h"
+#include "t8dg_global.h"
 #include <t8.h>
 #include <sc_containers.h>
 

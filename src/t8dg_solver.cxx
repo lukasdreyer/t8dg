@@ -8,9 +8,10 @@
 #include <example/common/t8_example_common.h>
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <t8_forest.h>
-#include "solver.hxx"
-#include "global.h"
-#include "timestepping.h"
+
+#include "t8dg_solver.hxx"
+#include "t8dg_global.h"
+#include "t8dg_timestepping.h"
 #include "t8dg_sc_array.h"
 #include "t8dg_geometry.h"
 

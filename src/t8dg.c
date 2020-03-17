@@ -8,8 +8,8 @@
 #include <t8_cmesh.h>
 #include <t8.h>
 
-#include "global.h"
-#include "solver.hxx"
+#include "t8dg_global.h"
+#include "t8dg_solver.hxx"
 
 
 //TODO:interface to choose

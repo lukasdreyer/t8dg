@@ -6,9 +6,9 @@
  */
 
 #include<sc_containers.h>
-#include "global.h"
 #include <t8.h>
 #include "t8dg_sc_array.h"
+#include "t8dg_global.h"
 
 
 /*pre computed butcher tableau values for rk with values only on first diagonal*/

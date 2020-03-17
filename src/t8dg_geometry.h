@@ -10,7 +10,7 @@
 
 #include <sc_containers.h>
 #include <sc_dmatrix.h>
-#include "global.h"
+#include "t8dg_global.h"
 
 
 typedef double      (*t8dg_scalar_function_MAX_DIMd_fn) (const double x[MAX_DIM]);
