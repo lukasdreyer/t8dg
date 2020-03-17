@@ -182,6 +182,7 @@ t8dg_1D_advect_problem_init (t8_cmesh_t cmesh, t8_scalar_function_1d_fn u_0, dou
 
   int num_elements = t8_forest_get_num_element (problem->forest);
 
+
   problem->element_values =
     sc_array_new_count (sizeof (t8dg_1D_advect_element_precomputed_values_t),
 			num_elements);
@@ -238,6 +239,8 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
   problem->flow_velocity = 0;
   problem->u_0 = NULL;
 
+
+
   /* Free the arrays */
   sc_array_destroy (problem->element_values);
   sc_array_destroy (problem->dof_values);
@@ -263,7 +266,7 @@ t8dg_1D_advect_problem_destroy (t8dg_1D_advect_problem_t ** pproblem)
 static void
 t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
 {
-  t8_locidx_t			itree, ielement, idata;
+  t8_locidx_t			itree, ielement, idata, idim;
   t8_locidx_t			num_trees, num_elems_in_tree;
   t8_element_t			*element;
   t8dg_1D_advect_element_precomputed_values_t	*element_values;
@@ -298,10 +301,19 @@ t8dg_1D_advect_problem_init_elements (t8dg_1D_advect_problem_t * problem)
       element_values->diameter =
         t8_forest_element_diam (problem->forest, itree, element,
                                 tree_vertices);
+
       element_values->level = scheme->t8_element_level(element);
       element_values->num_faces = scheme->t8_element_num_faces(element);
       element_values->scaling_factor = pow(2,-element_values->level);
-      t8_forest_element_coordinate(problem->forest,itree,element,tree_vertices,0,element_values->translation_vector);
+      element_values->dim = problem->dim;
+      element_values->idx_rotation_reflection = 0;
+
+      /*TODO: is vertex0 really always the translation vector?*/
+      double vertex[3];
+      t8_forest_element_coordinate(problem->forest,itree,element,tree_vertices,0,vertex);
+      for(idim = 0 ; idim < MAX_DIM ; idim++){
+	  element_values->translation_vector[idim] = vertex[idim];
+      }
       if (speed > 0) {
         delta_t = problem->cfl * element_values->diameter / speed;
       }
