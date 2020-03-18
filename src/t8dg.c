@@ -11,38 +11,38 @@
 #include "t8dg.h"
 #include "t8dg_solver.hxx"
 
-
-double u_0(const double x[DIM3]){
-  if(x[0]>=0.25 && x[0]<=0.75)return 1 - 4 * abs(x[0]);
+double
+u_0 (const double x[DIM3])
+{
+  if (x[0] >= 0.25 && x[0] <= 0.75)
+    return 1 - 4 * abs (x[0]);
   return 0;
 }
 
 int
 main (int argc, char *argv[])
 {
-  int 			mpiret;
-  sc_options_t		*opt;
-  char			help[BUFSIZ];
-  int			parsed, helpme;
+  int                 mpiret;
+  sc_options_t       *opt;
+  char                help[BUFSIZ];
+  int                 parsed, helpme;
 
-  t8_eclass_t		eclass = T8_ECLASS_LINE;
+  t8_eclass_t         eclass = T8_ECLASS_LINE;
 
-  int			level;
-  int			time_order;
-  int			number_LGL_points;
-  double		flow_velocity;
-  double		cfl;
-  double		start_time;
-  double		end_time;
-
+  int                 level;
+  int                 time_order;
+  int                 number_LGL_points;
+  double              flow_velocity;
+  double              cfl;
+  double              start_time;
+  double              end_time;
 
   /* brief help message */
 
   /* long help message */
 
   snprintf (help, BUFSIZ,
-            "This program solves the linear advection equation on "
-            "the line.\n");
+            "This program solves the linear advection equation on the line. \n");
   mpiret = sc_MPI_Init (&argc, &argv);
   SC_CHECK_MPI (mpiret);
 
@@ -60,19 +60,19 @@ main (int argc, char *argv[])
                          "Display a short help message.");
   sc_options_add_int (opt, 'l', "level", &level, 0,
                       "The uniform refinement level of the mesh.");
-  sc_options_add_int (opt, 'L', "Number of 1D LGL points", &number_LGL_points, 2,
+  sc_options_add_int (opt, 'L', "Number of 1D LGL points", &number_LGL_points,
+                      2,
                       "The number of LGL basis points/basisfunctions in 1D.");
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0,
-                      "The flow velocity.");
+                         "The flow velocity.");
   sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0,
-                      "The CFL number used to determine the timestep.");
-  sc_options_add_int(opt, 'o', "Time order", &time_order, 2,
-		     "The order used for the runge Kutta timestepping");
+                         "The CFL number used to determine the timestep.");
+  sc_options_add_int (opt, 'o', "Time order", &time_order, 2,
+                      "The order used for the runge Kutta timestepping");
   sc_options_add_double (opt, 't', "start time", &start_time, 1.0,
-                        "The start time of the solve");
+                         "The start time of the solve");
   sc_options_add_double (opt, 'T', "end time", &end_time, 2.0,
-                        "The end time of the solve");
-
+                         "The end time of the solve");
 
   parsed =
     sc_options_parse (t8_get_package_id (), SC_LP_ERROR, opt, argc, argv);
@@ -82,16 +82,16 @@ main (int argc, char *argv[])
     sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
   else if (parsed >= 0) {
-    t8_cmesh_t			cmesh;
+    t8_cmesh_t          cmesh;
 
     cmesh = t8_cmesh_new_hypercube (eclass, sc_MPI_COMM_WORLD, 0, 0, 1);
     /* Computation */
     t8dg_1D_advect_solve (cmesh, u_0, flow_velocity,
-			   level, number_LGL_points,
-			   start_time, end_time, cfl, time_order,
-			   sc_MPI_COMM_WORLD);
+                          level, number_LGL_points,
+                          start_time, end_time, cfl, time_order,
+                          sc_MPI_COMM_WORLD);
 #if 0
-    t8_cmesh_destroy(&cmesh);/*t8_forest_unref takes care! */
+    t8_cmesh_destroy (&cmesh);  /*t8_forest_unref takes care! */
 #endif
   }
   else {
