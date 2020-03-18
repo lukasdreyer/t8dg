@@ -49,23 +49,61 @@ void t8dg_directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array
 }
 
 static t8dg_LGL_vertex_set_t *
-t8dg_1D_LGL_vertex_set(int number_of_LGL_vertices){
+t8dg_LGL_vertex_set_new_1D(int number_of_LGL_vertices){
   T8DG_ASSERT(number_of_LGL_vertices >=1 && number_of_LGL_vertices<=4);
+  int iface;
   t8dg_LGL_vertex_set_t *vertices = T8DG_ALLOC(t8dg_LGL_vertex_set_t, 1);
   vertices->dim = 1;
+  vertices->number_of_faces = 2;
+  vertices->number_of_vertices = number_of_LGL_vertices;
+  for(iface = 0; iface < vertices->number_of_faces; iface++){
+      vertices->number_of_facevertices[iface]=1;
+      vertices->facevertex_indices[iface] = sc_array_new_count(sizeof(int),vertices->number_of_facevertices[iface]);
+  }
+  vertices->number_of_facevertices[0]=1;
+  vertices->vertices = sc_array_new_count(sizeof(double) * vertices->dim, vertices->number_of_vertices);
+
+  double  *vertex_array;
+  vertex_array = (double *) sc_array_index(vertices->vertices,0);
+
+  switch(vertices->number_of_vertices){
+    case(1):
+	vertex_array[0]= 1;
+	break;
+    case(2):
+	vertex_array[0] = 0;
+	vertex_array[1] = 1;
+	break;
+    case(3):
+	vertex_array[0] = 0;
+	vertex_array[1] = 1./2;
+	vertex_array[2] = 1;
+	break;
+    case(4):
+	vertex_array[0] = 0;
+	vertex_array[1] = (1-sqrt(5))/2;
+	vertex_array[2] = (1+sqrt(5))/2;
+	vertex_array[3] = 1;
+	break;
+    default:
+      printf("Not yet implemented!\n");
+      T8DG_ASSERT(0);
+  }
+
   return vertices;
 }
 static t8dg_LGL_quadrature_t *
-t8dg_1D_LGL_quadrature(t8dg_LGL_vertex_set_t *vertex_set)
+t8dg_LGL_quadrature_new(t8dg_LGL_vertex_set_t *vertex_set)
 {
   T8DG_ASSERT(vertex_set->dim == 1);
   t8dg_LGL_quadrature_t *rquad = T8DG_ALLOC(t8dg_LGL_quadrature_t,1);
   rquad->vertices = vertex_set;
+  rquad->number_of_quadrature_points = vertex_set->number_of_vertices;
 
   rquad->weights = sc_array_new_count(sizeof(double),vertex_set->number_of_vertices);
 
   double  *weights;
-  weights = (double *)rquad->weights->array;
+  weights = (double *)t8_sc_array_index_locidx(rquad->weights,0);
 
   switch(vertex_set->number_of_vertices){
     case(1):
@@ -76,15 +114,15 @@ t8dg_1D_LGL_quadrature(t8dg_LGL_vertex_set_t *vertex_set)
 	weights[1] = 0.5;
 	break;
     case(3):
-	weights[0] = 1./3;
-	weights[1] = 4./3;
-	weights[2] = 1./3;
+	weights[0] = 1./6;
+	weights[1] = 4./6;
+	weights[2] = 1./6;
 	break;
     case(4):
-	weights[0] = 1./6;
-	weights[1] = 5./6;
-	weights[2] = 5./6;
-	weights[3] = 1./6;
+	weights[0] = 1./12;
+	weights[1] = 5./12;
+	weights[2] = 5./12;
+	weights[3] = 1./12;
 	break;
     default:
       printf("Not yet implemented!\n");
@@ -93,27 +131,44 @@ t8dg_1D_LGL_quadrature(t8dg_LGL_vertex_set_t *vertex_set)
   return rquad;
 }
 static t8dg_LGL_functionbasis_t *
-t8dg_1D_LGL_functionbasis(t8dg_LGL_vertex_set_t *vertex_set){
+t8dg_LGL_functionbasis_new(t8dg_LGL_vertex_set_t *vertex_set){
+  T8DG_ASSERT(vertex_set->dim == 1 && vertex_set->number_of_vertices ==2);
   t8dg_LGL_functionbasis_t *rfunctionbasis = T8DG_ALLOC(t8dg_LGL_functionbasis_t,1);
   rfunctionbasis->vertices = vertex_set;
   rfunctionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;
+  rfunctionbasis->number_of_dof = rfunctionbasis->vertices->number_of_vertices;
   return rfunctionbasis;
 }
 
 
-void t8dg_1D_LGL_new_quadrature_and_functionbasis(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis,int number_of_LGL_vertices){
+void t8dg_LGL_quadrature_and_functionbasis_new_1D(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis,int number_of_LGL_vertices){
   t8dg_LGL_vertex_set_t *vertices;
   t8dg_LGL_quadrature_t *quadrature;
   t8dg_LGL_functionbasis_t *functionbasis;
-  vertices = t8dg_1D_LGL_vertex_set(number_of_LGL_vertices);
-  quadrature = t8dg_1D_LGL_quadrature(vertices);
-  functionbasis = t8dg_1D_LGL_functionbasis(vertices);
+  vertices = t8dg_LGL_vertex_set_new_1D(number_of_LGL_vertices);
+  quadrature = t8dg_LGL_quadrature_new(vertices);
+  functionbasis = t8dg_LGL_functionbasis_new(vertices);
   *pquadrature = quadrature;
   *pfunctionbasis = functionbasis;
 }
 
+void t8dg_LGL_vertex_set_destroy(t8dg_LGL_vertex_set_t **pvertex_set){
+  int iface = 0;
+  t8dg_LGL_vertex_set_t *vertex_set = *pvertex_set;
+  for(iface = 0; iface < vertex_set->number_of_faces; iface++){
+      sc_array_destroy(vertex_set->facevertex_indices[iface]);
+  }
+  sc_array_destroy(vertex_set->vertices);
+  T8DG_FREE(vertex_set);
+}
 void t8dg_LGL_quadrature_and_functionbasis_destroy(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis){
-
+  T8DG_ASSERT((*pquadrature)->vertices == (*pfunctionbasis)->vertices);
+  t8dg_LGL_vertex_set_destroy(&(*pquadrature)->vertices);
+  sc_array_destroy((*pquadrature)->weights);
+  T8DG_FREE(*pquadrature);
+  T8DG_FREE(*pfunctionbasis);
+  *pquadrature = NULL;
+  *pfunctionbasis = NULL;
 }
 
 

@@ -11,13 +11,14 @@
 
 struct t8dg_LGL_quadrature
 {
+  int 			number_of_quadrature_points;
   t8dg_LGL_vertex_set_t	*vertices;
   sc_array_t		*weights;
 };
 
 struct t8dg_LGL_functionbasis
 {
-  int number_of_dof;
+  int 					number_of_dof;
   t8dg_matrix_application		directional_derivative_matrix;
   t8dg_LGL_vertex_set_t			*vertices;
 };
@@ -37,7 +38,7 @@ struct t8dg_LGL_vertex_set{
 void t8dg_LGL_transform_element_dof_to_face_quad(sc_array_t * face_quad_array, const sc_array_t * element_dof_array,t8dg_LGL_vertex_set_t *vertices);
 void t8dg_LGL_transform_face_quad_to_element_dof(sc_array_t * element_dof_array, const sc_array_t * face_quad_array ,t8dg_LGL_vertex_set_t *vertices);
 
-void t8dg_1D_LGL_new_quadrature_and_functionbasis(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis,int number_of_LGL);
+void t8dg_LGL_quadrature_and_functionbasis_new_1D(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis,int number_of_LGL);
 void t8dg_LGL_quadrature_and_functionbasis_destroy(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis);
 
 

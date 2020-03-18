@@ -30,7 +30,7 @@ struct t8dg_element_fine_to_coarse_geometry_data
 
 
 
-t8dg_coarse_geometry_3D_t *t8dg_1D_linear_geometry();
+t8dg_coarse_geometry_3D_t *t8dg_coarse_geometry_new_1D_linear();
 
 void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_3D_t **pgeometry);
 
