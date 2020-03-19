@@ -117,20 +117,40 @@ static void t8dg_element_set_dofs_initial(t8dg_advect_problem_linear_1D_t *probl
   double coarse_vertex[DIM3];
   double image_vertex[DIM3];
 
-//  t8dg_element_fine_to_coarse_geometry_data_t *element_data;
+  t8dg_element_fine_to_coarse_geometry_data_t *element_data;
 
-//  element_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,ielement);
+  element_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,ielement);
   element_dof_values = t8dg_advect_element_get_element_dof_values(problem,ielement);
 
+  int iprint;
+  for(iprint = 0; iprint < 6; iprint++){
+      printf("%f ",tree_vertices[iprint]);
+  }
+  printf("\n");
 
   for(idof = 0; idof < problem->functionbasis->number_of_dof; idof++){
-//    get_functionbasis_vertex(reference_vertex,ielement,idof);
-    //get_basisfunction_nodal vertex
-//    t8dg_fine_to_coarse_geometry(coarse_vertex,reference_vertex,element_data);
+      /*get_basisfunction_nodal vertex */
+    t8dg_LGL_vertex_set_get_3D_vertex(reference_vertex,problem->functionbasis->vertices,idof);
+    for(int i=0;i<3;i++){
+	printf("%f ",reference_vertex[i]);
+    }
+    printf("\n");
+    t8dg_fine_to_coarse_geometry(coarse_vertex,reference_vertex,element_data);
     //fine_to_coarse
-//    problem->coarse_geometry->geometry(image_vertex,coarse_vertex,tree_vertices);
+    for(int i=0;i<3;i++){
+	printf("%f ",coarse_vertex[i]);
+    }
+    printf("\n");
+
+    problem->coarse_geometry->geometry(image_vertex,coarse_vertex,tree_vertices);
     //coarse
-    element_dof_values[idof] = ielement * ielement + idof; //problem->u_0(image_vertex);
+    for(int i=0;i<3;i++){
+	printf("%f ",image_vertex[i]);
+    }
+    printf("\n");
+
+    element_dof_values[idof] = problem->u_0(image_vertex); //problem->u_0(image_vertex);
+    printf("element_dof_values[idof] = %f\n",element_dof_values[idof]);
   }
 }
 static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_square_3D_matrix_t jacobian_matrix, int dim){
@@ -344,11 +364,14 @@ t8dg_advect_problem_linear_1D_init_elements (t8dg_advect_problem_linear_1D_t * p
   t8_locidx_t			num_trees, num_elems_in_tree;
   t8_element_t			*element;
 
+  t8dg_element_fine_to_coarse_geometry_data_t	*geometry_data;
 
   t8_eclass_scheme_c 		*scheme;
   double			*tree_vertices;
   double			min_delta_t,delta_t;
   double			speed;
+  double 			len;
+  int				tree_int_coords[3];
 
   speed = fabs(problem->flow_velocity);
   min_delta_t = problem->T - problem->t;
@@ -360,36 +383,18 @@ t8dg_advect_problem_linear_1D_init_elements (t8dg_advect_problem_linear_1D_t * p
       t8_forest_get_eclass_scheme (problem->forest,
                                    t8_forest_get_tree_class (problem->forest,
                                                              itree));
+
     num_elems_in_tree =
-      t8_forest_get_tree_num_elements (problem->forest, itree);
+    t8_forest_get_tree_num_elements (problem->forest, itree);
 
     tree_vertices = t8_forest_get_tree_vertices (problem->forest, itree);
 
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
       element =
         t8_forest_get_element_in_tree (problem->forest, itree, ielement);
-#if 0
-      element_values = (t8dg_1D_advect_element_precomputed_values_t *)
+      geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,idata);
+      t8dg_element_set_geometry_data(geometry_data,element,idata,scheme);
 
-        t8_sc_array_index_locidx (problem->element_values, idata);
-
-      element_values->diameter =
-        t8_forest_element_diam (problem->forest, itree, element,
-                                tree_vertices);
-
-      element_values->level = scheme->t8_element_level(element);
-      element_values->num_faces = scheme->t8_element_num_faces(element);
-      element_values->scaling_factor = pow(2,-element_values->level);
-      element_values->dim = problem->dim;
-      element_values->idx_rotation_reflection = 0;
-
-      /*TODO: is vertex0 really always the translation vector?*/
-      double vertex[3];
-      t8_forest_element_coordinate(problem->forest,itree,element,tree_vertices,0,vertex);
-      for(idim = 0 ; idim < DIM3 ; idim++){
-	  element_values->translation_vector[idim] = vertex[idim];
-      }
-#endif
       if (speed > 0) {
         delta_t = 0.1 ;//problem->cfl * element_values->diameter / speed;
       }

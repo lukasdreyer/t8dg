@@ -4,7 +4,7 @@
 #include <sc_containers.h>
 #include <sc_dmatrix.h>
 #include <t8_forest.h>
-#include <example/common/t8_example_common.h>
+
 
 #include "t8dg.h"
 
@@ -42,5 +42,6 @@ void t8dg_LGL_quadrature_and_functionbasis_new_1D(t8dg_LGL_quadrature_t **pquadr
 void t8dg_LGL_quadrature_and_functionbasis_destroy(t8dg_LGL_quadrature_t **pquadrature,t8dg_LGL_functionbasis_t **pfunctionbasis);
 
 
+void t8dg_LGL_vertex_set_get_3D_vertex(double reference_vertex[3], t8dg_LGL_vertex_set_t *vertex_set,int idof);
 
 #endif /* SRC_GLOBAL_H_ */

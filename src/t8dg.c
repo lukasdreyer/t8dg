@@ -13,6 +13,7 @@
 
 
 double u_0(const double x[DIM3]){
+  return x[0];
   if(x[0]>=0.25 && x[0]<=0.75)return 1 - 4 * abs(x[0]);
   return 0;
 }
@@ -84,7 +85,8 @@ main (int argc, char *argv[])
   else if (parsed >= 0) {
     t8_cmesh_t			cmesh;
 
-    cmesh = t8_cmesh_new_hypercube (eclass, sc_MPI_COMM_WORLD, 0, 0, 1);
+    cmesh = t8_cmesh_new_periodic_line_more_trees(sc_MPI_COMM_WORLD);
+//    cmesh = t8_cmesh_new_hypercube (eclass, sc_MPI_COMM_WORLD, 0, 0, 1);
     /* Computation */
     t8dg_1D_advect_solve (cmesh, u_0, flow_velocity,
 			   level, number_LGL_points,

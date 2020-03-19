@@ -8,8 +8,22 @@
 #include "t8dg_LGL.h"
 #include <sc_containers.h>
 
-/*those can be generalized with vertex set!*/
 
+void t8dg_LGL_vertex_set_get_3D_vertex(double reference_vertex[3], t8dg_LGL_vertex_set_t *vertex_set,int idof){
+  double *vertex;
+  int idim;
+  vertex = (double*) t8_sc_array_index_locidx(vertex_set->vertices,idof);
+  for(idim = 0 ; idim < vertex_set->dim; idim++){
+      reference_vertex[idim] = vertex[idim];
+  }
+  for(idim = vertex_set->dim ; idim < DIM3 ; idim++){
+      reference_vertex[idim] = 0;
+  }
+}
+
+
+
+/*those can be generalized with vertex set!*/
 /*application_data is faceindex integer*/
 void t8dg_face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
   T8DG_ASSERT (dest->elem_size == src->elem_size);
@@ -132,7 +146,8 @@ t8dg_LGL_quadrature_new(t8dg_LGL_vertex_set_t *vertex_set)
 }
 static t8dg_LGL_functionbasis_t *
 t8dg_LGL_functionbasis_new(t8dg_LGL_vertex_set_t *vertex_set){
-  T8DG_ASSERT(vertex_set->dim == 1 && vertex_set->number_of_vertices ==2);
+  T8DG_ASSERT(vertex_set->dim == 1);
+//  T8DG_ASSERT(vertex_set->number_of_vertices ==2);
   t8dg_LGL_functionbasis_t *rfunctionbasis = T8DG_ALLOC(t8dg_LGL_functionbasis_t,1);
   rfunctionbasis->vertices = vertex_set;
   rfunctionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;

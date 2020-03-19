@@ -45,7 +45,7 @@ typedef double (*t8dg_numerical_flux_1D_fn)(const double u_minus,const double u_
 
 
 
-//typedef struct t8dg_advect_problem_linear_1D t8dg_advect_problem_linear_1D_t;
+typedef struct t8dg_advect_problem_linear_1D t8dg_advect_problem_linear_1D_t;
 
 
 
