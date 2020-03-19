@@ -22,7 +22,7 @@ void t8dg_LGL_vertex_set_get_3D_vertex(double reference_vertex[3], t8dg_LGL_vert
 }
 
 
-
+#if 0
 /*those can be generalized with vertex set!*/
 /*application_data is faceindex integer*/
 void t8dg_face_vandermonde_1D_linear_LGL (sc_array_t *dest, const sc_array_t *src, const void *application_data){
@@ -61,6 +61,13 @@ void t8dg_directional_derivative_1D_LGL2_matrix(sc_array_t *dest, const sc_array
   double_dest[0] = double_src[0]+double_src[1];
   double_dest[1] = -double_dest[0];
 }
+#endif
+
+
+double t8dg_LGL_quadrature_get_weight(t8dg_LGL_quadrature_t *quadrature, int iquad){
+  return *(double *)t8_sc_array_index_locidx(quadrature->weights,iquad);
+}
+
 
 static t8dg_LGL_vertex_set_t *
 t8dg_LGL_vertex_set_new_1D(int number_of_LGL_vertices){
@@ -147,11 +154,16 @@ t8dg_LGL_quadrature_new(t8dg_LGL_vertex_set_t *vertex_set)
 static t8dg_LGL_functionbasis_t *
 t8dg_LGL_functionbasis_new(t8dg_LGL_vertex_set_t *vertex_set){
   T8DG_ASSERT(vertex_set->dim == 1);
-//  T8DG_ASSERT(vertex_set->number_of_vertices ==2);
   t8dg_LGL_functionbasis_t *rfunctionbasis = T8DG_ALLOC(t8dg_LGL_functionbasis_t,1);
   rfunctionbasis->vertices = vertex_set;
-  rfunctionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;
   rfunctionbasis->number_of_dof = rfunctionbasis->vertices->number_of_vertices;
+
+  /* TODO: check or implement generally! */
+#if 0
+  T8DG_ASSERT(vertex_set->number_of_vertices ==2);
+  rfunctionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;
+#endif
+
   return rfunctionbasis;
 }
 

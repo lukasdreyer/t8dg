@@ -26,7 +26,7 @@ main (int argc, char *argv[])
   char			help[BUFSIZ];
   int			parsed, helpme;
 
-  t8_eclass_t		eclass = T8_ECLASS_LINE;
+//  t8_eclass_t		eclass = T8_ECLASS_LINE;
 
   int			level;
   int			time_order;

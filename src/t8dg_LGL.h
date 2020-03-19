@@ -44,4 +44,6 @@ void t8dg_LGL_quadrature_and_functionbasis_destroy(t8dg_LGL_quadrature_t **pquad
 
 void t8dg_LGL_vertex_set_get_3D_vertex(double reference_vertex[3], t8dg_LGL_vertex_set_t *vertex_set,int idof);
 
+double t8dg_LGL_quadrature_get_weight(t8dg_LGL_quadrature_t *quadrature, int iquad);
+
 #endif /* SRC_GLOBAL_H_ */

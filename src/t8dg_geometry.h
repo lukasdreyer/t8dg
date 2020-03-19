@@ -42,8 +42,12 @@ void t8dg_coarse_geometry_destroy(t8dg_coarse_geometry_3D_t **pgeometry);
 void t8dg_fine_to_coarse_geometry(double coarse_element_vertex[DIM3], double refined_element_vertex[DIM3],
 				t8dg_element_fine_to_coarse_geometry_data_t *element_data);
 
-void t8dg_invert_sub_square_matrix(t8dg_square_3D_matrix_t matrix_invers, t8dg_square_3D_matrix_t matrix, int dim);
+void t8dg_square3D_matrix_invert_sub_matrix(t8dg_square_3D_matrix_t matrix_invers, t8dg_square_3D_matrix_t matrix, int dim);
 
-void t8dg_determinant_sub_square_matrix(double *det, t8dg_square_3D_matrix_t matrix, int dim);
+void t8dg_square3D_matrix_determinant_sub_matrix(double *det, t8dg_square_3D_matrix_t matrix, int dim);
+
+void t8dg_square3D_matrix_scale(t8dg_square_3D_matrix_t matrix, double scaling_factor, int dim);
+
+void t8dg_square3D_matrix_apply_rotation_reflection_matrix_to_matrix(t8dg_square_3D_matrix_t matrix_invers, t8dg_square_3D_matrix_t matrix, int idx_rotation_reflection, int dim);
 
 #endif /* SRC_T8DG_GEOMETRY_H_ */
