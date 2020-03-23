@@ -11,7 +11,7 @@ T8_DIR=$BASEDIR/t8fixheader/local
 # TODO: make a debug and a release version, maybe triggered with an command line argument
 CC=mpicxx
 CFLAGS='-Wall -pedantic -g'
-SOURCE='../src/t8dg.c ../src/t8dg_solver.cxx ../src/t8dg_LGL.c ../src/t8dg_timestepping.c ../src/t8dg_sc_array.c ../src/t8dg_geometry.cxx ../src/t8dg_numerical_flux.c'
+SOURCE='../src/t8dg.c ../src/t8dg_solver.c ../src/t8dg_LGL.c ../src/t8dg_timestepping.c ../src/t8dg_sc_array.c ../src/t8dg_geometry.cxx ../src/t8dg_numerical_flux.c ../src/t8dg_advect_problem.cxx'
 
 # There should be no need to change the following lines
 LIB=$T8_DIR/lib

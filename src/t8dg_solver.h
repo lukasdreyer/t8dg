@@ -13,9 +13,7 @@
 
 
 
-
-
-void t8dg_1D_advect_solve (t8_cmesh_t cmesh, t8dg_scalar_function_3d_fn u_0, double flow_velocity,
+void t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_velocity,
 			   int level, int number_LGL_points,
 			   double start_time, double end_time, double cfl, int time_order,
 			   sc_MPI_Comm comm);
