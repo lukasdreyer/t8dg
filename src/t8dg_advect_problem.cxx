@@ -140,18 +140,14 @@ static void t8dg_element_set_dofs_initial(t8dg_advect_problem_linear_1D_t *probl
   for(idof = 0; idof < t8dg_LGL_functionbasis_get_num_dof(problem->functionbasis); idof++){
       /*get_basisfunction_nodal vertex */
     t8dg_LGL_functionbasis_get_vertex(reference_vertex,problem->functionbasis,idof);
-    t8_debugf("test\n");
 
     t8dg_fine_to_coarse_geometry(coarse_vertex,reference_vertex,element_geometry_data);
-    t8_debugf("test\n");
 
     /* tree vertices are application data for linear geometry*/
     problem->coarse_geometry->geometry(image_vertex,coarse_vertex,tree_vertices);
-    t8_debugf("testbla\n");
     T8_ASSERT(element_dof_values !=NULL);
 
     element_dof_values[idof] = problem->initial_condition_fn(image_vertex,problem->t);
-    t8_debugf("element_dof_values[idof] = %f\n",element_dof_values[idof]);
   }
 }
 
@@ -181,7 +177,6 @@ static void t8dg_element_set_precalculated_values_1D_linear(t8dg_advect_problem_
   geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data(problem,ielement);
 
 
-  t8_debugf("test\n");
 
   /*for more complicated geometries these values differ for different quadrature points*/
    h = geometry_data->scaling_factor;/*TODO: implement*/
@@ -190,7 +185,6 @@ static void t8dg_element_set_precalculated_values_1D_linear(t8dg_advect_problem_
 
    t8_vec_axb(coarse_1D_tangential_vector , element_normal_vector, 1./norm , 0);
 
-   t8_debugf("test\n");
 
   for(iquad = 0; iquad < num_elem_quad; iquad++){
 
@@ -199,7 +193,6 @@ static void t8dg_element_set_precalculated_values_1D_linear(t8dg_advect_problem_
 
       element_quad_trafo[iquad] = gram_det * t8dg_LGL_quadrature_get_element_weight(problem->quadrature, iquad);
   }
-  t8_debugf("test\n");
 
   for(iface = 0; iface < num_faces; iface++){
    face_quad_trafo[iface] = t8dg_advect_element_get_face_quad_trafo_weights(problem,ielement,iface);
@@ -407,13 +400,10 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_advect_problem_linear_1D_t * p
       t8dg_element_set_geometry_data(geometry_data,element,idata,scheme);
 
       /*precompute values for element idata*/
-      t8_debugf("Start element init %i\n",idata);
 
       t8dg_element_set_dofs_initial(problem,idata,tree_vertices);
-      t8_debugf("Mid element init %i\n",idata);
 
       t8dg_element_set_precalculated_values_1D_linear(problem,idata,tree_vertices);
-      t8_debugf("End element init %i\n",idata);
     }
   }
   t8_debugf("End element init \n");
