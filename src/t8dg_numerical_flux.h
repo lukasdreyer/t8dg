@@ -34,12 +34,12 @@ struct t8dg_mortar
  * The normal vector points from element_minus to element_plus.
  * All values should be evaluated at the same point, F_e(x_q)
  *
- * \param [in] u_minus            value of u at quadpoint on element_minus
- * \param [in] u_plus            value of u at quadpoint on element_plus
- * \param [in] flow_vector            flow vector
- * \param [in] normal_vector            normal vector
+ * \param [in] u_minus            		value of u at quadpoint on element_minus
+ * \param [in] u_plus            		value of u at quadpoint on element_plus
+ * \param [in] flow_vector            		flow vector
+ * \param [in] normal_vector            	normal vector
  *
- * \return                      Flux value
+ * \return                      		Flux value
  */
 double              t8dg_upwind_flux_1D (const double u_minus, const double u_plus, const double flow_vector[3],
                                          const double normal_vector[3]);
