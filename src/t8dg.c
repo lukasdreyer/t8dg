@@ -35,7 +35,6 @@ main (int argc, char *argv[])
   double              cfl;
   double              start_time;
   double              end_time;
-
   /* brief help message */
 
   /* long help message */
