@@ -5,18 +5,18 @@
  *      Author: lukas
  */
 #include <sc_options.h>
+#include <sc.h>
+
 #include <t8_cmesh.h>
 #include <t8.h>
+#include <t8_vec.h>
 
 #include "t8dg.h"
-#include "t8dg_solver.hxx"
+#include "t8dg_solver.h"
 
-double
-u_0 (const double x[DIM3])
-{
-  if (x[0] >= 0.25 && x[0] <= 0.75)
-    return 1 - 4 * abs (x[0]);
-  return 0;
+
+double u_analytical(const double x[DIM3], double t){
+  return t8_vec_norm(x)*t*t;
 }
 
 int
@@ -27,7 +27,6 @@ main (int argc, char *argv[])
   char                help[BUFSIZ];
   int                 parsed, helpme;
 
-  t8_eclass_t         eclass = T8_ECLASS_LINE;
 
   int                 level;
   int                 time_order;
@@ -84,12 +83,13 @@ main (int argc, char *argv[])
   else if (parsed >= 0) {
     t8_cmesh_t          cmesh;
 
-    cmesh = t8_cmesh_new_hypercube (eclass, sc_MPI_COMM_WORLD, 0, 0, 1);
+    cmesh = t8_cmesh_new_periodic_line_more_trees(sc_MPI_COMM_WORLD);
+//    cmesh = t8_cmesh_new_hypercube (eclass, sc_MPI_COMM_WORLD, 0, 0, 1);
     /* Computation */
-    t8dg_1D_advect_solve (cmesh, u_0, flow_velocity,
-                          level, number_LGL_points,
-                          start_time, end_time, cfl, time_order,
-                          sc_MPI_COMM_WORLD);
+    t8dg_advect_solve_1D (cmesh, u_analytical, flow_velocity,
+			   level, number_LGL_points,
+			   start_time, end_time, cfl, time_order,
+			   sc_MPI_COMM_WORLD);
 #if 0
     t8_cmesh_destroy (&cmesh);  /*t8_forest_unref takes care! */
 #endif
