@@ -4,30 +4,35 @@
  *  Created on: Mar 17, 2020
  *      Author: lukas
  */
+/** @file t8dg_numerical_flux.h */
 
 #ifndef SRC_T8DG_NUMERICAL_FLUX_H_
 #define SRC_T8DG_NUMERICAL_FLUX_H_
 
 #include <sc_containers.h>
 #include "t8dg.h"
+#include <t8.h>
 
-typedef struct t8dg_mortar t8dg_mortar_t;
+/** linear numerical flux function for the 1D case  */
 typedef double      (*t8dg_linear_numerical_flux_1D_fn) (const double u_minus, const double u_plus,
                                                          const double flow_vector[3], const double normal_vector[3]);
+/** time dependent flow velocity vector field*/
 typedef double      (*t8dg_linear_flux_velocity_3D_time_fn) (const double flux_velocity[3], const double x_vec[3], double t);
 
-struct t8dg_mortar
+/** struct used to save the calculated numerical fluxes at quadrature points*/
+typedef struct t8dg_mortar
 {
-  int                 number_face_quadrature_points;
-  t8dg_locidx_t       elem_idx_minus, elem_idx_plus;
+  int                 number_face_quadrature_points;    /**< The number of face quadrature points*/
+  t8_locidx_t         elem_idx_minus;                   /**< Local index of the element corresponding to u_minus */
+  t8_locidx_t         elem_idx_plus;                    /**< Local index of the element corresponding to u_plus */
 
   /*one value for each quadrature point */
-  sc_array_t         *u_minus;
-  sc_array_t         *u_plus;
+  sc_array_t         *u_minus;                          /**< value of u on elem_minus at face quadrature points */
+  sc_array_t         *u_plus;                           /**< value of u on elem_plus at face quadrature points */
 
-  sc_array_t         *fluxes;
+  sc_array_t         *fluxes;                           /**< value of (cu)*.n at face quadrature points */
 
-};
+} t8dg_mortar_t;                /*maybe change to opaque handle */
 
 /** For linear dependent flow- and normal vector, values of u at both adjacent elements,
  * calculates the 1D upwind flux.

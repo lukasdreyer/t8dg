@@ -5,6 +5,7 @@
  *      Author: lukas
  */
 
+/** @file t8dg_timestepping.h */
 #ifndef SRC_TIMESTEPPING_H_
 #define SRC_TIMESTEPPING_H_
 #include <sc_containers.h>
@@ -12,8 +13,7 @@
 
 typedef void        (*t8dg_time_matrix_application) (sc_array_t * dest, const sc_array_t * src, double t, const void *application_data);
 
-/*src nicht const wegen sc_array_copy*/
-/* implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal
+/** implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal
  * The time derivative application is given by f_matrix
  */
 void                t8dg_rungekutta_timestep (int order, const double t, const double delta_t,

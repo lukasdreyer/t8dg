@@ -5,6 +5,7 @@
  *      Author: lukas
  */
 
+/** @file t8dg_square_matrix.h */
 #ifndef SRC_T8DG_SQUARE_3D_MATRIX_H_
 #define SRC_T8DG_SQUARE_3D_MATRIX_H_
 #include "t8dg.h"

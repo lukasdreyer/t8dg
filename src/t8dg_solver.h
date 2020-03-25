@@ -4,7 +4,7 @@
  *  Created on: Mar 11, 2020
  *      Author: lukas
  */
-
+/** @file t8dg_solver.h */
 #ifndef SRC_SOLVER_H_
 #define SRC_SOLVER_H_
 

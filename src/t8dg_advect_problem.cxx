@@ -20,97 +20,110 @@
 #include "t8dg_sc_array.h"
 #include "t8dg_timestepping.h"
 
+/** The container for all information needed to solve the advection problem.
+ */
 struct t8dg_advect_problem_linear_1D
 {
-  int                 dim = 1;
+  int                 dim;      /**< Dimension of the submanifold */
 
 /*TODO: add source term functions*/
-  t8dg_scalar_function_3d_time_fn initial_condition_fn;
+  t8dg_scalar_function_3d_time_fn initial_condition_fn;         /**< Initial condition function */
+#if 0
   t8dg_scalar_function_3d_time_fn source_sink_fn;
+#endif
+  t8dg_linear_flux_velocity_3D_time_fn flux_velocity_fn;        /**< Divergence free vector field */
+  t8dg_linear_numerical_flux_1D_fn numerical_flux_fn;           /**< Approximation to the Riemann problem */
 
-  t8dg_linear_flux_velocity_3D_time_fn flux_velocity_fn;
-  t8dg_linear_numerical_flux_1D_fn numerical_flux_fn;
+  t8_forest_t         forest;                                   /**< The t8_forest used to adapt the coarse mesh*/
 
-  t8_forest_t         forest;
+/* The following sc_arrays contain data, that needs to be available for each processorlocal element. To facilitate partitioning, they are
+ * saved in a linear array
+ */
+  sc_array_t         *element_fine_to_coarse_geometry_data;     /**< For each element, the data to determine the linear function from the fine reference
+								element into the coarse reference element */
+  sc_array_t         *element_trafo_quad_weight;                /**< For each element, an array of length num_quad_points with the combined weight
+								of quadrature and transformation */
+  sc_array_t         *element_transformed_gradient_tangential_vectors;  /**< For each element, (d_x F^-1)(tau_d), needed to calculate the gradient */
 
-  /*Once per element */
-  sc_array_t         *element_fine_to_coarse_geometry_data;     /*those get partitioned */
+  /* The dof_values get ghosted */
+  sc_array_t         *element_dof_values;       /**< The Value of u at the nodal basis vertices */
+  sc_array_t         *element_dof_values_new;   /**< those are only needed locally to save the result of a rungekutta timestep */
 
-  sc_array_t         *element_trafo_quad_weight;        /* Q */
-  sc_array_t         *face_trafo_quad_weight[MAX_FACES];        /* FQ */
+  /* To avoid another dimension when flattening the array, and since the number of Faces is bound, have an sc_array for each faceindex of length
+   * of the processorlocal elements*/
+  sc_array_t         *face_trafo_quad_weight[MAX_FACES];        /**< for each element, an array of length num_quad_points with the combined weight
+								of quadrature and transformation */
+  sc_array_t         *face_normal_vectors[MAX_FACES];           /**< For each face and quadrature point the 3-dim normal vector in image space*/
 
-  sc_array_t         *face_normal_vectors[MAX_FACES];   /* For each face and quadrature point a 3-dim vector */
-  sc_array_t         *element_transformed_gradient_tangential_vectors;  /* For each */
+  /* those need to be recalculated for each time step, remain processor local */
+  sc_array_t         *face_mortar[MAX_FACES];                   /**< contains pointer to face_mortars, so that fluxes need only be calculated once */
 
-  sc_array_t         *element_dof_values;       /*those get ghosted */
-  sc_array_t         *element_dof_values_new;   /*those are only needed locally to save the result of a rungekutta timestep */
+  int                 uniform_refinement_level; /**< uniform refinement level */
 
-  sc_array_t         *face_mortar[MAX_FACES];   /*those need to be recalculated for each time step, remain processor local */
+  int                 time_order;/**< time order of the Runge-kutta timestepping*/
 
-  int                 uniform_refinement_level; /*uniform refinement level */
+  double              delta_t;  /**< time step */
+  double              t;        /**< current time */
+  double              T;        /**< end time */
+  double              cfl;      /**< cfl number*/
 
-  int                 time_order;
+  t8dg_LGL_quadrature_t *quadrature;            /**< LGL quadrature, based on same vertex-set as functionbasis*/
+  t8dg_LGL_functionbasis_t *functionbasis;      /**< LGL functionbasis, based on same vertex-set as quadrature */
+  t8dg_coarse_geometry_3D_t *coarse_geometry;   /**< coarse geometry, that gives the geometry and Jacobian of the geometry from the coarse
+						 reference element to the coarse image element*/
+  t8dg_time_matrix_application evolution_matrix;/**< TODO: does this need to be part of this struct or can be moved outside? */
 
-  double              delta_t;  /*time step */
-  double              t;        /*current time */
-  double              T;        /*end time */
-  double              cfl;
-
-  t8dg_LGL_quadrature_t *quadrature;
-  t8dg_LGL_functionbasis_t *functionbasis;
-  t8dg_coarse_geometry_3D_t *coarse_geometry;
-  t8dg_time_matrix_application evolution_matrix;
-
-  sc_MPI_Comm         comm;
+  sc_MPI_Comm         comm; /**< MPI Communicator */
 };
 
-/*Additional functions in t8dg_sc_array that return a view on the values for an element  */
+/* Additional functions in t8dg_sc_array that return a view on the values for an element  */
 
 static double      *
-t8dg_advect_element_get_element_dof_values (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement)
+t8dg_advect_element_get_element_dof_values (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
 {
   return ((double *)
-          t8_sc_array_index_locidx (problem->element_dof_values, ielement));
+          t8_sc_array_index_locidx (problem->element_dof_values, idata));
 }
 
 static double      *
-t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement, int faceindex)
+t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, int faceindex)
 {
   return ((double *)
-          t8_sc_array_index_locidx (problem->face_trafo_quad_weight[faceindex], ielement));
+          t8_sc_array_index_locidx (problem->face_trafo_quad_weight[faceindex], idata));
 }
 
 static double      *
-t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement)
+t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
 {
   return ((double *)
-          t8_sc_array_index_locidx (problem->element_trafo_quad_weight, ielement));
+          t8_sc_array_index_locidx (problem->element_trafo_quad_weight, idata));
 }
 
-/*Assumes only one tangential vector per quad point*/
+/*Assumes only one tangential vector per quad point, TODO: add getter function for 3D vectors in sc_arrays*/
 static double      *
 t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_advect_problem_linear_1D_t * problem,
-                                                              t8_locidx_t ielement, t8dg_quad_idx_t iquad)
+                                                              t8_locidx_t idata, t8dg_quad_idx_t iquad)
 {
+  T8_ASSERT (problem->dim == 1);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < problem->element_transformed_gradient_tangential_vectors->elem_size / (3 * sizeof (double)));
-  return ((double *) t8_sc_array_index_locidx (problem->element_transformed_gradient_tangential_vectors, ielement)) + 3 * iquad;
+  return ((double *) t8_sc_array_index_locidx (problem->element_transformed_gradient_tangential_vectors, idata)) + 3 * iquad;
 }
 
 static double      *
-t8dg_element_quad_get_normal_vector (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement, int iface, t8dg_quad_idx_t iquad)
+t8dg_element_quad_get_normal_vector (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, int iface, t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (iface >= 0 && iface < MAX_FACES);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < problem->face_normal_vectors[iface]->elem_size / (3 * sizeof (double)));
-  return ((double *) t8_sc_array_index_locidx (problem->face_normal_vectors[iface], ielement)) + 3 * iquad;
+  return ((double *) t8_sc_array_index_locidx (problem->face_normal_vectors[iface], idata)) + 3 * iquad;
 }
 
 /*  get functions for structs at element and faces: */
 
 static t8dg_element_fine_to_coarse_geometry_data_t *
-t8dg_advect_element_get_fine_to_coarse_geometry_data (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement)
+t8dg_advect_element_get_fine_to_coarse_geometry_data (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
 {
   return ((t8dg_element_fine_to_coarse_geometry_data_t *)
-          t8_sc_array_index_locidx (problem->element_fine_to_coarse_geometry_data, ielement));
+          t8_sc_array_index_locidx (problem->element_fine_to_coarse_geometry_data, idata));
 }
 
 #if 0
@@ -118,7 +131,7 @@ static t8dg_mortar_t *t8dg_advect_element_get_face_mortar ();
 #endif
 
 static void
-t8dg_element_set_dofs_initial (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement, double *tree_vertices)
+t8dg_element_set_dofs_initial (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, double *tree_vertices)
 {
   int                 idof;
   double             *element_dof_values;
@@ -128,25 +141,27 @@ t8dg_element_set_dofs_initial (t8dg_advect_problem_linear_1D_t * problem, t8_loc
 
   t8dg_element_fine_to_coarse_geometry_data_t *element_geometry_data;
 
-  element_geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, ielement);
-  element_dof_values = t8dg_advect_element_get_element_dof_values (problem, ielement);
+  element_geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, idata);
+  element_dof_values = t8dg_advect_element_get_element_dof_values (problem, idata);
 
   for (idof = 0; idof < t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis); idof++) {
-    /*get_basisfunction_nodal vertex */
+    /* get_basisfunction_nodal vertex */
     t8dg_LGL_functionbasis_get_vertex (reference_vertex, problem->functionbasis, idof);
 
+    /* transform into coarse reference element */
     t8dg_fine_to_coarse_geometry (coarse_vertex, reference_vertex, element_geometry_data);
 
     /* tree vertices are application data for linear geometry */
     problem->coarse_geometry->geometry (image_vertex, coarse_vertex, tree_vertices);
-    T8_ASSERT (element_dof_values != NULL);
 
+    /* apply initial condition function at image vertex and start time */
     element_dof_values[idof] = problem->initial_condition_fn (image_vertex, problem->t);
   }
 }
 
+/*TODO: comment and check*/
 static void
-t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t ielement, double *tree_vertices)
+t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, double *tree_vertices)
 {
   T8_ASSERT (problem->dim == 1);
   double              coarse_1D_tangential_vector[DIM3];
@@ -157,7 +172,7 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t
   int                 iquad, iface;
   int                 num_faces;
   int                 num_elem_quad, num_face_quad;
-  double             *element_quad_trafo = t8dg_advect_element_get_element_quad_trafo_weights (problem, ielement);
+  double             *element_quad_trafo = t8dg_advect_element_get_element_quad_trafo_weights (problem, idata);
   double             *face_quad_trafo[MAX_FACES];
 
   num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
@@ -166,7 +181,7 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t
   t8_vec_axpyz (tree_vertices, tree_vertices + 3, coarse_1D_tangential_vector, -1);
 
   t8dg_element_fine_to_coarse_geometry_data_t *geometry_data;
-  geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, ielement);
+  geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, idata);
 
   /*for more complicated geometries these values differ for different quadrature points */
   h = geometry_data->scaling_factor;    /*TODO: implement */
@@ -177,17 +192,17 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t
 
   for (iquad = 0; iquad < num_elem_quad; iquad++) {
 
-    transformed_gradient_tangential_vector = t8dg_element_quad_get_transformed_gradient_tangential_vector (problem, ielement, iquad);
+    transformed_gradient_tangential_vector = t8dg_element_quad_get_transformed_gradient_tangential_vector (problem, idata, iquad);
     t8_vec_axb (coarse_1D_tangential_vector, transformed_gradient_tangential_vector, 1. / (h * norm * norm), 0);
 
     element_quad_trafo[iquad] = gram_det * t8dg_LGL_quadrature_get_element_weight (problem->quadrature, iquad);
   }
 
   for (iface = 0; iface < num_faces; iface++) {
-    face_quad_trafo[iface] = t8dg_advect_element_get_face_quad_trafo_weights (problem, ielement, iface);
+    face_quad_trafo[iface] = t8dg_advect_element_get_face_quad_trafo_weights (problem, idata, iface);
     num_face_quad = t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface);
     for (iquad = 0; iquad < num_face_quad; iquad++) {
-      normal_vector = t8dg_element_quad_get_normal_vector (problem, ielement, iface, iquad);
+      normal_vector = t8dg_element_quad_get_normal_vector (problem, idata, iface, iquad);
 
       switch (iquad) {
       case 0:
@@ -241,7 +256,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   t8dg_advect_problem_linear_1D_t *problem;
   t8_scheme_cxx_t    *default_scheme;
   int                 iface;
-
+  int                 num_elements;
   /* allocate problem */
   problem = T8_ALLOC (t8dg_advect_problem_linear_1D_t, 1);
 
@@ -270,20 +285,22 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
 
   problem->forest = t8_forest_new_uniform (cmesh, default_scheme, level, 1, comm);
 
-  int                 num_elements = t8_forest_get_num_element (problem->forest);
+  num_elements = t8_forest_get_num_element (problem->forest);
 
   t8_debugf ("start creating sc_arrays\n");
 
+  /*coarse geometry data for each local element */
   problem->element_fine_to_coarse_geometry_data = sc_array_new_count (sizeof (t8dg_element_fine_to_coarse_geometry_data_t), num_elements);
 
+  /*for each element an array of double values */
   problem->element_trafo_quad_weight =
     sc_array_new_count (sizeof (double) * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature), num_elements);
 
   for (iface = 0; iface < t8dg_LGL_quadrature_get_num_faces (problem->quadrature); iface++) {
     problem->face_trafo_quad_weight[iface] =
       sc_array_new_count (sizeof (double) * t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface), num_elements);
-    problem->face_mortar[iface] =
-      sc_array_new_count (sizeof (double) * t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface), num_elements);
+    /*for each element and face a pointer to a mortar */
+    problem->face_mortar[iface] = sc_array_new_count (sizeof (t8dg_mortar_t *), num_elements);
 
     problem->face_normal_vectors[iface] =
       sc_array_new_count (sizeof (double) * 3 * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature), num_elements);
@@ -291,7 +308,8 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   }
 
   problem->element_transformed_gradient_tangential_vectors =
-    sc_array_new_count (sizeof (double) * 3 * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature), num_elements);
+    sc_array_new_count (sizeof (double) * 3 * problem->dim * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature),
+                        num_elements);
 
   /*currently no ghost, since serial, but generally the dof_values need to be ghosted. */
   problem->element_dof_values =
@@ -317,8 +335,6 @@ t8dg_advect_problem_destroy (t8dg_advect_problem_linear_1D_t ** pproblem)
   if (problem == NULL) {
     return;
   }
-
-  problem->dim = -1;
 
   /* Free the arrays */
   sc_array_destroy (problem->element_fine_to_coarse_geometry_data);
@@ -369,9 +385,9 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_advect_problem_linear_1D_t * p
 
       geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, idata);
 
-      t8dg_element_set_geometry_data (geometry_data, element, idata, scheme);
+      /*precompute values for the idata_th processorlocal element */
 
-      /*precompute values for element idata */
+      t8dg_element_set_geometry_data (geometry_data, element, idata, scheme);
 
       t8dg_element_set_dofs_initial (problem, idata, tree_vertices);
 
@@ -384,17 +400,15 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_advect_problem_linear_1D_t * p
 void
 t8dg_advect_evolve (t8dg_advect_problem_linear_1D_t * problem)
 {
-//  printf("time %f\n",problem->t);
   if (problem->t + problem->delta_t > problem->T) {
     problem->delta_t = problem->T - problem->t;
   }
 
   /*TODO: calculate fluxes in mortars */
-
+  /*TODO: is the current setup with dof_values and dof_values_new sufficient? */
   t8dg_rungekutta_timestep (problem->time_order, problem->t, problem->delta_t, problem->evolution_matrix,
                             problem->element_dof_values_new, problem->element_dof_values, NULL);
   problem->t += problem->delta_t;
-  /*TODO: swap problem.dof_values and problem.dof_new */
   t8dg_sc_array_swap (&problem->element_dof_values, &problem->element_dof_values_new);
 
 }

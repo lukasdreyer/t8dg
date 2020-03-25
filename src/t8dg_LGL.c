@@ -8,106 +8,62 @@
 #include "t8dg_LGL.h"
 #include <sc_containers.h>
 
-typedef struct t8dg_LGL_vertex_set
+/** Vertex set used for the quadrature and functionbasis
+ * Currently only for 1D
+ */
+typedef struct t8dg_LGL_vertexset
 {
-  int                 dim;
-/*  int 			tensorflag;
-  t8dg_quadrature_t 	*tensor1;
-  t8dg_quadrature_t 	*tensor2;*/
-  int                 number_of_vertices;
-  int                 number_of_faces;
-  int                 number_of_facevertices[MAX_FACES];
-  sc_array_t         *vertices; /* dim * number_of_vertices, make access available via function and allocate only if !tensor? */
-  sc_array_t         *facevertex_indices[MAX_FACES];
-} t8dg_LGL_vertex_set_t;
+  int                 dim;      /**< Dimension of the reference element*/
+  int                 number_of_vertices;       /**< Number of element vertices*/
+  int                 number_of_faces;          /**< Number of faces */
+  int                 number_of_facevertices[MAX_FACES];        /**< For each face, the number of face vertices*/
+  sc_array_t         *vertices; /**< size: dim * number_of_vertices, make access available via function and allocate only if not tensor? */
+  sc_array_t         *facevertex_indices[MAX_FACES];    /**< Lookup table, for each facequadindex save the elementquadindex*/
+#if 0
+  int                 tensorflag;
+  t8dg_quadrature_t  *tensor1;
+  t8dg_quadrature_t  *tensor2;
+                     */
+#endif
+} t8dg_LGL_vertexset_t;
 
+/** Additionally to the LGL vertices save the quadrature weights*/
 struct t8dg_LGL_quadrature
 {
-  int                 number_of_quadrature_points;
-  t8dg_LGL_vertex_set_t *vertices;
-  sc_array_t         *weights;
+  int                 number_of_quadrature_points;      /**< Number of element quadrature points*/
+  t8dg_LGL_vertexset_t *vertices;                       /**< LGL quadrature vertices*/
+  sc_array_t         *weights;                          /**< LGL quadrature weights*/
 };
 
+/** The functionbasis provides the the directional derivative_matrix */
 struct t8dg_LGL_functionbasis
 {
-  int                 number_of_dof;
-  t8dg_matrix_application directional_derivative_matrix;
-  t8dg_LGL_vertex_set_t *vertices;
+  int                 number_of_dof;                    /**< Number of degrees of freedom*/
+  t8dg_matrix_application directional_derivative_matrix;        /**< TODO: change to function that gets functionbasis and direction_idx as input*/
+  t8dg_LGL_vertexset_t *vertices;                       /**< LGL vertices used as basis nodes for Lagrange nodal basis*/
 };
 
-void
-t8dg_LGL_vertex_set_get_3D_vertex (double reference_vertex[3], t8dg_LGL_vertex_set_t * vertex_set, int ivertex)
+static void
+t8dg_vertexset_set_facevertex_index (t8dg_LGL_vertexset_t * vertices, int iface, t8dg_quad_idx_t ifacequad, t8dg_quad_idx_t ielemquad)
 {
-  double             *vertex;
-  int                 idim;
-  vertex = (double *) t8_sc_array_index_locidx (vertex_set->vertices, ivertex);
-  for (idim = 0; idim < vertex_set->dim; idim++) {
-    reference_vertex[idim] = vertex[idim];
-  }
-  for (idim = vertex_set->dim; idim < DIM3; idim++) {
-    reference_vertex[idim] = 0;
-  }
+  *(t8dg_quad_idx_t *) t8dg_sc_array_index_quadidx (vertices->facevertex_indices[iface], ifacequad) = ielemquad;
 }
 
-#if 0
-/*those can be generalized with vertex set!*/
-/*application_data is faceindex integer*/
-void
-t8dg_face_vandermonde_1D_linear_LGL (sc_array_t * dest, const sc_array_t * src, const void *application_data)
+static              t8dg_quad_idx_t
+t8dg_LGL_vertexset_facequadidx_to_elementquadidx (t8dg_LGL_quadrature_t * quadrature, int iface, t8dg_quad_idx_t ifacequad)
 {
-  T8DG_ASSERT (dest->elem_size == src->elem_size);
-  T8DG_ASSERT (dest->elem_count == 1);
-  T8DG_ASSERT (src->elem_count == 2);
-  int                 faceindex = *((int *) application_data);
-  T8DG_ASSERT (faceindex >= 0 && faceindex <= 1);
-  double             *double_dest = (double *) dest->array;
-  const double       *double_src = (double *) src->array;
-  double_dest[0] = double_src[faceindex];
+  return *(t8dg_quad_idx_t *) t8dg_sc_array_index_quadidx (quadrature->vertices->facevertex_indices[iface], ifacequad);
 }
 
-/*application_data: faceindex integer*/
-void
-t8dg_face_vandermonde_transpose_1D_linear_LGL (sc_array_t * dest, const sc_array_t * src, const void *application_data)
+static t8dg_LGL_vertexset_t *
+t8dg_LGL_vertexset_new_1D (int number_of_LGL_vertices)
 {
-  T8DG_ASSERT (dest->elem_size == src->elem_size);
-  T8DG_ASSERT (dest->elem_count == 2);
-  T8DG_ASSERT (src->elem_count == 1);
-  int                 faceindex = *((int *) application_data);
-  T8DG_ASSERT (faceindex >= 0 && faceindex <= 1);
+  T8DG_ASSERT (number_of_LGL_vertices >= 1 && number_of_LGL_vertices <= 4);     /*Larger not implemented */
 
-  double             *double_dest = (double *) dest->array;
-  const double       *double_src = (double *) src->array;
-  double_dest[faceindex] = double_src[0];
-  double_dest[1 - faceindex] = 0;
-}
-
-/* f_0' =1/2*(f_0+f_1) for basisfunctions f_0(x) = x, f_1(x) = 1-x */
-void
-t8dg_directional_derivative_1D_LGL2_matrix (sc_array_t * dest, const sc_array_t * src, const void *application_data)
-{
-  T8DG_ASSERT (dest->elem_size == src->elem_size);
-  T8DG_ASSERT (dest->elem_count == 2);
-  T8DG_ASSERT (src->elem_count == 2);
-
-  double             *double_dest = (double *) dest->array;
-  const double       *double_src = (double *) src->array;
-  double_dest[0] = double_src[0] + double_src[1];
-  double_dest[1] = -double_dest[0];
-}
-#endif
-
-double
-t8dg_LGL_quadrature_get_weight (t8dg_LGL_quadrature_t * quadrature, int iquad)
-{
-  return *(double *) t8_sc_array_index_locidx (quadrature->weights, iquad);
-}
-
-static t8dg_LGL_vertex_set_t *
-t8dg_LGL_vertex_set_new_1D (int number_of_LGL_vertices)
-{
-  T8DG_ASSERT (number_of_LGL_vertices >= 1 && number_of_LGL_vertices <= 4);
   int                 iface;
-  t8dg_LGL_vertex_set_t *vertices = T8DG_ALLOC (t8dg_LGL_vertex_set_t, 1);
+  t8dg_LGL_vertexset_t *vertices;
+  vertices = T8DG_ALLOC (t8dg_LGL_vertexset_t, 1);
+
   vertices->dim = 1;
   vertices->number_of_faces = 2;
   vertices->number_of_vertices = number_of_LGL_vertices;
@@ -115,12 +71,15 @@ t8dg_LGL_vertex_set_new_1D (int number_of_LGL_vertices)
     vertices->number_of_facevertices[iface] = 1;
     vertices->facevertex_indices[iface] = sc_array_new_count (sizeof (int), vertices->number_of_facevertices[iface]);
   }
-  vertices->number_of_facevertices[0] = 1;
+  t8dg_vertexset_set_facevertex_index (vertices, 0, 0, 0);      /* The facequad vertex of the left face is the 0th elementquad vertex */
+  t8dg_vertexset_set_facevertex_index (vertices, 1, 0, number_of_LGL_vertices - 1);     /*The facequad vertex of the right face is the last elementquad vertex */
+
   vertices->vertices = sc_array_new_count (sizeof (double) * vertices->dim, vertices->number_of_vertices);
 
   double             *vertex_array;
   vertex_array = (double *) sc_array_index (vertices->vertices, 0);
 
+  /*LGL vertices on [0,1] */
   switch (vertices->number_of_vertices) {
   case (1):
     vertex_array[0] = 1;
@@ -149,24 +108,27 @@ t8dg_LGL_vertex_set_new_1D (int number_of_LGL_vertices)
 }
 
 static t8dg_LGL_quadrature_t *
-t8dg_LGL_quadrature_new (t8dg_LGL_vertex_set_t * vertex_set)
+t8dg_LGL_quadrature_new (t8dg_LGL_vertexset_t * vertexset)
 {
-  T8DG_ASSERT (vertex_set->dim == 1);
-  t8dg_LGL_quadrature_t *rquad = T8DG_ALLOC (t8dg_LGL_quadrature_t, 1);
-  rquad->vertices = vertex_set;
-  rquad->number_of_quadrature_points = vertex_set->number_of_vertices;
+  T8DG_ASSERT (vertexset->dim == 1);    /*Other not yet implemented */
 
-  rquad->weights = sc_array_new_count (sizeof (double), vertex_set->number_of_vertices);
+  t8dg_LGL_quadrature_t *rquad = T8DG_ALLOC (t8dg_LGL_quadrature_t, 1);
+
+  rquad->vertices = vertexset;
+  rquad->number_of_quadrature_points = vertexset->number_of_vertices;
+
+  rquad->weights = sc_array_new_count (sizeof (double), vertexset->number_of_vertices);
 
   double             *weights;
   weights = (double *) t8_sc_array_index_locidx (rquad->weights, 0);
 
-  switch (vertex_set->number_of_vertices) {
+  /* sum of element weights = 1 = Vol([0,1]) */
+  switch (vertexset->number_of_vertices) {
   case (1):
     weights[0] = 1;
     break;
   case (2):
-    weights[0] = 0.5;           //Auf Referenzelement [0,1]
+    weights[0] = 0.5;
     weights[1] = 0.5;
     break;
   case (3):
@@ -188,19 +150,12 @@ t8dg_LGL_quadrature_new (t8dg_LGL_vertex_set_t * vertex_set)
 }
 
 static t8dg_LGL_functionbasis_t *
-t8dg_LGL_functionbasis_new (t8dg_LGL_vertex_set_t * vertex_set)
+t8dg_LGL_functionbasis_new (t8dg_LGL_vertexset_t * vertexset)
 {
-  T8DG_ASSERT (vertex_set->dim == 1);
   t8dg_LGL_functionbasis_t *rfunctionbasis = T8DG_ALLOC (t8dg_LGL_functionbasis_t, 1);
-  rfunctionbasis->vertices = vertex_set;
+  rfunctionbasis->vertices = vertexset;
   rfunctionbasis->number_of_dof = rfunctionbasis->vertices->number_of_vertices;
-
-  /* TODO: check or implement generally! */
-#if 0
-  T8DG_ASSERT (vertex_set->number_of_vertices == 2);
-  rfunctionbasis->directional_derivative_matrix = t8dg_directional_derivative_1D_LGL2_matrix;
-#endif
-
+  /*TODO: directional derivative matrix */
   return rfunctionbasis;
 }
 
@@ -208,10 +163,10 @@ void
 t8dg_LGL_quadrature_and_functionbasis_new_1D (t8dg_LGL_quadrature_t ** pquadrature,
                                               t8dg_LGL_functionbasis_t ** pfunctionbasis, int number_of_LGL_vertices)
 {
-  t8dg_LGL_vertex_set_t *vertices;
+  t8dg_LGL_vertexset_t *vertices;
   t8dg_LGL_quadrature_t *quadrature;
   t8dg_LGL_functionbasis_t *functionbasis;
-  vertices = t8dg_LGL_vertex_set_new_1D (number_of_LGL_vertices);
+  vertices = t8dg_LGL_vertexset_new_1D (number_of_LGL_vertices);
   quadrature = t8dg_LGL_quadrature_new (vertices);
   functionbasis = t8dg_LGL_functionbasis_new (vertices);
   *pquadrature = quadrature;
@@ -219,28 +174,45 @@ t8dg_LGL_quadrature_and_functionbasis_new_1D (t8dg_LGL_quadrature_t ** pquadratu
 }
 
 void
-t8dg_LGL_vertex_set_destroy (t8dg_LGL_vertex_set_t ** pvertex_set)
+t8dg_LGL_vertexset_destroy (t8dg_LGL_vertexset_t ** pvertexset)
 {
   int                 iface = 0;
-  t8dg_LGL_vertex_set_t *vertex_set = *pvertex_set;
-  for (iface = 0; iface < vertex_set->number_of_faces; iface++) {
-    sc_array_destroy (vertex_set->facevertex_indices[iface]);
+  t8dg_LGL_vertexset_t *vertexset = *pvertexset;
+  for (iface = 0; iface < vertexset->number_of_faces; iface++) {
+    sc_array_destroy (vertexset->facevertex_indices[iface]);
   }
-  sc_array_destroy (vertex_set->vertices);
-  T8DG_FREE (vertex_set);
+  sc_array_destroy (vertexset->vertices);
+  T8DG_FREE (vertexset);
 }
 
 void
 t8dg_LGL_quadrature_and_functionbasis_destroy (t8dg_LGL_quadrature_t ** pquadrature, t8dg_LGL_functionbasis_t ** pfunctionbasis)
 {
   T8DG_ASSERT ((*pquadrature)->vertices == (*pfunctionbasis)->vertices);
-  t8dg_LGL_vertex_set_destroy (&(*pquadrature)->vertices);
+  t8dg_LGL_vertexset_destroy (&(*pquadrature)->vertices);
   sc_array_destroy ((*pquadrature)->weights);
   T8DG_FREE (*pquadrature);
   T8DG_FREE (*pfunctionbasis);
   *pquadrature = NULL;
   *pfunctionbasis = NULL;
 }
+
+void
+t8dg_LGL_vertexset_get_3D_vertex (double reference_vertex[3], t8dg_LGL_vertexset_t * vertexset, int ivertex)
+{
+  T8DG_ASSERT (vertexset->dim == 1);    /* other not yet implemented */
+  double             *vertex;
+  int                 idim;
+  vertex = (double *) sc_array_index_int (vertexset->vertices, ivertex);
+  for (idim = 0; idim < vertexset->dim; idim++) {
+    reference_vertex[idim] = vertex[idim];
+  }
+  for (idim = vertexset->dim; idim < DIM3; idim++) {
+    reference_vertex[idim] = 0;
+  }
+}
+
+/*TODO: ASSERTS for all get functions!!! */
 
 t8dg_quad_idx_t
 t8dg_LGL_functionbasis_get_num_dof (t8dg_LGL_functionbasis_t * functionbasis)
@@ -249,10 +221,9 @@ t8dg_LGL_functionbasis_get_num_dof (t8dg_LGL_functionbasis_t * functionbasis)
 }
 
 void
-t8dg_LGL_functionbasis_get_vertex (double vertex[3], t8dg_LGL_functionbasis_t * functionbasis, t8dg_dof_idx_t idof)
+t8dg_LGL_functionbasis_get_vertex (double vertex[3], t8dg_LGL_functionbasis_t * functionbasis, int idof)
 {
-  t8dg_LGL_vertex_set_get_3D_vertex (vertex, functionbasis->vertices, idof);
-  /* TODO: */
+  t8dg_LGL_vertexset_get_3D_vertex (vertex, functionbasis->vertices, idof);
 }
 
 int
@@ -276,26 +247,26 @@ t8dg_LGL_quadrature_get_num_face_vertices (t8dg_LGL_quadrature_t * quadrature, i
 void
 t8dg_LGL_quadrature_get_element_vertex (double vertex[3], t8dg_LGL_quadrature_t * quadrature, t8dg_quad_idx_t iquad)
 {
-  T8DG_ASSERT (0);
-  /* TODO: */
+  t8dg_LGL_vertexset_get_3D_vertex (vertex, quadrature->vertices, iquad);
 }
 
 double
 t8dg_LGL_quadrature_get_element_weight (t8dg_LGL_quadrature_t * quadrature, t8dg_quad_idx_t iquad)
 {
-  return *(double *) t8_sc_array_index_locidx (quadrature->weights, iquad);
+  return *(double *) t8dg_sc_array_index_quadidx (quadrature->weights, iquad);
 }
 
 void
-t8dg_LGL_quadrature_get_face_vertex (double vertex[3], t8dg_LGL_quadrature_t * quadrature, int iface, t8dg_quad_idx_t iquad)
+t8dg_LGL_quadrature_get_face_vertex (double vertex[3], t8dg_LGL_quadrature_t * quadrature, int iface, t8dg_quad_idx_t ifacequad)
 {
-  T8DG_ASSERT (0);
-  /* TODO: */
+  t8dg_quad_idx_t     ielemquad;
+  ielemquad = t8dg_LGL_vertexset_facequadidx_to_elementquadidx (quadrature, iface, ifacequad);
+  t8dg_LGL_vertexset_get_3D_vertex (vertex, quadrature->vertices, ielemquad);
 }
 
 double
-t8dg_LGL_quadrature_get_face_weight (t8dg_LGL_quadrature_t * quadrature, int iface, t8dg_quad_idx_t iquad)
+t8dg_LGL_quadrature_get_face_weight (t8dg_LGL_quadrature_t * quadrature, int iface, t8dg_quad_idx_t ifacequad)
 {
-  int                 facevertex_idx = *(int *) t8_sc_array_index_locidx (quadrature->vertices->facevertex_indices[iface], iquad);
-  return *(double *) t8_sc_array_index_locidx (quadrature->weights, facevertex_idx);
+  T8DG_ASSERT (quadrature->vertices->dim == 1);
+  return 1;
 }

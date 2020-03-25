@@ -4,6 +4,7 @@
  *  Created on: Mar 14, 2020
  *      Author: lukas
  */
+/** @file t8dg_sc_array.h */
 
 #ifndef SRC_T8DG_SC_ARRAY_H_
 #define SRC_T8DG_SC_ARRAY_H_

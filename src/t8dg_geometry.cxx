@@ -25,7 +25,7 @@ t8dg_vec_print (const double vec_x[3])
 
 void
 t8dg_element_set_geometry_data (t8dg_element_fine_to_coarse_geometry_data_t * geometry_data, t8_element_t * element,
-                                t8dg_locidx_t idata, t8_eclass_scheme_c * scheme)
+                                t8_locidx_t idata, t8_eclass_scheme_c * scheme)
 {
   int                 level;
   double              length;

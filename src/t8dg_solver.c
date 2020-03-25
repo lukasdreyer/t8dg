@@ -11,16 +11,6 @@
 #include "t8dg.h"
 #include "t8dg_solver.h"
 #include "t8dg_advect_problem.h"
-/*
-static void t8dg_flatten_jacobian_matrix(double *flat_array,t8dg_square_3D_matrix_t jacobian_matrix, int dim){
-  int ixdim,iydim;
-  for(ixdim=0; ixdim < dim; ixdim++){
-    for(iydim = 0; iydim < dim ; iydim++){
-      flat_array[ixdim * dim + iydim] = jacobian_matrix[ixdim][iydim];
-    }
-  }
-}
-*/
 
 void
 t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_velocity,
@@ -34,6 +24,7 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
                                                 level, number_LGL_points, start_time, end_time, cfl, time_order, comm);
   t8dg_advect_problem_init_elements_linear_1D (problem);
 
+  /*Current output */
   t8dg_advect_problem_printdof (problem);
 
   /*Timeloop with Rungekutta timestepping: */
@@ -41,6 +32,7 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
     t8dg_advect_evolve (problem);
   }
 
+  /*Current output */
   t8dg_advect_problem_printdof (problem);
 
   t8dg_advect_problem_destroy (&problem);

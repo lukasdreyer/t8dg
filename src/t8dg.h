@@ -4,6 +4,7 @@
  *  Created on: Mar 17, 2020
  *      Author: lukas
  */
+/** @file t8dg.h */
 
 #ifndef SRC_T8DG_H_
 #define SRC_T8DG_H_
@@ -28,12 +29,16 @@ T8DG_EXTERN_C_BEGIN ();
 #define DIM3 3
 #define MAX_FACES 2
 
+#if 0
 typedef t8_locidx_t t8dg_locidx_t;
-
 typedef double      (*t8dg_scalar_function_3d_fn) (const double x[DIM3]);
+#endif
+/**A timedependent scalar function f:R^3 x R^+ -> R*/
 typedef double      (*t8dg_scalar_function_3d_time_fn) (const double x[DIM3], const double t);
 
+/** used to implement matrices, dest = A * src*/
 typedef void        (*t8dg_matrix_application) (sc_array_t * dest, const sc_array_t * src, const void *application_data);
+/** used to implement time - dependent matrices, dest = A * src*/
 typedef void        (*t8dg_time_matrix_application) (sc_array_t * dest, const sc_array_t * src, double t, const void *application_data);
 
 /* call this at the end of a header file to match T8_EXTERN_C_BEGIN (). */
