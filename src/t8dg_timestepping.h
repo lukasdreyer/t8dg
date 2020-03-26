@@ -20,4 +20,6 @@ void                t8dg_rungekutta_timestep (int order, const double t, const d
                                               const t8dg_time_matrix_application f_matrix, sc_array_t * dest,
                                               sc_array_t * src, const void *application_data);
 
+void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
+
 #endif /* SRC_TIMESTEPPING_H_ */

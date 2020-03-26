@@ -10,16 +10,42 @@
 #include "t8dg.h"
 
 /*pre computed butcher tableau values for rk with values only on first diagonal*/
-static const double rk1_b[1] = { 1 };
+double              rk1_b[1] = { 1 };
 
-static const double rk2_a[2] = { 1 };
-static const double rk2_b[2] = { 0.5, 0.5 };
+double              rk2_a[2] = { 1 };
+double              rk2_b[2] = { 0.5, 0.5 };
 
-static const double rk3_a[3] = { 1. / 3, 2. / 3 };
-static const double rk3_b[3] = { 1. / 4, 0, 3. / 4 };
+double              rk3_a[3] = { 1. / 3, 2. / 3 };
+double              rk3_b[3] = { 1. / 4, 0, 3. / 4 };
 
-static const double rk4_a[4] = { 0.5, 0.5, 1 };
-static const double rk4_b[4] = { 1. / 6, 1. / 3, 1. / 3, 1. / 6 };
+double              rk4_a[4] = { 0.5, 0.5, 1 };
+double              rk4_b[4] = { 1. / 6, 1. / 3, 1. / 3, 1. / 6 };
+
+void
+t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c)
+{
+  switch (time_order) {
+  case 1:
+    *prk_a = NULL;
+    *prk_b = rk1_b;
+    break;
+  case 2:
+    *prk_a = rk2_a;
+    *prk_b = rk2_b;
+    break;
+  case 3:
+    *prk_a = rk3_a;
+    *prk_b = rk3_b;
+    break;
+  case 4:
+    *prk_a = rk4_a;
+    *prk_b = rk4_b;
+    break;
+  default:
+    break;
+  }
+  *prk_c = *prk_a;
+}
 
 void
 t8dg_rungekutta_timestep (int order, const double t, const double delta_t, const t8dg_time_matrix_application f_matrix,

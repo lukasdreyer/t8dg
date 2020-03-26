@@ -42,4 +42,6 @@ void                t8dg_sc_array_block_double_print (sc_array_t * array);
 
 void                t8dg_sc_array_swap (sc_array_t ** parray1, sc_array_t ** parray2);
 
+sc_array_t         *t8dg_sc_array_clone (sc_array_t * src);
+
 #endif /* SRC_T8DG_SC_ARRAY_H_ */

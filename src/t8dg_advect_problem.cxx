@@ -22,7 +22,7 @@
 
 /** The container for all information needed to solve the advection problem.
  */
-struct t8dg_advect_problem_linear_1D
+struct t8dg_linear_advection_problem
 {
   int                 dim;      /**< Dimension of the submanifold */
 
@@ -47,7 +47,9 @@ struct t8dg_advect_problem_linear_1D
 
   /* The dof_values get ghosted */
   sc_array_t         *element_dof_values;       /**< The Value of u at the nodal basis vertices */
-  sc_array_t         *element_dof_values_new;   /**< those are only needed locally to save the result of a rungekutta timestep */
+  sc_array_t         *element_dof_change;       /**< time-derivative used in the rungekutta steps to advance the solution */
+  sc_array_t         *element_dof_values_new;   /**< partial sum of the runge-kutta timestepping, at the end
+  of a rk timestep use to overwrite dof_values */
 
   /* To avoid another dimension when flattening the array, and since the number of Faces is bound, have an sc_array for each faceindex of length
    * of the processorlocal elements*/
@@ -71,7 +73,6 @@ struct t8dg_advect_problem_linear_1D
   t8dg_LGL_functionbasis_t *functionbasis;      /**< LGL functionbasis, based on same vertex-set as quadrature */
   t8dg_coarse_geometry_3D_t *coarse_geometry;   /**< coarse geometry, that gives the geometry and Jacobian of the geometry from the coarse
 						 reference element to the coarse image element*/
-  t8dg_time_matrix_application evolution_matrix;/**< TODO: does this need to be part of this struct or can be moved outside? */
 
   sc_MPI_Comm         comm; /**< MPI Communicator */
 };
@@ -79,21 +80,21 @@ struct t8dg_advect_problem_linear_1D
 /* Additional functions in t8dg_sc_array that return a view on the values for an element  */
 
 static double      *
-t8dg_advect_element_get_element_dof_values (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
+t8dg_advect_element_get_element_dof_values (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
 {
   return ((double *)
           t8_sc_array_index_locidx (problem->element_dof_values, idata));
 }
 
 static double      *
-t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, int faceindex)
+t8dg_advect_element_get_face_quad_trafo_weights (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int faceindex)
 {
   return ((double *)
           t8_sc_array_index_locidx (problem->face_trafo_quad_weight[faceindex], idata));
 }
 
 static double      *
-t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
+t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
 {
   return ((double *)
           t8_sc_array_index_locidx (problem->element_trafo_quad_weight, idata));
@@ -101,7 +102,7 @@ t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_advect_problem_li
 
 /*Assumes only one tangential vector per quad point, TODO: add getter function for 3D vectors in sc_arrays*/
 static double      *
-t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_advect_problem_linear_1D_t * problem,
+t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_linear_advection_problem_t * problem,
                                                               t8_locidx_t idata, t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (problem->dim == 1);
@@ -110,7 +111,7 @@ t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_advect_proble
 }
 
 static double      *
-t8dg_element_quad_get_normal_vector (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, int iface, t8dg_quad_idx_t iquad)
+t8dg_element_quad_get_normal_vector (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface, t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (iface >= 0 && iface < MAX_FACES);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < problem->face_normal_vectors[iface]->elem_size / (3 * sizeof (double)));
@@ -120,7 +121,7 @@ t8dg_element_quad_get_normal_vector (t8dg_advect_problem_linear_1D_t * problem, 
 /*  get functions for structs at element and faces: */
 
 static t8dg_element_fine_to_coarse_geometry_data_t *
-t8dg_advect_element_get_fine_to_coarse_geometry_data (const t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata)
+t8dg_advect_element_get_fine_to_coarse_geometry_data (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
 {
   return ((t8dg_element_fine_to_coarse_geometry_data_t *)
           t8_sc_array_index_locidx (problem->element_fine_to_coarse_geometry_data, idata));
@@ -131,7 +132,7 @@ static t8dg_mortar_t *t8dg_advect_element_get_face_mortar ();
 #endif
 
 static void
-t8dg_element_set_dofs_initial (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, double *tree_vertices)
+t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, double *tree_vertices)
 {
   int                 idof;
   double             *element_dof_values;
@@ -159,106 +160,79 @@ t8dg_element_set_dofs_initial (t8dg_advect_problem_linear_1D_t * problem, t8_loc
   }
 }
 
-/*TODO: comment and check*/
 static void
-t8dg_element_set_precalculated_values_1D_linear (t8dg_advect_problem_linear_1D_t * problem, t8_locidx_t idata, double *tree_vertices)
+t8dg_element_set_precalculated_values_1D_linear (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, double *tree_vertices)
 {
   T8_ASSERT (problem->dim == 1);
-  double              coarse_1D_tangential_vector[DIM3];
-  double             *transformed_gradient_tangential_vector;
-  double             *normal_vector;
-  double              element_normal_vector[DIM3];
-  double              gram_det, h, norm;
+  double              coarse_1D_tangential_vector[DIM3];        /* vector between endvertices of the line in the image */
+
+  double              gram_det, h, norm_tangential_vector;
   int                 iquad, iface;
-  int                 num_faces;
-  int                 num_elem_quad, num_face_quad;
-  double             *element_quad_trafo = t8dg_advect_element_get_element_quad_trafo_weights (problem, idata);
-  double             *face_quad_trafo[MAX_FACES];
+  int                 num_faces, num_elem_quad, num_face_quad;
+
+  t8dg_element_fine_to_coarse_geometry_data_t *geometry_data;
+
+  /*pointer on the values to fill */
+  double             *element_quad_trafo;       /*size: num_elem_quad */
+  double             *face_quad_trafo;  /*size: num_face_quad */
+  double             *transformed_gradient_tangential_vector;   /*size: 3, gets evaluated for each element quad point */
+  double             *normal_vector;    /*size: 3, gets evaluated for each element quad point */
 
   num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
   num_elem_quad = t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature);
+
   /*tangential vector of the coarse element */
-  t8_vec_axpyz (tree_vertices, tree_vertices + 3, coarse_1D_tangential_vector, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, coarse_1D_tangential_vector, -1);
 
-  t8dg_element_fine_to_coarse_geometry_data_t *geometry_data;
   geometry_data = t8dg_advect_element_get_fine_to_coarse_geometry_data (problem, idata);
-
   /*for more complicated geometries these values differ for different quadrature points */
   h = geometry_data->scaling_factor;    /*TODO: implement */
-  norm = t8_vec_norm (coarse_1D_tangential_vector);
-  gram_det = h * norm;
+  norm_tangential_vector = t8_vec_norm (coarse_1D_tangential_vector);
+  gram_det = h * norm_tangential_vector;
 
-  t8_vec_axb (coarse_1D_tangential_vector, element_normal_vector, 1. / norm, 0);
-
+  element_quad_trafo = t8dg_advect_element_get_element_quad_trafo_weights (problem, idata);
   for (iquad = 0; iquad < num_elem_quad; iquad++) {
+    element_quad_trafo[iquad] = gram_det * t8dg_LGL_quadrature_get_element_weight (problem->quadrature, iquad);
 
     transformed_gradient_tangential_vector = t8dg_element_quad_get_transformed_gradient_tangential_vector (problem, idata, iquad);
-    t8_vec_axb (coarse_1D_tangential_vector, transformed_gradient_tangential_vector, 1. / (h * norm * norm), 0);
-
-    element_quad_trafo[iquad] = gram_det * t8dg_LGL_quadrature_get_element_weight (problem->quadrature, iquad);
+    t8_vec_axb (coarse_1D_tangential_vector, transformed_gradient_tangential_vector,
+                1. / (h * norm_tangential_vector * norm_tangential_vector), 0);
   }
 
   for (iface = 0; iface < num_faces; iface++) {
-    face_quad_trafo[iface] = t8dg_advect_element_get_face_quad_trafo_weights (problem, idata, iface);
+    face_quad_trafo = t8dg_advect_element_get_face_quad_trafo_weights (problem, idata, iface);
     num_face_quad = t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface);
     for (iquad = 0; iquad < num_face_quad; iquad++) {
+      /*for 1D elements the faceintegrals are just the value at the facequadrature point */
+      face_quad_trafo[iquad] = 1;
       normal_vector = t8dg_element_quad_get_normal_vector (problem, idata, iface, iquad);
-
-      switch (iquad) {
+      /*scale the element tangential_vector to a unit vector in the right direction */
+      switch (iface) {
       case 0:
-        t8_vec_axb (element_normal_vector, normal_vector, -1, 0);
+        t8_vec_axb (coarse_1D_tangential_vector, normal_vector, -1. / norm_tangential_vector, 0);
         break;
       case 1:
-        t8_vec_axb (element_normal_vector, normal_vector, 1, 0);        /* vec_copy */
+        t8_vec_axb (coarse_1D_tangential_vector, normal_vector, 1. / norm_tangential_vector, 0);
         break;
       default:
         T8DG_ASSERT (0);
         break;
       }
-      face_quad_trafo[iface][iquad] = 1;
     }
   }
-
 }
 
-static void
-t8dg_advect_evolution (sc_array_t * dudt_array, const sc_array_t * u_array, double t, const void *application_data)
-{
-  /** TODO: Only for testing purposes!!*/
-  T8_ASSERT (dudt_array->elem_count == u_array->elem_count);
-  T8_ASSERT (dudt_array->elem_size == u_array->elem_size);
-  unsigned            i;
-  for (i = 0; i < dudt_array->elem_count * dudt_array->elem_size / sizeof (double); i++) {
-    ((double *) dudt_array->array)[i] = (2. / t) * ((double *) u_array->array)[i];
-  }
-  return;
-
-  /*In reality du/dt = invMassmatrix((A_c)u - Bu + Mg) */
-#if 0
-  t8dg_advect_problem_linear_1D_t *problem = (t8dg_advect_problem_linear_1D_t *) application_data;
-  sc_array_t         *stiffness_u = sc_array_new_count (u_array->elem_size, u_array->elem_count);
-  sc_array_t         *boundary_u = sc_array_new_count (u_array->elem_size, u_array->elem_count);
-//  sc_array_t * mass_g = sc_array_new_count(u_array->elem_size, u_array->elem_count);
-  apply_stiffness (stiffness_u, u_array, t, problem);
-  apply_boundary (boundary_u, u_array, t, problem);
-//  apply_mass(mass_g,g_array,problem);
-  t8dg_sc_array_block_double_axpy (1, boundary_u, stiffness_u);
-//  t8dg_sc_array_block_double_axpy(1,mass_g,stiffness_u);
-  apply_mass_invers (dudt_array, stiffness_u, problem);
-#endif
-}
-
-t8dg_advect_problem_linear_1D_t *
+t8dg_linear_advection_problem_t *
 t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_velocity,
                                     int level, int number_LGL_points,
                                     double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
-  t8dg_advect_problem_linear_1D_t *problem;
+  t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
   int                 iface;
   int                 num_elements;
   /* allocate problem */
-  problem = T8_ALLOC (t8dg_advect_problem_linear_1D_t, 1);
+  problem = T8_ALLOC (t8dg_linear_advection_problem_t, 1);
 
   problem->dim = 1;
   problem->uniform_refinement_level = level;
@@ -270,7 +244,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->T = end_time;
   problem->t = start_time;
   problem->cfl = cfl;
-  problem->delta_t = 0.1;       /* TODO: make dependent on cfl number and element diameter */
+  problem->delta_t = cfl * 0.1; /* TODO: make dependent on cfl number and element diameter */
 
   t8_debugf ("start LGL construction\n");
   /* these allocate memory: */
@@ -278,7 +252,6 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
 
   problem->numerical_flux_fn = t8dg_upwind_flux_1D;
-  problem->evolution_matrix = t8dg_advect_evolution;
 
   default_scheme = t8_scheme_new_default_cxx ();
   t8_debugf ("create uniform forest\n");
@@ -316,6 +289,9 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
     sc_array_new_count (sizeof (double) * t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis),
                         num_elements + t8_forest_get_num_ghosts (problem->forest));
 
+  problem->element_dof_change =
+    sc_array_new_count (sizeof (double) * t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis), num_elements);
+
   problem->element_dof_values_new =
     sc_array_new_count (sizeof (double) * t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis), num_elements);
 
@@ -325,9 +301,9 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
 }
 
 void
-t8dg_advect_problem_destroy (t8dg_advect_problem_linear_1D_t ** pproblem)
+t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem)
 {
-  t8dg_advect_problem_linear_1D_t *problem;
+  t8dg_linear_advection_problem_t *problem;
   int                 iface;
 
   T8_ASSERT (pproblem != NULL);
@@ -339,6 +315,7 @@ t8dg_advect_problem_destroy (t8dg_advect_problem_linear_1D_t ** pproblem)
   /* Free the arrays */
   sc_array_destroy (problem->element_fine_to_coarse_geometry_data);
   sc_array_destroy (problem->element_dof_values);
+  sc_array_destroy (problem->element_dof_change);
   sc_array_destroy (problem->element_dof_values_new);
   sc_array_destroy (problem->element_trafo_quad_weight);
   sc_array_destroy (problem->element_transformed_gradient_tangential_vectors);
@@ -359,7 +336,7 @@ t8dg_advect_problem_destroy (t8dg_advect_problem_linear_1D_t ** pproblem)
 }
 
 void
-t8dg_advect_problem_init_elements_linear_1D (t8dg_advect_problem_linear_1D_t * problem)
+t8dg_advect_problem_init_elements_linear_1D (t8dg_linear_advection_problem_t * problem)
 {
   t8_locidx_t         itree, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
@@ -397,30 +374,74 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_advect_problem_linear_1D_t * p
   t8_debugf ("End element init \n");
 }
 
-void
-t8dg_advect_evolve (t8dg_advect_problem_linear_1D_t * problem)
+static void
+t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem)
 {
+  unsigned            i;
+  for (i = 0; i < problem->element_dof_change->elem_count * problem->element_dof_change->elem_size / sizeof (double); i++) {
+    ((double *) problem->element_dof_change->array)[i] = (2. / problem->t) * ((double *) problem->element_dof_values->array)[i];
+  }
+
+  /*updates dof_values_change */
+  /*ghost dof_values */
+  /*dudt = Mg + Au */
+  /*receive ghosts */
+  /*dudt -= Bu */
+  /*dudt = M^-1 dudt */
+  /*resize dof values to only internal values */
+}
+
+void
+t8dg_advect_runge_kutta_step (t8dg_linear_advection_problem_t * problem)
+{
+  int                 istep;
+  double             *rk_a, *rk_b, *rk_c;
+  sc_array_t         *element_dof_beginning;
+  double              time_beginning;
+
+  /*Set already during construction? */
   if (problem->t + problem->delta_t > problem->T) {
     problem->delta_t = problem->T - problem->t;
   }
 
-  /*TODO: calculate fluxes in mortars */
-  /*TODO: is the current setup with dof_values and dof_values_new sufficient? */
-  t8dg_rungekutta_timestep (problem->time_order, problem->t, problem->delta_t, problem->evolution_matrix,
-                            problem->element_dof_values_new, problem->element_dof_values, NULL);
-  problem->t += problem->delta_t;
+  t8dg_runge_kutta_fill_coefficients (problem->time_order, &rk_a, &rk_b, &rk_c);
+
+  element_dof_beginning = t8dg_sc_array_clone (problem->element_dof_values);
+  time_beginning = problem->t;
+
+  t8dg_advect_calculate_time_derivative (problem);
+   /**/
+    t8dg_sc_array_block_double_zaxpy (problem->element_dof_values_new, rk_b[0] * problem->delta_t, problem->element_dof_change,
+                                      problem->element_dof_values);
+
+  for (istep = 0; istep < problem->time_order - 1; istep++) {
+    /*calculate the y-value for which the derivative needs to be evaluated
+     * since a has only values on the first minor diagonal, only the k from the step before and the original y is needed*/
+    t8dg_sc_array_block_double_zaxpy (problem->element_dof_values, rk_a[istep] * problem->delta_t, problem->element_dof_change,
+                                      element_dof_beginning);
+    /* calculate the derivative at the step time and y value */
+
+    problem->t = time_beginning + rk_c[istep] * problem->delta_t;
+    t8dg_advect_calculate_time_derivative (problem);
+     /**/
+      /*add weighted summand to result */
+      t8dg_sc_array_block_double_axpy (rk_b[istep + 1] * problem->delta_t, problem->element_dof_change, problem->element_dof_values_new);
+  }
+  problem->t = time_beginning + problem->delta_t;
   t8dg_sc_array_swap (&problem->element_dof_values, &problem->element_dof_values_new);
+
+  sc_array_destroy (element_dof_beginning);
 
 }
 
 int
-t8dg_advect_problem_endtime_reached (t8dg_advect_problem_linear_1D_t * problem)
+t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem)
 {
   return problem->t >= problem->T;
 }
 
 void
-t8dg_advect_problem_printdof (t8dg_advect_problem_linear_1D_t * problem)
+t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
 {
   t8dg_sc_array_block_double_print (problem->element_dof_values);
 }
@@ -435,7 +456,7 @@ t8dg_apply_mass_matrix (sc_array_t * dest, const sc_array_t * src, const void *a
   int                 idata;
   int                 num_data;
 
-  t8dg_advect_problem_linear_1D_t *problem = (t8dg_advect_problem_linear_1D_t *) application_data;
+  t8dg_linear_advection_problem_t *problem = (t8dg_linear_advection_problem_t *) application_data;
   for (idata = 0; idata < num_data; idata++) {
     element_dof_values = t8dg_sc_array_new_double_element_view (src);
     element_dof_values_new = t8dg_sc_array_new_double_element_view (dest);
@@ -454,7 +475,7 @@ t8dg_apply_stiffness_matrix (sc_array_t * dest, const sc_array_t * src, const vo
   int                 idata;
   int                 num_data;
 
-  t8dg_advect_problem_linear_1D_t *problem = (t8dg_advect_problem_linear_1D_t *) application_data;
+  t8dg_linear_advection_problem_t *problem = (t8dg_linear_advection_problem_t *) application_data;
   for (idata = 0; idata < num_data; idata++) {
     element_dof_values = t8dg_sc_array_new_double_element_view (src);
     element_dof_values_new = t8dg_sc_array_new_double_element_view (dest);

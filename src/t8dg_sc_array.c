@@ -5,6 +5,15 @@
  *      Author: lukas
  */
 #include<t8.h>
+#include <sc_containers.h>
+
+sc_array_t         *
+t8dg_sc_array_clone (sc_array_t * src)
+{
+  sc_array_t         *dest = sc_array_new_count (src->elem_size, src->elem_count);
+  sc_array_copy (dest, src);
+  return dest;
+}
 
 void
 t8dg_sc_array_block_double_axpy (const double a, const sc_array_t * x, sc_array_t * y)

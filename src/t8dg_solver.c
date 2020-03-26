@@ -16,7 +16,7 @@ void
 t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_velocity,
                       int level, int number_LGL_points, double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
-  t8dg_advect_problem_linear_1D_t *problem;
+  t8dg_linear_advection_problem_t *problem;
 
   t8_debugf ("Start Advection Solve\n");
 
@@ -29,7 +29,7 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
-    t8dg_advect_evolve (problem);
+    t8dg_advect_runge_kutta_step (problem);
   }
 
   /*Current output */
