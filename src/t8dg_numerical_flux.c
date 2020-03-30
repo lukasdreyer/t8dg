@@ -52,18 +52,22 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
 
   element = t8_forest_get_element_in_tree (forest, itree, ielement);
 
+  /* use this function to also get the data-indices of the neighbouring element */
   t8_forest_leaf_face_neighbors (forest, itree, element, &neigh_elems, iface, &neigh_ifaces, &num_neighs, &elem_indices, &neigh_scheme, 1);
 
   SC_CHECK_ABORT (num_neighs == 1, "only one faceneighbour currently implemented !");
 
+  /* TODO: outsource as function */
   offset = t8_forest_get_tree_element_offset (forest, itree);
   idata = offset + ielement;
 
   mortar->elem_idata_minus = idata;
   mortar->elem_idata_plus = elem_indices[0];    /*could be greater than number of local elements -> ghost */
   mortar->iface_minus = iface;
-  mortar->iface_plus = neigh_ifaces[0]; //get neighbouring face index
-  mortar->number_face_quadrature_points = 1;    //getter function on problem?
+  mortar->iface_plus = neigh_ifaces[0]; /* get neighbouring face index */
+  mortar->number_face_quadrature_points = 1;    /* Only viable for 1D case, getter function on problem? */
+
+  /* allocate memory for sc_arrays */
   mortar->u_minus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
   mortar->u_plus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
   mortar->fluxes = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
