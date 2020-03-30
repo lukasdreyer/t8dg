@@ -17,7 +17,7 @@
 double
 u_analytical (const double x[DIM3], double t)
 {
-  return 1;
+//  return 1;
   return 0.5 - fabs (0.5 - t8_vec_norm (x));
 }
 

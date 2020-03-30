@@ -211,13 +211,13 @@ t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_value
     dof_array[0] = 0;
     break;
   case (2):
-    dof_array[0] = 1 * derivative_array[0] - 1 * derivative_array[1];
-    dof_array[1] = -1 * derivative_array[0] + 1 * derivative_array[1];
+    dof_array[0] = -1 * derivative_array[0] - 1 * derivative_array[1];
+    dof_array[1] = 1 * derivative_array[0] + 1 * derivative_array[1];
     break;
   case (3):
-    dof_array[0] = -3 * derivative_array[0] + 4 * derivative_array[1] - 1 * derivative_array[2];
-    dof_array[1] = -1 * derivative_array[0] + 0 * derivative_array[1] + 1 * derivative_array[2];
-    dof_array[2] = 1 * derivative_array[0] - 4 * derivative_array[1] + 3 * derivative_array[2];
+    dof_array[0] = -3 * derivative_array[0] - 1 * derivative_array[1] + 1 * derivative_array[2];
+    dof_array[1] = 4 * derivative_array[0] + 0 * derivative_array[1] - 4 * derivative_array[2];
+    dof_array[2] = -1 * derivative_array[0] + 1 * derivative_array[1] + 3 * derivative_array[2];
     break;
   default:
     T8DG_ASSERT (0);
