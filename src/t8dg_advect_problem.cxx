@@ -268,7 +268,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->T = end_time;
   problem->t = start_time;
   problem->cfl = cfl;
-  problem->delta_t = cfl * 0.1; /* TODO: make dependent on cfl number and element diameter */
+  problem->delta_t = cfl * 0.1 * pow (2, -level);       /* TODO: make dependent on cfl number and element diameter */
 
   t8_debugf ("start LGL construction\n");
   /* these allocate memory: */
