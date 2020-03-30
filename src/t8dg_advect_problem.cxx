@@ -30,8 +30,9 @@ struct t8dg_linear_advection_problem
   t8dg_scalar_function_3d_time_fn initial_condition_fn;         /**< Initial condition function */
 #if 0
   t8dg_scalar_function_3d_time_fn source_sink_fn;
-#endif
   t8dg_linear_flux_velocity_3D_time_fn flux_velocity_fn;        /**< Divergence free vector field */
+#endif
+  double              flow_speed;
   t8dg_linear_numerical_flux_1D_fn numerical_flux_fn;           /**< Approximation to the Riemann problem */
 
   t8_forest_t         forest;                                   /**< The t8_forest used to adapt the coarse mesh*/
@@ -102,8 +103,8 @@ t8dg_advect_element_get_element_quad_trafo_weights (const t8dg_linear_advection_
 
 /*Assumes only one tangential vector per quad point, TODO: add getter function for 3D vectors in sc_arrays*/
 static double      *
-t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_linear_advection_problem_t * problem,
-                                                              t8_locidx_t idata, t8dg_quad_idx_t iquad)
+t8dg_advect_element_get_transformed_gradient_tangential_vector (t8dg_linear_advection_problem_t * problem,
+                                                                t8_locidx_t idata, t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (problem->dim == 1);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < problem->element_transformed_gradient_tangential_vectors->elem_size / (3 * sizeof (double)));
@@ -111,7 +112,7 @@ t8dg_element_quad_get_transformed_gradient_tangential_vector (t8dg_linear_advect
 }
 
 static double      *
-t8dg_element_quad_get_normal_vector (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface, t8dg_quad_idx_t iquad)
+t8dg_advect_element_get_face_normal_vector (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface, t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (iface >= 0 && iface < MAX_FACES);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < problem->face_normal_vectors[iface]->elem_size / (3 * sizeof (double)));
@@ -127,9 +128,31 @@ t8dg_advect_element_get_fine_to_coarse_geometry_data (const t8dg_linear_advectio
           t8_sc_array_index_locidx (problem->element_fine_to_coarse_geometry_data, idata));
 }
 
-#if 0
-static t8dg_mortar_t *t8dg_advect_element_get_face_mortar ();
-#endif
+t8dg_mortar_t      *
+t8dg_advect_element_get_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface)
+{
+  T8_ASSERT (iface >= 0 && iface < MAX_FACES);
+  return *((t8dg_mortar_t **)
+           t8_sc_array_index_locidx (problem->face_mortar[iface], idata));
+}
+
+void
+t8dg_advect_element_set_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface, t8dg_mortar_t * mortar)
+{
+  T8_ASSERT (iface >= 0 && iface < MAX_FACES);
+  *((t8dg_mortar_t **) t8_sc_array_index_locidx (problem->face_mortar[iface], idata)) = mortar;
+}
+
+static void
+t8dg_advect_element_set_face_mortar_both (const t8dg_linear_advection_problem_t * problem, t8dg_mortar_t * mortar)
+{
+  t8_locidx_t         idata;
+  int                 iface;
+  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 0);
+  t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 1);
+  t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+}
 
 static void
 t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, double *tree_vertices)
@@ -194,7 +217,7 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_linear_advection_problem_t
   for (iquad = 0; iquad < num_elem_quad; iquad++) {
     element_quad_trafo[iquad] = gram_det * t8dg_LGL_quadrature_get_element_weight (problem->quadrature, iquad);
 
-    transformed_gradient_tangential_vector = t8dg_element_quad_get_transformed_gradient_tangential_vector (problem, idata, iquad);
+    transformed_gradient_tangential_vector = t8dg_advect_element_get_transformed_gradient_tangential_vector (problem, idata, iquad);
     t8_vec_axb (coarse_1D_tangential_vector, transformed_gradient_tangential_vector,
                 1. / (h * norm_tangential_vector * norm_tangential_vector), 0);
   }
@@ -205,7 +228,7 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_linear_advection_problem_t
     for (iquad = 0; iquad < num_face_quad; iquad++) {
       /*for 1D elements the faceintegrals are just the value at the facequadrature point */
       face_quad_trafo[iquad] = 1;
-      normal_vector = t8dg_element_quad_get_normal_vector (problem, idata, iface, iquad);
+      normal_vector = t8dg_advect_element_get_face_normal_vector (problem, idata, iface, iquad);
       /*scale the element tangential_vector to a unit vector in the right direction */
       switch (iface) {
       case 0:
@@ -223,7 +246,7 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_linear_advection_problem_t
 }
 
 t8dg_linear_advection_problem_t *
-t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_velocity,
+t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_speed,
                                     int level, int number_LGL_points,
                                     double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
@@ -239,6 +262,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->comm = comm;
 
   problem->initial_condition_fn = u_initial;
+  problem->flow_speed = flow_speed;
 
   problem->time_order = time_order;
   problem->T = end_time;
@@ -300,6 +324,37 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   return problem;
 }
 
+static void
+t8dg_advect_problem_mortar_destroy (t8dg_linear_advection_problem_t * problem)
+{
+
+  t8_locidx_t         itree, ielement, idata, iface;
+  t8_locidx_t         num_trees, num_elems_in_tree, num_faces;
+
+  t8dg_mortar_t      *mortar;
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
+      for (iface = 0; iface < num_faces; iface++) {
+        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
+        if (mortar != NULL) {
+          t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_minus, mortar->iface_minus, NULL);
+          t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_plus, mortar->iface_plus, NULL);
+          t8dg_mortar_destroy (&mortar);
+        }
+      }
+
+    }
+  }
+
+}
+
 void
 t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem)
 {
@@ -311,6 +366,8 @@ t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem)
   if (problem == NULL) {
     return;
   }
+
+  t8dg_advect_problem_mortar_destroy (problem);
 
   /* Free the arrays */
   sc_array_destroy (problem->element_fine_to_coarse_geometry_data);
@@ -342,6 +399,7 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_linear_advection_problem_t * p
   t8_locidx_t         num_trees, num_elems_in_tree;
   t8_element_t       *element;
 
+  int                 iface;
   t8dg_element_fine_to_coarse_geometry_data_t *geometry_data;
 
   t8_eclass_scheme_c *scheme;
@@ -369,18 +427,305 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_linear_advection_problem_t * p
       t8dg_element_set_dofs_initial (problem, idata, tree_vertices);
 
       t8dg_element_set_precalculated_values_1D_linear (problem, idata, tree_vertices);
+      for (iface = 0; iface < MAX_FACES; iface++) {
+        t8dg_advect_element_set_face_mortar (problem, idata, iface, NULL);
+      }
     }
   }
   t8_debugf ("End element init \n");
 }
 
+void
+t8dg_calculate_flux (double flux[3], t8dg_linear_advection_problem_t * problem, t8dg_quad_idx_t idata, t8dg_quad_idx_t iquad)
+{
+  /*could be timedependent */
+  double             *tangent;
+  tangent = t8dg_advect_element_get_transformed_gradient_tangential_vector (problem, idata, iquad);
+  t8_vec_axb (tangent, flux, problem->flow_speed / t8_vec_norm (tangent), 0);
+}
+
+static void
+t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * problem, sc_array_t * dest, sc_array_t * src)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  t8dg_quad_idx_t     iquad, num_quad_vertices;
+
+  double              dofvalue, quad_trafo_weight, flux_value;
+  double              flux[3];
+  double             *transformed_gradient_tangential_vector;   /*[3] */
+
+  sc_array_t         *element_src;
+  sc_array_t         *element_dest;
+  sc_array_t         *element_derivative;
+  sc_array_t         *element_trafo_quad_weights;
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      /*For ever element, get a sc_array_view on the input dof values */
+      element_src = t8dg_sc_array_new_double_block_view (src, idata);
+      /* Au = D^T V^T (Z*W) V,
+       * here Vandermonde matrix V = Id, since LGL nodes for quadrature and lagrange functionbasis,
+       * Z = fluxvalue quadpointwise multiplication with vec(c) dot (dF^-1)^T(tau) = c/ |om_e|
+       * W quadpointwise multiplication with trafo_quad_weight
+       * D^T "Integration Matrix"
+       *
+       *  */
+      element_derivative = sc_array_new_count (element_src->elem_size, element_src->elem_count);
+      element_trafo_quad_weights = t8dg_sc_array_new_double_block_view (problem->element_trafo_quad_weight, idata);
+      /*local Vandermonde not necessary since identity */
+
+      num_quad_vertices = t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature);
+      for (iquad = 0; iquad < num_quad_vertices; iquad++) {
+         /**/
+          transformed_gradient_tangential_vector = t8dg_advect_element_get_transformed_gradient_tangential_vector (problem, idata, iquad);
+        t8dg_calculate_flux (flux, problem, idata, iquad);
+        flux_value = t8_vec_dot (flux, transformed_gradient_tangential_vector);
+
+        quad_trafo_weight = *(double *) t8dg_sc_array_index_quadidx (element_trafo_quad_weights, iquad);
+        dofvalue = *(double *) t8dg_sc_array_index_quadidx (element_src, iquad);
+
+        t8_debugf ("fl: %f,  qtw: %f, dofv: %f\n", flux_value, quad_trafo_weight, dofvalue);
+
+        dofvalue *= quad_trafo_weight;
+        dofvalue *= flux_value;
+        t8_debugf ("dofv: %f\n", dofvalue);
+
+        *(double *) t8dg_sc_array_index_quadidx (element_derivative, iquad) = dofvalue;
+      }
+      element_dest = t8dg_sc_array_new_double_block_view (dest, idata);
+      t8_debugf ("element_derivative\n");
+      t8dg_sc_array_block_double_print (element_derivative);
+      t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (element_dest, element_derivative, problem->functionbasis);
+      t8_debugf ("element_dest\n");
+      t8dg_sc_array_block_double_print (element_dest);
+
+      sc_array_destroy (element_dest);
+      sc_array_destroy (element_src);
+      sc_array_destroy (element_derivative);
+      sc_array_destroy (element_trafo_quad_weights);
+    }
+  }
+}
+
+static void
+t8dg_advect_problem_apply_inverse_mass_matrix_inplace (t8dg_linear_advection_problem_t * problem, sc_array_t * array)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  t8dg_quad_idx_t     iquad, num_quad_vertices;
+
+  sc_array_t         *element_array;
+  sc_array_t         *element_trafo_quad_weights;
+
+  double              quad_trafo_weight;
+  double              dofvalue;
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      element_array = t8dg_sc_array_new_double_block_view (array, idata);
+      element_trafo_quad_weights = t8dg_sc_array_new_double_block_view (problem->element_trafo_quad_weight, idata);
+      num_quad_vertices = t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature);
+
+      for (iquad = 0; iquad < num_quad_vertices; iquad++) {
+        quad_trafo_weight = *(double *) t8dg_sc_array_index_quadidx (element_trafo_quad_weights, iquad);
+        dofvalue = *(double *) t8dg_sc_array_index_quadidx (element_array, iquad);
+        *(double *) t8dg_sc_array_index_quadidx (element_array, iquad) = dofvalue / quad_trafo_weight;
+      }
+      sc_array_destroy (element_array);
+      sc_array_destroy (element_trafo_quad_weights);
+    }
+  }
+}
+
+static void
+t8dg_advect_problem_fill_mortar (t8dg_linear_advection_problem_t * problem, t8dg_mortar_t * mortar)
+{
+  sc_array_t         *elem_dof_values_minus;
+  sc_array_t         *elem_dof_values_plus;
+
+  t8dg_quad_idx_t     iquad;
+  double              fluxvalue;
+  double              u_minus_quad;
+  double              u_plus_quad;
+  double             *normal_vector;
+  double              flow_vector[3];
+
+  elem_dof_values_minus = t8dg_sc_array_new_double_block_view (problem->element_dof_values, mortar->elem_idata_minus);
+  elem_dof_values_plus = t8dg_sc_array_new_double_block_view (problem->element_dof_values, mortar->elem_idata_plus);
+
+  t8dg_LGL_transform_element_dof_to_face_quad (mortar->u_minus, elem_dof_values_minus, mortar->iface_minus, problem->quadrature,
+                                               problem->functionbasis);
+  t8dg_LGL_transform_element_dof_to_face_quad (mortar->u_plus, elem_dof_values_plus, mortar->iface_plus, problem->quadrature,
+                                               problem->functionbasis);
+
+  /*normal vector from element_minus to element_plus */
+  for (iquad = 0; iquad < mortar->number_face_quadrature_points; iquad++) {
+    normal_vector = t8dg_advect_element_get_face_normal_vector (problem, mortar->elem_idata_minus, mortar->iface_minus, iquad);
+    t8dg_calculate_flux (flow_vector, problem, mortar->elem_idata_minus, iquad);
+
+    /*TODO: Orientation!! */
+    u_minus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_minus, iquad);
+    u_plus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_plus, iquad);
+
+    fluxvalue = problem->numerical_flux_fn (u_minus_quad, u_plus_quad, flow_vector, normal_vector);
+    *(double *) t8dg_sc_array_index_quadidx (mortar->fluxes, iquad) = fluxvalue;
+  }
+  sc_array_destroy (elem_dof_values_minus);
+  sc_array_destroy (elem_dof_values_plus);
+  mortar->valid = 1;
+}
+
+void
+t8dg_advect_problem_calculate_fluxes (t8dg_linear_advection_problem_t * problem)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  int                 iface, num_faces;
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  t8dg_mortar_t      *mortar;
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      /*for all faces check wether mortar is already allocated/computed */
+      num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
+      for (iface = 0; iface < num_faces; iface++) {
+        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
+        if (mortar == NULL) {
+          mortar = t8dg_mortar_new (problem->forest, itree, ielement, iface);
+          t8dg_advect_element_set_face_mortar_both (problem, mortar);
+          T8DG_ASSERT (mortar != NULL);
+        }
+        if (!(mortar->valid)) {
+          /*calculate everything */
+          /*normal vector precalculated, flow vector possibly timedependent */
+          t8dg_advect_problem_fill_mortar (problem, mortar);
+//              t8dg_mortar_fill_test(mortar);
+//              fill_mortar(dof_element_minus, dof_element_plus,flow_vector,normal_minus,num_flux_function)
+        }
+      }
+    }
+  }
+}
+
+t8_forest_t
+t8dg_advect_problem_get_forest (t8dg_linear_advection_problem_t * problem)
+{
+  return problem->forest;
+}
+
+void
+t8dg_advect_problem_subtract_fluxes_from_dof_change (t8dg_linear_advection_problem_t * problem)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  int                 iface, num_faces;
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  t8dg_mortar_t      *mortar;
+
+  sc_array_t         *element_quad_flux;
+  sc_array_t         *element_dof_change;
+
+  double              alpha;
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      element_dof_change = t8dg_sc_array_new_double_block_view (problem->element_dof_change, idata);
+
+      element_quad_flux = sc_array_new_count (sizeof (double), t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature));
+
+      num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
+      for (iface = 0; iface < num_faces; iface++) {
+        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
+        t8dg_LGL_transform_face_quad_to_element_dof (element_quad_flux, t8dg_mortar_get_flux (mortar), iface, problem->quadrature,
+                                                     problem->functionbasis);
+
+        /*decide wether to subtract or add the calculated fluxes! TODO:check */
+        if (idata == mortar->elem_idata_minus) {
+          alpha = -1;
+        }
+        else if (idata == mortar->elem_idata_plus) {
+          alpha = 1;
+        }
+        else {
+          T8DG_ASSERT (0);
+        }
+
+        t8dg_sc_array_block_double_axpy (alpha, element_quad_flux, element_dof_change);
+      }
+      sc_array_destroy (element_quad_flux);
+      sc_array_destroy (element_dof_change);
+
+    }
+  }
+
+}
+
+static void
+t8dg_advect_problem_invalidate_mortars (t8dg_linear_advection_problem_t * problem)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  int                 iface, num_faces;
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+
+  t8dg_mortar_t      *mortar;
+
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      num_faces = t8dg_LGL_quadrature_get_num_faces (problem->quadrature);
+      for (iface = 0; iface < num_faces; iface++) {
+        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
+        if (mortar != NULL) {
+          mortar->valid = 0;
+        }
+      }
+    }
+  }
+}
+
 static void
 t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem)
 {
-  unsigned            i;
-  for (i = 0; i < problem->element_dof_change->elem_count * problem->element_dof_change->elem_size / sizeof (double); i++) {
-    ((double *) problem->element_dof_change->array)[i] = (2. / problem->t) * ((double *) problem->element_dof_values->array)[i];
-  }
+  t8dg_advect_problem_apply_stiffness_matrix (problem, problem->element_dof_change, problem->element_dof_values);
+
+  t8_debugf ("stiffnessu\n");
+  t8dg_sc_array_block_double_print (problem->element_dof_change);
+
+  /*add stiffness */
+  /*subtract fluxes */
+
+  t8dg_advect_problem_calculate_fluxes (problem);
+  t8dg_advect_problem_subtract_fluxes_from_dof_change (problem);
+  t8dg_advect_problem_invalidate_mortars (problem);
+
+  t8_debugf ("stiffnessu - boundaryfluxes\n");
+  t8dg_sc_array_block_double_print (problem->element_dof_change);
+
+  /*apply massinverse */
+  t8dg_advect_problem_apply_inverse_mass_matrix_inplace (problem, problem->element_dof_change);
+
+  t8_debugf ("M_invers(stiffnessu - boundaryfluxes)\n");
+  t8dg_sc_array_block_double_print (problem->element_dof_change);
 
   /*updates dof_values_change */
   /*ghost dof_values */
@@ -429,6 +774,9 @@ t8dg_advect_runge_kutta_step (t8dg_linear_advection_problem_t * problem)
   }
   problem->t = time_beginning + problem->delta_t;
   t8dg_sc_array_swap (&problem->element_dof_values, &problem->element_dof_values_new);
+
+  t8_debugf ("dof-values:\n");
+  t8dg_advect_problem_printdof (problem);
 
   sc_array_destroy (element_dof_beginning);
 

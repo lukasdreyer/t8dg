@@ -17,7 +17,8 @@
 double
 u_analytical (const double x[DIM3], double t)
 {
-  return t8_vec_norm (x) * t * t;
+  return 1;
+  return 0.5 - fabs (0.5 - t8_vec_norm (x));
 }
 
 int
@@ -71,9 +72,10 @@ main (int argc, char *argv[])
   else if (parsed >= 0) {
     t8_cmesh_t          cmesh;
 
-    cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
-#if 0
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
+
+#if 0
+    cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
 #endif
     /* Computation */
     t8dg_advect_solve_1D (cmesh, u_analytical, flow_velocity,

@@ -9,7 +9,8 @@
 #ifndef SRC_T8DG_SC_ARRAY_H_
 #define SRC_T8DG_SC_ARRAY_H_
 
-#include<sc_containers.h>
+#include <t8.h>
+#include <sc_containers.h>
 
 /** Calculates Y = a * X + Y for sc_arrays, where each element is assumed to be a block of double
  *
@@ -43,5 +44,7 @@ void                t8dg_sc_array_block_double_print (sc_array_t * array);
 void                t8dg_sc_array_swap (sc_array_t ** parray1, sc_array_t ** parray2);
 
 sc_array_t         *t8dg_sc_array_clone (sc_array_t * src);
+
+sc_array_t         *t8dg_sc_array_new_double_block_view (sc_array_t * src, t8_locidx_t idata);
 
 #endif /* SRC_T8DG_SC_ARRAY_H_ */

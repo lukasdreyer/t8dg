@@ -20,8 +20,9 @@ typedef struct t8dg_LGL_functionbasis t8dg_LGL_functionbasis_t;
 /** Returns a pointer to an array element indexed by a t8dg_quad_idx_t.
  * \param [in] index needs to be in [0]..[elem_count-1].
  */
+
 static inline void *
-t8dg_sc_array_index_quadidx (sc_array_t * array, t8dg_quad_idx_t iz)
+t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz)
 {
   T8DG_ASSERT (iz >= 0 && iz < (t8dg_quad_idx_t) array->elem_count);
 
@@ -78,7 +79,7 @@ void                t8dg_LGL_functionbasis_apply_derivative_matrix (sc_array_t *
 
 /** TODO:implement*/
 void                t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_values,
-                                                                              const sc_array_t * derivative_dof_values,
+                                                                              sc_array_t * derivative_dof_values,
                                                                               t8dg_LGL_functionbasis_t * functionbasis);
 
 /** Returns the number of degrees of Freedom of a functionbasis

@@ -198,6 +198,33 @@ t8dg_LGL_quadrature_and_functionbasis_destroy (t8dg_LGL_quadrature_t ** pquadrat
 }
 
 void
+t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_values,
+                                                          sc_array_t * derivative_dof_values, t8dg_LGL_functionbasis_t * functionbasis)
+{
+  T8_ASSERT (functionbasis->vertices->dim == 1);
+  double             *dof_array;
+  double             *derivative_array;
+  dof_array = (double *) sc_array_index_int (dof_values, 0);
+  derivative_array = (double *) sc_array_index_int (derivative_dof_values, 0);
+  switch (functionbasis->vertices->number_of_vertices) {
+  case (1):
+    dof_array[0] = 0;
+    break;
+  case (2):
+    dof_array[0] = 1 * derivative_array[0] - 1 * derivative_array[1];
+    dof_array[1] = -1 * derivative_array[0] + 1 * derivative_array[1];
+    break;
+  case (3):
+    dof_array[0] = -3 * derivative_array[0] + 4 * derivative_array[1] - 1 * derivative_array[2];
+    dof_array[1] = -1 * derivative_array[0] + 0 * derivative_array[1] + 1 * derivative_array[2];
+    dof_array[2] = 1 * derivative_array[0] - 4 * derivative_array[1] + 3 * derivative_array[2];
+    break;
+  default:
+    T8DG_ASSERT (0);
+  }
+}
+
+void
 t8dg_LGL_vertexset_get_3D_vertex (double reference_vertex[3], t8dg_LGL_vertexset_t * vertexset, int ivertex)
 {
   T8DG_ASSERT (vertexset->dim == 1);    /* other not yet implemented */
@@ -269,4 +296,40 @@ t8dg_LGL_quadrature_get_face_weight (t8dg_LGL_quadrature_t * quadrature, int ifa
 {
   T8DG_ASSERT (quadrature->vertices->dim == 1);
   return 1;
+}
+
+void                t8dg_LGL_transform_element_dof_to_face_quad
+  (sc_array_t * face_quad_array, const sc_array_t * element_dof_array, int iface, t8dg_LGL_quadrature_t * quadrature,
+   t8dg_LGL_functionbasis_t * functionbasis)
+{
+  T8DG_ASSERT (quadrature->vertices == functionbasis->vertices);
+  T8DG_ASSERT (quadrature->vertices->dim == 1);
+  T8DG_ASSERT (element_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (face_quad_array->elem_size == sizeof (double));
+  t8dg_quad_idx_t     iquad, ifacequad;
+  for (ifacequad = 0; ifacequad < t8dg_LGL_quadrature_get_num_face_vertices (quadrature, iface); ifacequad++) {
+    iquad = *(int *) t8dg_sc_array_index_quadidx (quadrature->vertices->facevertex_indices[iface], ifacequad);
+    *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad) =
+      *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad);
+  }
+}
+
+void
+t8dg_LGL_transform_face_quad_to_element_dof (sc_array_t * element_dof_array,
+                                             const sc_array_t * face_quad_array,
+                                             int iface, t8dg_LGL_quadrature_t * quadrature, t8dg_LGL_functionbasis_t * functionbasis)
+{
+  T8DG_ASSERT (quadrature->vertices == functionbasis->vertices);
+  T8DG_ASSERT (quadrature->vertices->dim == 1);
+  T8DG_ASSERT (element_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (face_quad_array->elem_size == sizeof (double));
+  t8dg_quad_idx_t     iquad, ifacequad;
+  for (iquad = 0; iquad < t8dg_LGL_quadrature_get_num_element_vertices (quadrature); iquad++) {
+    *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) = 0;
+  }
+  for (ifacequad = 0; ifacequad < t8dg_LGL_quadrature_get_num_face_vertices (quadrature, iface); ifacequad++) {
+    iquad = *(int *) t8dg_sc_array_index_quadidx (quadrature->vertices->facevertex_indices[iface], ifacequad);
+    *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) =
+      *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad);
+  }
 }

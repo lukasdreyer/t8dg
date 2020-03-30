@@ -8,6 +8,7 @@
 
 #ifndef SRC_T8DG_ADVECT_H_
 #define SRC_T8DG_ADVECT_H_
+#include "t8dg_numerical_flux.h"
 
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
@@ -26,5 +27,22 @@ void                t8dg_advect_runge_kutta_step (t8dg_linear_advection_problem_
 int                 t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem);
 
 void                t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem);
+
+#if 0
+t8dg_mortar_t      *t8dg_advect_element_get_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_advect_element_set_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface,
+                                      t8dg_mortar_t * mortar);
+
+t8_forest_t         t8dg_advect_problem_get_forest (t8dg_linear_advection_problem_t * problem);
+#endif
 
 #endif /* SRC_T8DG_ADVECT_H_ */

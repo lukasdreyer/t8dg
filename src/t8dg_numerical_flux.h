@@ -12,6 +12,7 @@
 #include <sc_containers.h>
 #include "t8dg.h"
 #include <t8.h>
+#include <t8_forest.h>
 
 /** linear numerical flux function for the 1D case  */
 typedef double      (*t8dg_linear_numerical_flux_1D_fn) (const double u_minus, const double u_plus,
@@ -23,14 +24,17 @@ typedef double      (*t8dg_linear_flux_velocity_3D_time_fn) (const double flux_v
 typedef struct t8dg_mortar
 {
   int                 number_face_quadrature_points;    /**< The number of face quadrature points*/
-  t8_locidx_t         elem_idx_minus;                   /**< Local index of the element corresponding to u_minus */
-  t8_locidx_t         elem_idx_plus;                    /**< Local index of the element corresponding to u_plus */
+  t8_locidx_t         elem_idata_minus;                   /**< Local index of the element corresponding to u_minus */
+  t8_locidx_t         elem_idata_plus;                    /**< Local index of the element corresponding to u_plus */
+
+  int                 iface_plus, iface_minus;
 
   /*one value for each quadrature point */
   sc_array_t         *u_minus;                          /**< value of u on elem_minus at face quadrature points */
   sc_array_t         *u_plus;                           /**< value of u on elem_plus at face quadrature points */
 
   sc_array_t         *fluxes;                           /**< value of (cu)*.n at face quadrature points */
+  int                 valid;                            /**< indicates wether the fluxes are already newly calculated this timestep*/
 
 } t8dg_mortar_t;                /*maybe change to opaque handle */
 
@@ -48,5 +52,13 @@ typedef struct t8dg_mortar
  */
 double              t8dg_upwind_flux_1D (const double u_minus, const double u_plus, const double flow_vector[3],
                                          const double normal_vector[3]);
+
+sc_array_t         *t8dg_mortar_get_flux (t8dg_mortar_t * mortar);
+
+t8dg_mortar_t      *t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface);
+
+void                t8dg_mortar_destroy (t8dg_mortar_t ** pmortar);
+
+void                t8dg_mortar_get_idata_iface (t8dg_mortar_t * mortar, t8_locidx_t * pidata, int *piface, int side);
 
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

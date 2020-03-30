@@ -8,6 +8,12 @@
 #include <sc_containers.h>
 
 sc_array_t         *
+t8dg_sc_array_new_double_block_view (sc_array_t * src, t8_locidx_t idata)
+{
+  return sc_array_new_data (t8_sc_array_index_locidx (src, idata), sizeof (double), src->elem_size / sizeof (double));
+}
+
+sc_array_t         *
 t8dg_sc_array_clone (sc_array_t * src)
 {
   sc_array_t         *dest = sc_array_new_count (src->elem_size, src->elem_count);
