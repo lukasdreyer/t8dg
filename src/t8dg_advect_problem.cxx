@@ -141,11 +141,13 @@ t8dg_advect_element_set_face_mortar (const t8dg_linear_advection_problem_t * pro
   *((t8dg_mortar_t **) t8_sc_array_index_locidx (problem->face_mortar[iface], idata)) = mortar;
 }
 
+/* Given an allocated mortar, set it for both elements adjacent to the face. */
 static void
 t8dg_advect_element_set_face_mortar_both (const t8dg_linear_advection_problem_t * problem, t8dg_mortar_t * mortar)
 {
   t8_locidx_t         idata;
   int                 iface;
+
   t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 0);
   t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
   t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 1);
