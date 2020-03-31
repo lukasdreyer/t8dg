@@ -30,6 +30,11 @@ Wie kannst du dir aussuche, aber wir haben da schon ein paar Werkzeuge:
 	- Wenn du ein besseres indent Programm kennst, als das vom Skript genutzte. Und vielleicht auch eins, was mit C++ besser klar kommt.
 	  Dann baue ich das gerne ein.
 DONE
+	- Habe ein neues feature entdeckt: indent kommt mit selbstdefinierten Datentypen nicht gut klar.
+	  Wenn du einen Datentyp neu definierst und siehst, dass indent sich komisch verhaelt --
+	  (zum Beispiel bei Pointern statt "TYP *var" kommt dann "TYP * var" weil es denkt, dass ist 
+	  eine Multiplikation -- kannst du an die indent options ein "-T TYP" dranhaengen.
+	  Z.Bsp. "-T t8_locidx_t -T t8_gloidx_t" und so weiter...
 
 Kommentare
 	- Bei jeder Funktion kurz erklaeren, was sie macht
