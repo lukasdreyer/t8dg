@@ -77,7 +77,7 @@ void                t8dg_LGL_transform_face_quad_to_element_dof (sc_array_t * el
 void                t8dg_LGL_functionbasis_apply_derivative_matrix (sc_array_t * derivative_dof_values,
                                                                     const sc_array_t dof_values, t8dg_LGL_functionbasis_t * functionbasis);
 
-/** TODO:implement*/
+/** TODO:implement general case or n=4*/
 void                t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_values,
                                                                               sc_array_t * derivative_dof_values,
                                                                               t8dg_LGL_functionbasis_t * functionbasis);

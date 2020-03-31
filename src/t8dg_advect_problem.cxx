@@ -9,6 +9,8 @@
 #include <t8_forest.h>
 #include <t8_vec.h>
 #include <t8_schemes/t8_default_cxx.hxx>
+#include <t8_forest_vtk.h>
+#include <t8_vtk.h>
 
 #include <sc_containers.h>
 
@@ -69,6 +71,8 @@ struct t8dg_linear_advection_problem
   double              t;        /**< current time */
   double              T;        /**< end time */
   double              cfl;      /**< cfl number*/
+
+  int                 vtk_count;
 
   t8dg_LGL_quadrature_t *quadrature;            /**< LGL quadrature, based on same vertex-set as functionbasis*/
   t8dg_LGL_functionbasis_t *functionbasis;      /**< LGL functionbasis, based on same vertex-set as quadrature */
@@ -269,6 +273,8 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->t = start_time;
   problem->cfl = cfl;
   problem->delta_t = cfl * 0.1 * pow (2, -level);       /* TODO: make dependent on cfl number and element diameter */
+
+  problem->vtk_count = 0;
 
   t8_debugf ("start LGL construction\n");
   /* these allocate memory: */
@@ -525,11 +531,11 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
         *(double *) t8dg_sc_array_index_quadidx (element_derivative, iquad) = dofvalue;
       }
       element_dest = t8dg_sc_array_new_double_block_view (dest, idata);
-      t8_debugf ("element_derivative\n");
-      t8dg_sc_array_block_double_print (element_derivative);
+      t8_debugf ("M u\n");
+      t8dg_sc_array_block_double_debug_print (element_derivative);
       t8dg_LGL_functionbasis_apply_derivative_matrix_transpose (element_dest, element_derivative, problem->functionbasis);
-      t8_debugf ("element_dest\n");
-      t8dg_sc_array_block_double_print (element_dest);
+      t8_debugf ("D^T M u\n");
+      t8dg_sc_array_block_double_debug_print (element_dest);
 
       sc_array_destroy (element_dest);
       sc_array_destroy (element_src);
@@ -700,8 +706,8 @@ t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem
 {
   t8dg_advect_problem_apply_stiffness_matrix (problem, problem->element_dof_change, problem->element_dof_values);
 
-  t8_debugf ("stiffnessu\n");
-  t8dg_sc_array_block_double_print (problem->element_dof_change);
+  t8_debugf ("A u\n");
+  t8dg_sc_array_block_double_debug_print (problem->element_dof_change);
 
   /*add stiffness */
   /*subtract fluxes */
@@ -710,14 +716,14 @@ t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem
   t8dg_advect_problem_subtract_fluxes_from_dof_change (problem);
   t8dg_advect_problem_invalidate_mortars (problem);
 
-  t8_debugf ("stiffnessu - boundaryfluxes\n");
-  t8dg_sc_array_block_double_print (problem->element_dof_change);
+  t8_debugf ("A u  - B u\n");
+  t8dg_sc_array_block_double_debug_print (problem->element_dof_change);
 
   /*apply massinverse */
   t8dg_advect_problem_apply_inverse_mass_matrix_inplace (problem, problem->element_dof_change);
 
-  t8_debugf ("M_invers(stiffnessu - boundaryfluxes)\n");
-  t8dg_sc_array_block_double_print (problem->element_dof_change);
+  t8_debugf ("du/dt = M^-1(A u - B u)\n");
+  t8dg_sc_array_block_double_debug_print (problem->element_dof_change);
 
   /*updates dof_values_change */
   /*ghost dof_values */
@@ -766,7 +772,7 @@ t8dg_advect_runge_kutta_step (t8dg_linear_advection_problem_t * problem)
   t8dg_sc_array_swap (&problem->element_dof_values, &problem->element_dof_values_new);
 
   t8_debugf ("dof-values:\n");
-  t8dg_advect_problem_printdof (problem);
+  t8dg_sc_array_block_double_debug_print (problem->element_dof_values);
 
   sc_array_destroy (element_dof_beginning);
 
@@ -782,4 +788,48 @@ void
 t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
 {
   t8dg_sc_array_block_double_print (problem->element_dof_values);
+}
+
+void
+t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
+{
+  double             *dof_array;
+  t8_locidx_t         num_local_elements, idata;
+  t8_vtk_data_field_t vtk_data;
+  char                fileprefix[BUFSIZ];
+  double             *dof_values;
+  double              average;
+  int                 idof;
+
+  /* Allocate num_local_elements doubles to store u and phi values */
+  num_local_elements = t8_forest_get_num_element (problem->forest);
+  /* phi */
+  dof_array = T8_ALLOC_ZERO (double, num_local_elements);
+
+  /* Fill u and phi arrays with their values */
+  for (idata = 0; idata < num_local_elements; idata++) {
+    dof_values = t8dg_advect_element_get_element_dof_values (problem, idata);
+    average = 0;
+    for (idof = 0; idof < t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis); idof++) {
+      average += dof_values[idof];
+    }
+    dof_array[idata] = average;
+  }
+
+  /* Write meta data for vtk */
+  snprintf (vtk_data.description, BUFSIZ, "Num. Solution");
+  vtk_data.type = T8_VTK_SCALAR;
+  vtk_data.data = dof_array;
+  /* Write filename */
+  snprintf (fileprefix, BUFSIZ, "t8dg_advection_%03i", problem->vtk_count);
+  /* Write vtk files */
+  if (t8_forest_vtk_write_file (problem->forest, fileprefix, 1, 1, 1, 1, 0, 1, &vtk_data)) {
+    t8_debugf ("[Advect] Wrote pvtu to files %s\n", fileprefix);
+  }
+  else {
+    t8_errorf ("[Advect] Error writing to files %s\n", fileprefix);
+  }
+  /* clean-up */
+  T8_FREE (dof_array);
+  problem->vtk_count++;
 }

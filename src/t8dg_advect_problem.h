@@ -28,6 +28,8 @@ int                 t8dg_advect_problem_endtime_reached (t8dg_linear_advection_p
 
 void                t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem);
 
+void                t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem);
+
 #if 0
 t8dg_mortar_t      *t8dg_advect_element_get_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface);
 

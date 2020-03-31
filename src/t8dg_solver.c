@@ -25,14 +25,19 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
   t8dg_advect_problem_init_elements_linear_1D (problem);
 
   /*Current output */
+  t8_global_productionf ("Start Dof values:\n");
   t8dg_advect_problem_printdof (problem);
+
+  t8dg_advect_write_vtk (problem);
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
     t8dg_advect_runge_kutta_step (problem);
+    t8dg_advect_write_vtk (problem);
   }
 
   /*Current output */
+  t8_global_productionf ("End Dof values:\n");
   t8dg_advect_problem_printdof (problem);
 
   t8dg_advect_problem_destroy (&problem);

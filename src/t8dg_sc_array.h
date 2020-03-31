@@ -33,6 +33,7 @@ void                t8dg_sc_array_block_double_zaxpy (sc_array_t * z, double a, 
  *
  * \param [in] array        		allocated sc_array with elem_size % sizeof(double) == 0
 */
+void                t8dg_sc_array_block_double_debug_print (sc_array_t * array);
 void                t8dg_sc_array_block_double_print (sc_array_t * array);
 
 /** Swaps 2 sc_arrays
