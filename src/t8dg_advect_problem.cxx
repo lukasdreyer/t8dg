@@ -11,6 +11,7 @@
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <t8_forest_vtk.h>
 #include <t8_vtk.h>
+#include <t8_forest/t8_forest_ghost.h>
 
 #include <sc_containers.h>
 
@@ -150,9 +151,13 @@ t8dg_advect_element_set_face_mortar_both (const t8dg_linear_advection_problem_t 
   int                 iface;
 
   t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 0);
-  t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+  if (idata < t8_forest_get_num_element (problem->forest)) {
+    t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+  }
   t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 1);
-  t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+  if (idata < t8_forest_get_num_element (problem->forest)) {
+    t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
+  }
 }
 
 static void
@@ -428,8 +433,12 @@ t8dg_advect_problem_mortar_destroy (t8dg_linear_advection_problem_t * problem)
       for (iface = 0; iface < num_faces; iface++) {
         mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
         if (mortar != NULL) {
-          t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_minus, mortar->iface_minus, NULL);
-          t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_plus, mortar->iface_plus, NULL);
+          if (mortar->elem_idata_minus < t8_forest_get_num_element (problem->forest)) {
+            t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_minus, mortar->iface_minus, NULL);
+          }
+          if (mortar->elem_idata_plus < t8_forest_get_num_element (problem->forest)) {
+            t8dg_advect_element_set_face_mortar (problem, mortar->elem_idata_plus, mortar->iface_plus, NULL);
+          }
           t8dg_mortar_destroy (&mortar);
         }
       }
@@ -744,8 +753,6 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
 static void
 t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem, sc_array_t * element_dof_change)
 {
-  /*TODO: Ghost exchange! */
-
   sc_array_t         *element_dof_flux;
   element_dof_flux = t8dg_sc_array_duplicate (element_dof_change);
 
@@ -754,8 +761,8 @@ t8dg_advect_calculate_time_derivative (t8dg_linear_advection_problem_t * problem
   t8_debugf ("A u\n");
   t8dg_sc_array_block_double_debug_print (element_dof_change);
 
-  /*add stiffness */
-  /*subtract fluxes */
+  /*Ghost exchange */
+  t8_forest_ghost_exchange_data (problem->forest, problem->element_dof_values);
 
   t8dg_advect_problem_fill_mortars (problem);
   t8dg_advect_problem_apply_boundary_integrals (problem, element_dof_flux);
