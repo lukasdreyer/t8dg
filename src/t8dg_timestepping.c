@@ -47,6 +47,7 @@ t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk
   *prk_c = *prk_a;
 }
 
+#if 0
 void
 t8dg_rungekutta_timestep (int order, const double t, const double delta_t, const t8dg_time_matrix_application f_matrix,
                           sc_array_t * dest, sc_array_t * src, const void *application_data)
@@ -99,7 +100,7 @@ t8dg_rungekutta_timestep (int order, const double t, const double delta_t, const
   for (i = 0; i < order - 1; i++) {
     /*calculate the y-value for which the derivative needs to be evaluated
      * since a has only values on the first minor diagonal, only the k from the step before and the original y is needed*/
-    t8dg_sc_array_block_double_zaxpy (y_step, rk_a[i] * delta_t, k_step, y_start);
+    t8dg_sc_array_block_double_axpyz (rk_a[i] * delta_t, k_step, y_start, y_step);
     /* calculate the derivative at the step time and y value */
     f_matrix (k_step, y_step, t + rk_c[i] * delta_t, application_data);
     /*add weighted summand to result */
@@ -109,3 +110,4 @@ t8dg_rungekutta_timestep (int order, const double t, const double delta_t, const
   sc_array_destroy (k_step);
   sc_array_destroy (y_step);
 }
+#endif

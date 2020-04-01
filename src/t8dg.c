@@ -18,7 +18,7 @@ double
 u_analytical (const double x[DIM3], double t)
 {
 //  return 1;
-  return (x[0] > .25 && x[0] < .75) ? 1.0 : 0.0;
+//  return (x[0] > .25 && x[0] < .75) ? 1.0 : 0.0;
   return 0.5 - fabs (0.5 - t8_vec_norm (x));
 }
 

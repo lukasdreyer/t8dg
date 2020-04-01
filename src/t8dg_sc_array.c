@@ -4,11 +4,37 @@
  *  Created on: Mar 14, 2020
  *      Author: lukas
  */
-#include<t8.h>
+#include "t8dg.h"
 #include <sc_containers.h>
 
+void
+t8dg_sc_array_block_double_copy_subarray_into_array (const sc_array_t * src, sc_array_t * dest)
+{
+  T8DG_ASSERT (src->elem_size == dest->elem_size);
+  T8DG_ASSERT (src->elem_count <= dest->elem_count);
+  /*memcpy takes destination as first argument, src as second. count*size many bits of src need to be copied */
+  memcpy (dest->array, src->array, src->elem_count * src->elem_size);
+}
+
+void
+t8dg_sc_array_block_double_copy_array_into_subarray (const sc_array_t * src, sc_array_t * dest)
+{
+  T8DG_ASSERT (src->elem_size == dest->elem_size);
+  T8DG_ASSERT (src->elem_count >= dest->elem_count);
+  /*memcpy takes destination as first argument, src as second. count*size many bits of dest need to be copied */
+  memcpy (dest->array, src->array, dest->elem_count * dest->elem_size);
+}
+
 sc_array_t         *
-t8dg_sc_array_new_double_block_view (sc_array_t * src, t8_locidx_t idata)
+t8dg_sc_array_duplicate (sc_array_t * src)
+{
+  sc_array_t         *dest;
+  dest = sc_array_new_count (src->elem_size, src->elem_count);
+  return dest;
+}
+
+sc_array_t         *
+t8dg_sc_array_new_block_double_view (sc_array_t * src, t8_locidx_t idata)
 {
   return sc_array_new_data (t8_sc_array_index_locidx (src, idata), sizeof (double), src->elem_size / sizeof (double));
 }
@@ -24,10 +50,10 @@ t8dg_sc_array_clone (sc_array_t * src)
 void
 t8dg_sc_array_block_double_axpy (const double a, const sc_array_t * x, sc_array_t * y)
 {
-  T8_ASSERT (x != NULL && y != NULL);
-  T8_ASSERT (x->array != NULL && y->array != NULL);
-  T8_ASSERT (x->elem_size % sizeof (double) == 0 && y->elem_size % sizeof (double) == 0);
-  T8_ASSERT (x->elem_count * x->elem_size == y->elem_count * y->elem_size);
+  T8DG_ASSERT (x != NULL && y != NULL);
+  T8DG_ASSERT (x->array != NULL && y->array != NULL);
+  T8DG_ASSERT (x->elem_size % sizeof (double) == 0 && y->elem_size % sizeof (double) == 0);
+  T8DG_ASSERT (x->elem_count * x->elem_size == y->elem_count * y->elem_size);
   double             *x_double, *y_double;
   int                 double_count, i;
 
@@ -42,13 +68,13 @@ t8dg_sc_array_block_double_axpy (const double a, const sc_array_t * x, sc_array_
 }
 
 void
-t8dg_sc_array_block_double_zaxpy (sc_array_t * z, double a, const sc_array_t * x, const sc_array_t * y)
+t8dg_sc_array_block_double_axpyz (double a, const sc_array_t * x, const sc_array_t * y, sc_array_t * z)
 {
-  T8_ASSERT (z != NULL && x != NULL && y != NULL);
-  T8_ASSERT (z->array != NULL && x->array != NULL && y->array != NULL);
-  T8_ASSERT (x->elem_size % sizeof (double) == 0 && y->elem_size % sizeof (double) == 0 && z->elem_size % sizeof (double) == 0);
-  T8_ASSERT (x->elem_count * x->elem_size == y->elem_count * y->elem_size);
-  T8_ASSERT (x->elem_count * x->elem_size == z->elem_count * z->elem_size);
+  T8DG_ASSERT (z != NULL && x != NULL && y != NULL);
+  T8DG_ASSERT (z->array != NULL && x->array != NULL && y->array != NULL);
+  T8DG_ASSERT (x->elem_size % sizeof (double) == 0 && y->elem_size % sizeof (double) == 0 && z->elem_size % sizeof (double) == 0);
+  T8DG_ASSERT (x->elem_count * x->elem_size == y->elem_count * y->elem_size);
+  T8DG_ASSERT (x->elem_count * x->elem_size == z->elem_count * z->elem_size);
 
   /*View array as double array */
   double             *x_double, *y_double, *z_double;
@@ -104,4 +130,17 @@ t8dg_sc_array_block_double_print (sc_array_t * array)
     printf ("\n");
   }
   printf ("\n");
+}
+
+void
+t8dg_sc_array_block_double_set_zero (sc_array_t * array)
+{
+  T8DG_ASSERT (array->elem_size % sizeof (double) == 0);
+  size_t              number_of_doubles = array->elem_size / sizeof (double) * array->elem_count;
+  size_t              idouble;
+  double             *array_double;
+  array_double = (double *) array->array;
+  for (idouble = 0; idouble < number_of_doubles; idouble++) {
+    array_double[idouble] = 0;
+  }
 }
