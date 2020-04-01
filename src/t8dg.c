@@ -56,13 +56,14 @@ main (int argc, char *argv[])
   opt = sc_options_new (argv[0]);
 
   sc_options_add_switch (opt, 'h', "help", &helpme, "Display a short help message.");
-  sc_options_add_int (opt, 'l', "level", &level, 0, "The uniform refinement level of the mesh.");
-  sc_options_add_int (opt, 'L', "Number of 1D LGL points", &number_LGL_points, 2, "The number of LGL basis points/basisfunctions in 1D.");
-  sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity.");
-  sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0, "The CFL number used to determine the timestep.");
-  sc_options_add_int (opt, 'o', "Time order", &time_order, 2, "The order used for the runge Kutta timestepping");
-  sc_options_add_double (opt, 't', "start time", &start_time, 1.0, "The start time of the solve");
-  sc_options_add_double (opt, 'T', "end time", &end_time, 2.0, "The end time of the solve");
+  sc_options_add_int (opt, 'l', "level", &level, 3, "The uniform refinement level of the mesh. Default: 3");
+  sc_options_add_int (opt, 'L', "LGL", &number_LGL_points, 2, "The number of LGL basis points/basisfunctions in 1D. Default: 2");
+  sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
+  sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0, "The CFL number used to determine the timestep. Default: 1.0");
+  sc_options_add_int (opt, 'o', "time_order", &time_order, 1,
+                      "The order used for the runge Kutta timestepping (1<= order <=4). Default: 1");
+  sc_options_add_double (opt, 't', "start_time", &start_time, 0.0, "The start time of the solve. Default: 0.0");
+  sc_options_add_double (opt, 'T', "end_time", &end_time, 1.0, "The end time of the solve. Default: 1.0");
 
   parsed = sc_options_parse (t8_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (helpme) {

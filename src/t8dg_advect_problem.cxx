@@ -250,9 +250,28 @@ t8dg_element_set_precalculated_values_1D_linear (t8dg_linear_advection_problem_t
 }
 
 t8dg_linear_advection_problem_t *
-t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial, double flow_speed,
-                                    int level, int number_LGL_points,
-                                    double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+t8dg_advect_problem_init_linear_geometry_1D (t8_cmesh_t cmesh,
+                                             t8dg_scalar_function_3d_time_fn u_initial,
+                                             double flow_speed,
+                                             int level,
+                                             int number_LGL_points,
+                                             double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+{
+
+  t8dg_coarse_geometry_3D_t *coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
+  return t8dg_advect_problem_init (cmesh, coarse_geometry, 1, u_initial, flow_speed, level, number_LGL_points, start_time, end_time, cfl,
+                                   time_order, comm);
+
+}
+
+t8dg_linear_advection_problem_t *
+t8dg_advect_problem_init (t8_cmesh_t cmesh,
+                          t8dg_coarse_geometry_3D_t * coarse_geometry,
+                          int dim,
+                          t8dg_scalar_function_3d_time_fn u_initial,
+                          double flow_speed,
+                          int level,
+                          int number_LGL_points, double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
@@ -261,7 +280,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   /* allocate problem */
   problem = T8_ALLOC (t8dg_linear_advection_problem_t, 1);
 
-  problem->dim = 1;
+  problem->dim = dim;
   problem->uniform_refinement_level = level;
   problem->comm = comm;
 
@@ -272,26 +291,29 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   problem->T = end_time;
   problem->t = start_time;
   problem->cfl = cfl;
-  problem->delta_t = cfl * 0.1 * pow (2, -level);       /* TODO: make dependent on cfl number and element diameter */
+  problem->delta_t = cfl * pow (2, -level) / flow_speed;        /* TODO: make dependent on cfl number and element diameter */
 
   problem->vtk_count = 0;
 
   t8_debugf ("start LGL construction\n");
   /* these allocate memory: */
   t8dg_LGL_quadrature_and_functionbasis_new_1D (&problem->quadrature, &problem->functionbasis, number_LGL_points);
-  problem->coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
+  problem->coarse_geometry = coarse_geometry;
 
-  problem->numerical_flux_fn = t8dg_upwind_flux_1D;
-
+  if (dim == 1) {
+    problem->numerical_flux_fn = t8dg_upwind_flux_1D;
+  }
+  else {
+    T8_ASSERT (0);
+  }
   default_scheme = t8_scheme_new_default_cxx ();
   t8_debugf ("create uniform forest\n");
 
   problem->forest = t8_forest_new_uniform (cmesh, default_scheme, level, 1, comm);
 
-  num_elements = t8_forest_get_num_element (problem->forest);
-
   t8_debugf ("start creating sc_arrays\n");
 
+  num_elements = t8_forest_get_num_element (problem->forest);
   /*coarse geometry data for each local element */
   problem->element_fine_to_coarse_geometry_data = sc_array_new_count (sizeof (t8dg_element_fine_to_coarse_geometry_data_t), num_elements);
 
@@ -302,16 +324,17 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
   for (iface = 0; iface < t8dg_LGL_quadrature_get_num_faces (problem->quadrature); iface++) {
     problem->face_trafo_quad_weight[iface] =
       sc_array_new_count (sizeof (double) * t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface), num_elements);
+
     /*for each element and face a pointer to a mortar */
     problem->face_mortar[iface] = sc_array_new_count (sizeof (t8dg_mortar_t *), num_elements);
 
     problem->face_normal_vectors[iface] =
-      sc_array_new_count (sizeof (double) * 3 * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature), num_elements);
+      sc_array_new_count (sizeof (double) * DIM3 * t8dg_LGL_quadrature_get_num_face_vertices (problem->quadrature, iface), num_elements);
 
   }
 
   problem->element_transformed_gradient_tangential_vectors =
-    sc_array_new_count (sizeof (double) * 3 * problem->dim * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature),
+    sc_array_new_count (sizeof (double) * DIM3 * problem->dim * t8dg_LGL_quadrature_get_num_element_vertices (problem->quadrature),
                         num_elements);
 
   /*currently no ghost, since serial, but generally the dof_values need to be ghosted. */
@@ -331,7 +354,7 @@ t8dg_advect_problem_init_linear_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_ti
 }
 
 void
-t8dg_advect_problem_init_elements_linear_1D (t8dg_linear_advection_problem_t * problem)
+t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem)
 {
   t8_locidx_t         itree, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
@@ -364,7 +387,12 @@ t8dg_advect_problem_init_elements_linear_1D (t8dg_linear_advection_problem_t * p
 
       t8dg_element_set_dofs_initial (problem, idata, tree_vertices);
 
-      t8dg_element_set_precalculated_values_1D_linear (problem, idata, tree_vertices);
+      if (problem->dim == 1) {
+        t8dg_element_set_precalculated_values_1D_linear (problem, idata, tree_vertices);
+      }
+      else {
+        SC_ABORT ("dim > 1 not yet implemented for precalculated values");
+      }
       for (iface = 0; iface < MAX_FACES; iface++) {
         t8dg_advect_element_set_face_mortar (problem, idata, iface, NULL);
       }
@@ -813,6 +841,7 @@ t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
     for (idof = 0; idof < t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis); idof++) {
       average += dof_values[idof];
     }
+    average /= t8dg_LGL_functionbasis_get_num_dof (problem->functionbasis);
     dof_array[idata] = average;
   }
 

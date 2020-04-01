@@ -23,7 +23,7 @@ typedef double      (*t8dg_linear_flux_velocity_3D_time_fn) (const double flux_v
 /** struct used to save the calculated numerical fluxes at quadrature points*/
 typedef struct t8dg_mortar
 {
-  int                 number_face_quadrature_points;    /**< The number of face quadrature points*/
+  int                 number_face_quadrature_points;      /**< The number of face quadrature points*/
   t8_locidx_t         elem_idata_minus;                   /**< Local index of the element corresponding to u_minus */
   t8_locidx_t         elem_idata_plus;                    /**< Local index of the element corresponding to u_plus */
 
