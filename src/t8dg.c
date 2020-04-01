@@ -60,8 +60,8 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'L', "LGL", &number_LGL_points, 2, "The number of LGL basis points/basisfunctions in 1D. Default: 2");
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
   sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0, "The CFL number used to determine the timestep. Default: 1.0");
-  sc_options_add_int (opt, 'o', "time_order", &time_order, 1,
-                      "The order used for the runge Kutta timestepping (1<= order <=4). Default: 1");
+  sc_options_add_int (opt, 'o', "time_order", &time_order, 2,
+                      "The order used for the runge Kutta timestepping (1<= order <=4). Default: 2");
   sc_options_add_double (opt, 't', "start_time", &start_time, 0.0, "The start time of the solve. Default: 0.0");
   sc_options_add_double (opt, 'T', "end_time", &end_time, 1.0, "The end time of the solve. Default: 1.0");
 
