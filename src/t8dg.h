@@ -10,6 +10,7 @@
 #define SRC_T8DG_H_
 
 #include <t8.h>
+#include <sc.h>
 
 /** This macro opens the extern "C" brace needed in C headers.
  * It needs to be followed by a semicolon to look like a statement. */
@@ -26,8 +27,12 @@ T8DG_EXTERN_C_BEGIN ();
 #define T8DG_ALLOC T8_ALLOC
 #define T8DG_FREE T8_FREE
 
+#define T8DG_CHECK_ABORT(q,s) SC_CHECK_ABORT(q,s)
+
 #define DIM3 3
 #define MAX_FACES 2
+#define MAX_SUBFACES 1
+#define MAX_SUBELEMENTS 2
 
 #if 0
 typedef t8_locidx_t t8dg_locidx_t;
