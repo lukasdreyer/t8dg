@@ -28,6 +28,7 @@ T8DG_EXTERN_C_BEGIN ();
 #define T8DG_FREE T8_FREE
 
 #define T8DG_CHECK_ABORT(q,s) SC_CHECK_ABORT(q,s)
+#define T8DG_ABORT SC_ABORT
 
 #define DIM3 3
 #define MAX_FACES 2
@@ -41,10 +42,12 @@ typedef double      (*t8dg_scalar_function_3d_fn) (const double x[DIM3]);
 /**A timedependent scalar function f:R^3 x R^+ -> R*/
 typedef double      (*t8dg_scalar_function_3d_time_fn) (const double x[DIM3], const double t);
 
+#if 0
 /** used to implement matrices, dest = A * src*/
 typedef void        (*t8dg_matrix_application) (sc_array_t * dest, const sc_array_t * src, const void *application_data);
 /** used to implement time - dependent matrices, dest = A * src*/
 typedef void        (*t8dg_time_matrix_application) (sc_array_t * dest, const sc_array_t * src, double t, const void *application_data);
+#endif
 
 /* call this at the end of a header file to match T8_EXTERN_C_BEGIN (). */
 T8DG_EXTERN_C_END ();

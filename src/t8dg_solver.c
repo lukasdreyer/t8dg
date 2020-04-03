@@ -33,7 +33,8 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
-    t8dg_advect_runge_kutta_step (problem);
+    t8dg_timestepping_runge_kutta_step (t8dg_advect_time_derivative, t8dg_advect_get_time_data (problem),
+                                        t8dg_advect_get_dof_sc_array_pointer (problem), problem);
     t8dg_advect_write_vtk (problem);
   }
 

@@ -20,14 +20,14 @@ t8dg_quadrature_new (t8dg_vertexset_t * vertexset)
 
   quadrature->dim = t8dg_vertexset_get_dim (vertexset);
   quadrature->vertices = vertexset;
-  t8dg_vertexset_ref (vertexset);
+  t8dg_vertexset_ref(vertexset);
   quadrature->weights = sc_array_new_count (sizeof (double), t8dg_vertexset_get_num_element_vertices (vertexset));
 
   double             *weights;
   weights = (double *) t8_sc_array_index_locidx (quadrature->weights, 0);
 
   /* sum of element weights = 1 = Vol([0,1]) */
-  switch (t8dg_vertexset_get_num_element_vertices (vertexset)) {
+  switch (t8dg_vertexset_get_num_element_vertices(vertexset)) {
   case (1):
     weights[0] = 1;
     break;
@@ -84,7 +84,7 @@ t8dg_quad_idx_t
 t8dg_quadrature_get_num_face_vertices (const t8dg_quadrature_t * quadrature, const int iface)
 {
   T8DG_ASSERT (quadrature != NULL);
-  return t8dg_vertexset_get_num_face_vertices (quadrature->vertices, iface);
+  return t8dg_vertexset_get_num_face_vertices(quadrature->vertices,iface);
 }
 
 void
@@ -104,10 +104,10 @@ t8dg_quadrature_get_element_weight (const t8dg_quadrature_t * quadrature, const 
 void
 t8dg_quadrature_get_face_vertex (double vertex[3], const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad)
 {
-  T8DG_CHECK_ABORT (t8dg_vertexset_get_type (quadrature->vertices) == T8DG_LGL, "Not yet implemented");
+  T8DG_CHECK_ABORT(t8dg_vertexset_get_type(quadrature->vertices) == T8DG_LGL,"Not yet implemented");
   T8DG_ASSERT (quadrature != NULL);
   t8dg_quad_idx_t     ielemquad;
-  ielemquad = t8dg_vertexset_get_LGL_facevertex_element_index (quadrature->vertices, iface, ifacequad);
+  ielemquad = t8dg_vertexset_get_LGL_facevertex_element_index(quadrature->vertices, iface, ifacequad);
   t8dg_vertexset_get_vertex (vertex, quadrature->vertices, ielemquad);
 }
 
@@ -119,13 +119,13 @@ t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * quadrature, const int
 }
 
 t8dg_vertexset_type_t
-t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature)
+t8dg_quadrature_get_type(const t8dg_quadrature_t *quadrature)
 {
-  return t8dg_vertexset_get_type (quadrature->vertices);
+  return t8dg_vertexset_get_type(quadrature->vertices);
 }
 
-t8dg_vertexset_t   *
-t8dg_quadrature_get_vertexset (const t8dg_quadrature_t * quadrature)
+t8dg_vertexset_t *
+t8dg_quadrature_get_vertexset(const t8dg_quadrature_t *quadrature)
 {
   return quadrature->vertices;
 }

@@ -2,6 +2,8 @@
 #include "t8dg_functionbasis.h"
 #include "t8dg_vertexset.h"
 
+
+
 /** The functionbasis provides the the directional derivative_matrix */
 struct t8dg_functionbasis
 {
@@ -19,9 +21,9 @@ t8dg_functionbasis_new_Lagrange (t8dg_vertexset_t * vertexset)
   t8dg_functionbasis_t *functionbasis = T8DG_ALLOC (t8dg_functionbasis_t, 1);
   t8dg_vertexset_ref (vertexset);
   functionbasis->vertexset = vertexset;
-  functionbasis->number_of_dof = t8dg_vertexset_get_num_element_vertices (vertexset);
+  functionbasis->number_of_dof = t8dg_vertexset_get_num_element_vertices(vertexset);
   functionbasis->type = T8DG_LAGRANGE_LGL;
-  functionbasis->dim = t8dg_vertexset_get_dim (vertexset);
+  functionbasis->dim = t8dg_vertexset_get_dim(vertexset);
   return functionbasis;
 }
 
@@ -88,7 +90,7 @@ t8dg_functionbasis_get_type (const t8dg_functionbasis_t * functionbasis)
 }
 
 int
-t8dg_functionbasis_get_dim (const t8dg_functionbasis_t * functionbasis)
+t8dg_functionbasis_get_dim(const t8dg_functionbasis_t *functionbasis)
 {
   return functionbasis->dim;
 }
