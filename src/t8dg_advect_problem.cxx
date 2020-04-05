@@ -169,10 +169,23 @@ t8dg_advect_get_time_data (t8dg_linear_advection_problem_t * problem)
   return problem->time_data;
 }
 
-sc_array_t        **
-t8dg_advect_get_dof_sc_array_pointer (t8dg_linear_advection_problem_t * problem)
+int
+t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem)
 {
-  return &(problem->element_dof_values);
+  return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
+}
+
+void
+t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
+{
+  t8dg_sc_array_block_double_print (problem->element_dof_values);
+}
+
+void
+t8dg_advect_problem_advance_timestep (t8dg_linear_advection_problem_t * problem)
+{
+  t8dg_timestepping_runge_kutta_step (t8dg_advect_time_derivative, t8dg_advect_get_time_data (problem),
+                                      &(problem->element_dof_values), problem);
 }
 
 static void
@@ -491,20 +504,16 @@ t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem)
     return;
   }
 
-  t8_debugf ("test1\n");
   t8dg_linear_flux_destroy (&(problem->description.flux));
   t8dg_timestepping_data_destroy (&(problem->time_data));
-  t8_debugf ("test2\n");
 
   t8dg_linear_advection_problem_local_precomputed_values_destroy (&(problem->local_values));
   t8dg_advect_problem_mortars_destroy (problem);
   sc_array_destroy (problem->element_dof_values);
-  t8_debugf ("test3\n");
 
   /* Free the arrays */
   t8dg_global_precomputed_values_destroy (&problem->global_values);
   t8dg_coarse_geometry_destroy (&(problem->coarse_geometry));
-  t8_debugf ("test4\n");
 
   /* Unref the forest */
   t8_forest_unref (&problem->forest);   /*unrefs coarse mesh as well */
@@ -830,18 +839,6 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   /*dudt -= Bu */
   /*dudt = M^-1 dudt */
   /*resize dof values to only internal values */
-}
-
-int
-t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem)
-{
-  return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
-}
-
-void
-t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
-{
-  t8dg_sc_array_block_double_print (problem->element_dof_values);
 }
 
 void
