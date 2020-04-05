@@ -83,6 +83,27 @@ t8dg_local_precomputed_values_fine_to_coarse_geometry (const double refined_elem
 }
 
 void
+t8dg_local_precomputed_values_copy_element_values (t8dg_local_precomputed_values_t * incoming_values,
+                                                   t8_locidx_t incoming_idata,
+                                                   t8dg_local_precomputed_values_t * outgoing_values, t8_locidx_t outgoing_idata)
+{
+  int                 iface;
+  t8dg_sc_array_copy_only_at_indices (incoming_values->element_trafo_quad_weight, incoming_idata,
+                                      outgoing_values->element_trafo_quad_weight, outgoing_idata);
+
+  t8dg_sc_array_copy_only_at_indices (incoming_values->element_transformed_gradient_tangential_vectors, incoming_idata,
+                                      outgoing_values->element_transformed_gradient_tangential_vectors, outgoing_idata);
+
+  for (iface = 0; iface < incoming_values->num_faces; iface++) {
+    t8dg_sc_array_copy_only_at_indices (incoming_values->face_trafo_quad_weight[iface], incoming_idata,
+                                        outgoing_values->face_trafo_quad_weight[iface], outgoing_idata);
+
+    t8dg_sc_array_copy_only_at_indices (incoming_values->face_normal_vectors[iface], incoming_idata,
+                                        outgoing_values->face_normal_vectors[iface], outgoing_idata);
+  }
+}
+
+void
 t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
                                            t8_forest_t forest, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
                                            t8_locidx_t ielement, t8dg_quadrature_t * quadrature)

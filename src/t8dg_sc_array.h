@@ -44,6 +44,9 @@ void                t8dg_sc_array_block_double_print (sc_array_t * array);
  * \param [in, out] parray2        	Pointer to the second sc_array
 */
 
+void                t8dg_sc_array_copy_only_at_indices (sc_array_t * incoming_array, t8_locidx_t incoming_idata,
+                                                        sc_array_t * outgoing_array, t8_locidx_t outgoing_idata);
+
 void                t8dg_sc_array_swap (sc_array_t ** parray1, sc_array_t ** parray2);
 
 sc_array_t         *t8dg_sc_array_clone (sc_array_t * src);

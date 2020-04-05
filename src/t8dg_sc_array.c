@@ -4,28 +4,19 @@
  *  Created on: Mar 14, 2020
  *      Author: lukas
  */
+
+#include <t8.h>
 #include "t8dg.h"
 #include <sc_containers.h>
 
-#if 0
 void
-t8dg_sc_array_block_double_copy_subarray_into_array (const sc_array_t * src, sc_array_t * dest)
+t8dg_sc_array_copy_only_at_indices (sc_array_t * incoming_array, t8_locidx_t incoming_idata,
+                                    sc_array_t * outgoing_array, t8_locidx_t outgoing_idata)
 {
-  T8DG_ASSERT (src->elem_size == dest->elem_size);
-  T8DG_ASSERT (src->elem_count <= dest->elem_count);
-  /*memcpy takes destination as first argument, src as second. count*size many bits of src need to be copied */
-  memcpy (dest->array, src->array, src->elem_count * src->elem_size);
+  T8DG_ASSERT (incoming_array->elem_size == outgoing_array->elem_size);
+  memcpy (t8_sc_array_index_locidx (outgoing_array, outgoing_idata),
+          t8_sc_array_index_locidx (incoming_array, incoming_idata), incoming_array->elem_size);
 }
-
-void
-t8dg_sc_array_block_double_copy_array_into_subarray (const sc_array_t * src, sc_array_t * dest)
-{
-  T8DG_ASSERT (src->elem_size == dest->elem_size);
-  T8DG_ASSERT (src->elem_count >= dest->elem_count);
-  /*memcpy takes destination as first argument, src as second. count*size many bits of dest need to be copied */
-  memcpy (dest->array, src->array, dest->elem_count * dest->elem_size);
-}
-#endif
 
 sc_array_t         *
 t8dg_sc_array_duplicate (sc_array_t * src)

@@ -16,17 +16,13 @@
 
 typedef struct t8dg_local_precomputed_values t8dg_local_precomputed_values_t;
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
-                                            t8_forest_t forest, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
-                                            t8_locidx_t ielement, t8dg_quadrature_t * quadrature);
+void                t8dg_local_precomputed_values_copy_element_values
+  (t8dg_local_precomputed_values_t * incoming_values, t8_locidx_t incoming_idata,
+   t8dg_local_precomputed_values_t * outgoing_values, t8_locidx_t outgoing_idata);
+
+void                t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
+                                                               t8_forest_t forest, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
+                                                               t8_locidx_t ielement, t8dg_quadrature_t * quadrature);
 
 t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems);
 
