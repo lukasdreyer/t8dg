@@ -284,15 +284,14 @@ t8dg_advect_problem_local_precomputed_values_set_element (t8dg_linear_advection_
 }
 
 t8dg_linear_advection_problem_local_precomputed_values *
-t8dg_linear_advection_problem_local_precomputed_values_new (t8dg_quadrature_t * quadrature,
-                                                            t8dg_functionbasis_t * functionbasis, t8_locidx_t num_local_elems, int dim)
+t8dg_linear_advection_problem_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems)
 {
   int                 iface;
   t8dg_linear_advection_problem_local_precomputed_values *values = T8DG_ALLOC (t8dg_linear_advection_problem_local_precomputed_values, 1);
 
   values->num_faces = t8dg_quadrature_get_num_faces (quadrature);
   values->num_elem_quad = t8dg_quadrature_get_num_element_vertices (quadrature);
-  values->dim = t8dg_functionbasis_get_dim (functionbasis);
+  values->dim = t8dg_quadrature_get_dim (quadrature);
 
   /*for each element an array of double values */
   values->element_trafo_quad_weight =
@@ -308,7 +307,7 @@ t8dg_linear_advection_problem_local_precomputed_values_new (t8dg_quadrature_t * 
   }
 
   values->element_transformed_gradient_tangential_vectors =
-    sc_array_new_count (sizeof (double) * DIM3 * dim * values->num_elem_quad, num_local_elems);
+    sc_array_new_count (sizeof (double) * DIM3 * values->dim * values->num_elem_quad, num_local_elems);
 
   return values;
 }
@@ -389,8 +388,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   num_elements = t8_forest_get_num_element (problem->forest);
 
-  problem->local_values = t8dg_linear_advection_problem_local_precomputed_values_new (quadrature, functionbasis,
-                                                                                      num_elements, problem->dim);
+  problem->local_values = t8dg_linear_advection_problem_local_precomputed_values_new (quadrature, num_elements);
   problem->local_values_adapt = NULL;
 
   /*currently no ghost, since serial, but generally the dof_values need to be ghosted. */

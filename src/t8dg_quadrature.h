@@ -91,4 +91,6 @@ t8dg_vertexset_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadra
 
 t8dg_vertexset_t   *t8dg_quadrature_get_vertexset (const t8dg_quadrature_t * quadrature);
 
+int                 t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature);
+
 #endif /* SRC_T8DG_QUADRATURE_H_ */

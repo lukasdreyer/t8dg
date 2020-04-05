@@ -129,3 +129,9 @@ t8dg_quadrature_get_vertexset (const t8dg_quadrature_t * quadrature)
 {
   return quadrature->vertices;
 }
+
+int
+t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature)
+{
+  return quadrature->dim;
+}
