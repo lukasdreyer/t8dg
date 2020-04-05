@@ -27,9 +27,31 @@ void                t8dg_global_precomputed_values_transform_face_quad_to_elemen
                                                                                        const sc_array_t * face_quad_array,
                                                                                        sc_array_t * element_dof_array);
 
-t8dg_quadrature_t  *t8dg_global_precomputed_values_get_quadrature (t8dg_global_precomputed_values_t * values);
-t8dg_functionbasis_t *t8dg_global_precomputed_values_get_functionbasis (t8dg_global_precomputed_values_t * values);
+void                t8dg_global_precomputed_values_transform_element_dof_to_element_quad (const t8dg_global_precomputed_values_t * values,
+                                                                                          sc_array_t * element_dof_array,
+                                                                                          sc_array_t * element_quad_array);
 
-int                 t8dg_global_precomputed_values_get_num_faces (t8dg_global_precomputed_values_t * values);
+void                t8dg_global_precomputed_values_transform_element_quad_to_element_dof (const t8dg_global_precomputed_values_t * values,
+                                                                                          sc_array_t * element_quad_array,
+                                                                                          sc_array_t * element_dof_array);
+
+void
+ t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (const t8dg_global_precomputed_values_t * global_values,
+                                                                           sc_array_t * derivative_dof_values, sc_array_t * dof_values);
+
+int                 t8dg_global_precomputed_values_get_num_dof (const t8dg_global_precomputed_values_t * values);
+
+int                 t8dg_global_precomputed_values_get_num_faces (const t8dg_global_precomputed_values_t * values);
+
+t8dg_quad_idx_t     t8dg_global_precomputed_values_get_num_elem_quad (const t8dg_global_precomputed_values_t * values);
+
+//t8dg_quad_idx_t
+//t8dg_global_precomputed_values_get_num_face_quad (t8dg_global_precomputed_values_t * values);
+
+t8dg_functionbasis_t *t8dg_global_precomputed_values_get_functionbasis (const t8dg_global_precomputed_values_t * values);
+
+t8dg_quadrature_t  *t8dg_global_precomputed_values_get_quadrature (const t8dg_global_precomputed_values_t * values);
+
+int                 t8dg_global_precomputed_values_get_dim (const t8dg_global_precomputed_values_t * values);
 
 #endif /* SRC_T8DG_GLOBAL_PRECOMPUTED_VALUES_H_ */

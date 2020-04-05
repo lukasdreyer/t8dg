@@ -7,13 +7,12 @@
 
 /** @file t8dg_geometry.h */
 
-#ifndef SRC_T8DG_GEOMETRY_H_
-#define SRC_T8DG_GEOMETRY_H_
+#ifndef SRC_T8DG_COARSE_GEOMETRY_H_
+#define SRC_T8DG_COARSE_GEOMETRY_H_
 
 #include <sc_containers.h>
 #include <t8.h>
 #include <t8_forest.h>
-#include <t8_element.h>
 
 #include "t8dg.h"
 #include "t8dg_square_3D_matrix.h"
@@ -31,24 +30,18 @@ typedef enum t8dg_coarse_geometry_data
 
 /** F_CE and DF_CE for the coarse geometry
  * TODO: How to chose unused dimensions so that DF_CE can be used to calculate the differential on the submanifold*/
-typedef struct t8dg_coarse_geometry_3D
+typedef struct t8dg_coarse_geometry
 {
   t8dg_jacobian_fn_3D jacobian; /**< Jacobian function*/
   t8dg_geometry_fn_3D geometry; /**< Geometry function*/
   t8dg_coarse_geometry_data_t data_type;
-} t8dg_coarse_geometry_3D_t;
+} t8dg_coarse_geometry_t;
 
 /*TODO: Document In and Output*/
 
 /**Create a new coarse geometry for the linear 1D case*/
-t8dg_coarse_geometry_3D_t *t8dg_coarse_geometry_new_1D_linear ();
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Destroy a coarse geometry*/
-void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_3D_t ** pgeometry);
+void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
 
-/** Apply the transformation from fine reference element to the subset of the coarse reference element to a vertex*/
-void                t8dg_fine_to_coarse_geometry (const double refined_element_vertex[DIM3],
-                                                  double coarse_element_vertex[DIM3],
-                                                  t8_eclass_scheme_c * scheme, const t8_element_t * element);
-/*TODO: eclass scheme as const not possible since 'passing as ‘this’ argument discards qualifiers' */
-
-#endif /* SRC_T8DG_GEOMETRY_H_ */
+#endif /* SRC_T8DG_COARSE_GEOMETRY_H_ */

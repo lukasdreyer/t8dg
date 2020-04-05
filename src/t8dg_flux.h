@@ -9,10 +9,13 @@
 #ifndef SRC_T8DG_NUMERICAL_FLUX_H_
 #define SRC_T8DG_NUMERICAL_FLUX_H_
 
-#include <sc_containers.h>
-#include "t8dg.h"
 #include <t8.h>
 #include <t8_forest.h>
+
+#include "t8dg.h"
+#include "t8dg_local_precomputed_values.h"
+#include "t8dg_quadrature.h"
+#include "t8dg_coarse_geometry.h"
 
 typedef struct t8dg_linear_flux t8dg_linear_flux_t;
 
@@ -44,5 +47,10 @@ void                t8dg_linear_flux_calulate_flux (t8dg_linear_flux_t * linear_
 
 double              t8dg_linear_numerical_flux_upwind_1D (const double u_minus, const double u_plus, const double flow_vector[3],
                                                           const double normal_vector[3]);
+
+void                t8dg_flux_element_multiply_flux_value (const t8dg_linear_flux_t * linear_flux, sc_array_t * element_quad_values,
+                                                           double current_time, t8dg_local_precomputed_values_t * local_values,
+                                                           t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement,
+                                                           t8dg_quadrature_t * quadrature, t8dg_coarse_geometry_t * coarse_geometry);
 
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

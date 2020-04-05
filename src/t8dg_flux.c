@@ -7,7 +7,13 @@
 
 #include "t8dg.h"
 #include "t8dg_flux.h"
+#include "t8dg_quadrature.h"
+#include "t8dg_local_precomputed_values.h"
+#include "t8dg_coarse_geometry.h"
+
 #include <t8_vec.h>
+#include <t8_forest.h>
+#include <t8_element.h>
 
 struct t8dg_linear_flux
 {
@@ -69,4 +75,41 @@ void
 t8dg_linear_flux_calulate_flux (t8dg_linear_flux_t * linear_flux, double x_vec[3], double flux_vec[3], double t)
 {
   linear_flux->flux_velocity_fn (x_vec, flux_vec, t, linear_flux->flux_data);
+}
+
+void
+t8dg_flux_element_multiply_flux_value (const t8dg_linear_flux_t * linear_flux, sc_array_t * element_quad_values, double current_time,
+                                       t8dg_local_precomputed_values_t * local_values,
+                                       t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement,
+                                       t8dg_quadrature_t * quadrature, t8dg_coarse_geometry_t * coarse_geometry)
+{
+  t8dg_quad_idx_t     iquad, num_quad_vertices;
+  double             *transformed_gradient_tangential_vector;
+  double              reference_vertex[3];
+  double              coarse_vertex[3];
+  double              image_vertex[3];
+  double              flux_vec[3];
+  double              flux_value;
+  t8_eclass_scheme_c *scheme;
+  t8_element_t       *element;
+  t8_locidx_t         idata;
+  int                 idim = 0;
+  num_quad_vertices = t8dg_quadrature_get_num_element_vertices (quadrature);
+
+  scheme = t8_forest_get_eclass_scheme (forest, t8_forest_get_tree_class (forest, itree));
+  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  idata = t8dg_itree_ielement_to_idata (forest, itree, ielement);
+  for (iquad = 0; iquad < num_quad_vertices; iquad++) {
+    transformed_gradient_tangential_vector =
+      t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (local_values, idata, iquad, idim);
+
+    t8dg_quadrature_get_element_vertex (reference_vertex, quadrature, iquad);
+    t8dg_local_precomputed_values_fine_to_coarse_geometry (reference_vertex, coarse_vertex, scheme, element);
+    coarse_geometry->geometry (coarse_vertex, image_vertex, forest, itree);
+
+    linear_flux->flux_velocity_fn (image_vertex, flux_vec, current_time, linear_flux->flux_data);
+    flux_value = t8_vec_dot (flux_vec, transformed_gradient_tangential_vector);
+
+    *(double *) t8dg_sc_array_index_quadidx (element_quad_values, iquad) *= flux_value;
+  }
 }

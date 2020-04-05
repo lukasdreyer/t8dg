@@ -7,6 +7,7 @@
 #include "t8dg.h"
 #include <sc_containers.h>
 
+#if 0
 void
 t8dg_sc_array_block_double_copy_subarray_into_array (const sc_array_t * src, sc_array_t * dest)
 {
@@ -24,6 +25,7 @@ t8dg_sc_array_block_double_copy_array_into_subarray (const sc_array_t * src, sc_
   /*memcpy takes destination as first argument, src as second. count*size many bits of dest need to be copied */
   memcpy (dest->array, src->array, dest->elem_count * dest->elem_size);
 }
+#endif
 
 sc_array_t         *
 t8dg_sc_array_duplicate (sc_array_t * src)
@@ -34,8 +36,9 @@ t8dg_sc_array_duplicate (sc_array_t * src)
 }
 
 sc_array_t         *
-t8dg_sc_array_new_block_double_view (sc_array_t * src, t8_locidx_t idata)
+t8dg_sc_array_block_double_new_view (sc_array_t * src, t8_locidx_t idata)
 {
+  T8DG_ASSERT (src->elem_size > 0 && src->elem_size % 8 == 0);
   return sc_array_new_data (t8_sc_array_index_locidx (src, idata), sizeof (double), src->elem_size / sizeof (double));
 }
 
@@ -45,6 +48,15 @@ t8dg_sc_array_clone (sc_array_t * src)
   sc_array_t         *dest = sc_array_new_count (src->elem_size, src->elem_count);
   sc_array_copy (dest, src);
   return dest;
+}
+
+void
+t8dg_sc_array_copy (const sc_array_t * src, sc_array_t * dest)
+{
+  SC_ASSERT (dest->elem_size == src->elem_size);
+  SC_ASSERT (dest->elem_count == src->elem_count);
+
+  memcpy (dest->array, src->array, src->elem_count * src->elem_size);
 }
 
 void
