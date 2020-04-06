@@ -47,4 +47,8 @@ void                t8dg_local_precomputed_values_element_multiply_trafo_quad_we
 void                t8dg_local_precomputed_values_element_divide_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
                                                                                     sc_array_t * array, t8_locidx_t idata);
 
+void                t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t forest_partition,
+                                                             t8dg_local_precomputed_values_t * local_values_old,
+                                                             t8dg_local_precomputed_values_t * local_values_partition);
+
 #endif /* SRC_T8DG_LOCAL_PRECOMPUTED_VALUES_H_ */

@@ -12,6 +12,7 @@
 #include <t8_vec.h>
 #include <t8_element_cxx.hxx>
 #include <t8_element.h>
+#include <t8_forest/t8_forest_partition.h>
 
 struct t8dg_local_precomputed_values
 {
@@ -248,4 +249,26 @@ t8dg_local_precomputed_values_element_divide_trafo_quad_weight (const t8dg_local
     *(double *) t8dg_sc_array_index_quadidx (element_quad, iquad) /= quad_trafo_weight;
   }
   sc_array_destroy (element_trafo_quad_weights);
+}
+
+void
+t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t forest_partition,
+                                         t8dg_local_precomputed_values_t * local_values_old,
+                                         t8dg_local_precomputed_values_t * local_values_partition)
+{
+  int                 iface;
+  t8_forest_partition_data (forest_old, forest_partition,
+                            local_values_old->element_trafo_quad_weight, local_values_partition->element_trafo_quad_weight);
+
+  t8_forest_partition_data (forest_old, forest_partition,
+                            local_values_old->element_transformed_gradient_tangential_vectors,
+                            local_values_partition->element_transformed_gradient_tangential_vectors);
+
+  for (iface = 0; iface < local_values_old->num_faces; iface++) {
+    t8_forest_partition_data (forest_old, forest_partition,
+                              local_values_old->face_normal_vectors[iface], local_values_partition->face_normal_vectors[iface]);
+
+    t8_forest_partition_data (forest_old, forest_partition,
+                              local_values_old->face_trafo_quad_weight[iface], local_values_partition->face_trafo_quad_weight[iface]);
+  }
 }

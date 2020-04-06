@@ -77,6 +77,7 @@ t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initia
     t8dg_advect_problem_advance_timestep (problem);
     t8dg_advect_write_vtk (problem);
     t8dg_advect_problem_adapt (problem);
+    t8dg_advect_problem_partition (problem);
   }
 
   /*Current output */

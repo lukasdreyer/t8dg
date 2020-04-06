@@ -36,6 +36,6 @@ void                t8dg_advect_problem_advance_timestep (t8dg_linear_advection_
 
 void                t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem);
 
-//t8dg_timestepping_data_t *t8dg_advect_get_time_data (t8dg_linear_advection_problem_t * problem);
+void                t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem);
 
 #endif /* SRC_T8DG_ADVECT_H_ */

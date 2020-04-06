@@ -6,7 +6,6 @@
  */
 
 #include <t8_forest.h>
-#include <t8_forest/t8_forest_private.h>
 #include <sc_containers.h>
 
 #include "t8dg_mortar.h"

@@ -11,8 +11,8 @@
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <t8_forest_vtk.h>
 #include <t8_vtk.h>
-#include <t8_forest/t8_forest_ghost.h>
 #include <t8_forest/t8_forest_iterate.h>
+#include <t8_forest/t8_forest_partition.h>
 
 #include <sc_containers.h>
 
@@ -572,7 +572,7 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
 static void
 t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_change, const double t, const void *application_data)
 {
-  t8_debugf ("start calculating time derivate\n");
+  t8_debugf ("start calculating time derivate, %i\n", dof_change->elem_count);
   T8DG_ASSERT (application_data != NULL);
   t8dg_linear_advection_problem_t *problem = (t8dg_linear_advection_problem_t *) application_data;
   T8DG_ASSERT (dof_values == problem->dof_values);
@@ -591,6 +591,7 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   t8_forest_ghost_exchange_data (problem->forest, problem->dof_values);
 
   t8dg_advect_problem_mortars_fill (problem);
+  t8_debugf ("mortars filled\n");
   t8dg_advect_problem_apply_boundary_integrals (problem, dof_flux);
   t8dg_advect_problem_mortars_invalidate (problem);
 
@@ -816,4 +817,65 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
   problem->dof_values_adapt = NULL;
   /*Create new mortar arrays */
   t8dg_advect_problem_mortars_new (problem);
+}
+
+void
+t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem)
+{
+  t8_forest_t         forest_partition;
+  t8dg_local_precomputed_values_t *local_values_partition;
+  sc_array_t         *dof_values_partition;
+  sc_array_t         *dof_values_local_view;
+  sc_array_t         *dof_values_partition_local_view;
+  t8_locidx_t         num_local_elems_new, num_local_elems_old, num_ghosts_new;
+
+  t8_forest_ref (problem->forest);
+  t8_forest_init (&forest_partition);
+
+  t8_forest_set_partition (forest_partition, problem->forest, 0);
+  t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
+  t8_forest_commit (forest_partition);
+
+  num_local_elems_old = t8_forest_get_num_element (problem->forest);
+  num_local_elems_new = t8_forest_get_num_element (forest_partition);
+
+  num_ghosts_new = t8_forest_get_num_ghosts (forest_partition);
+
+  t8_debugf ("[ADVECT] partition with: num_old:%i, num_new:%i, ghost_new:%i\n", num_local_elems_old, num_local_elems_new, num_ghosts_new);
+
+  /* Partition local precomputed values */
+  local_values_partition = t8dg_local_precomputed_values_new (t8dg_global_precomputed_values_get_quadrature (problem->global_values),
+                                                              num_local_elems_new);
+  t8dg_local_precomputed_values_partition (problem->forest, forest_partition, problem->local_values, local_values_partition);
+
+  t8dg_local_precomputed_values_destroy (&problem->local_values);
+  problem->local_values = local_values_partition;
+
+  t8_debugf ("[ADVECT] Done partition local_data\n");
+
+  /* Partition dof_values */
+  dof_values_partition = sc_array_new_count (t8dg_global_precomputed_values_get_num_dof (problem->global_values) * sizeof (double),
+                                             num_local_elems_new + num_ghosts_new);
+
+  dof_values_local_view = sc_array_new_view (problem->dof_values, 0, num_local_elems_old);
+  dof_values_partition_local_view = sc_array_new_view (dof_values_partition, 0, num_local_elems_new);
+
+  t8_forest_partition_data (problem->forest, forest_partition, dof_values_local_view, dof_values_partition_local_view);
+
+  t8_debugf (" [ADVECT] Done partition dof_values\n");
+
+  /*destroy views */
+  sc_array_destroy (dof_values_local_view);
+  sc_array_destroy (dof_values_partition_local_view);
+
+  /*destroy old dof values and use partition dof values */
+  sc_array_destroy (problem->dof_values);
+  problem->dof_values = dof_values_partition;
+
+  t8_debugf (" [ADVECT] begin mortars destroy\n");
+  t8dg_advect_problem_mortars_destroy (problem);
+  t8_forest_unref (&problem->forest);
+  problem->forest = forest_partition;
+  t8dg_advect_problem_mortars_new (problem);
+  t8_debugf (" [ADVECT] Done partition\n");
 }
