@@ -76,9 +76,15 @@ struct t8dg_linear_advection_problem
  *   */
 
 static double      *
-t8dg_advect_element_get_element_dof_values (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
+t8dg_advect_problem_get_element_dof_values (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
 {
   return ((double *) t8_sc_array_index_locidx (problem->dof_values, idata));
+}
+
+static double      *
+t8dg_advect_problem_get_element_dof_values_adapt (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
+{
+  return ((double *) t8_sc_array_index_locidx (problem->dof_values_adapt, idata));
 }
 
 /*  get functions for structs at element and faces: */
@@ -165,7 +171,7 @@ t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_loc
 
   t8dg_functionbasis_t *functionbasis = t8dg_global_precomputed_values_get_functionbasis (problem->global_values);
 
-  element_dof_values = t8dg_advect_element_get_element_dof_values (problem, idata);
+  element_dof_values = t8dg_advect_problem_get_element_dof_values (problem, idata);
 
   for (idof = 0; idof < t8dg_functionbasis_get_num_dof (functionbasis); idof++) {
     /*TODO: make available for general functionbasis */
@@ -321,6 +327,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   problem->dim = dim;
   problem->uniform_refinement_level = level;
+  problem->maximum_refinement_level = level + 2;        /* TODO: make available as input */
 
   problem->coarse_geometry = coarse_geometry;
 
@@ -631,7 +638,7 @@ t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
   dof_array = T8_ALLOC_ZERO (double, num_local_elements);
 
   for (idata = 0; idata < num_local_elements; idata++) {
-    dof_values = t8dg_advect_element_get_element_dof_values (problem, idata);
+    dof_values = t8dg_advect_problem_get_element_dof_values (problem, idata);
     average = 0;
     for (idof = 0; idof < number_of_dof; idof++) {
       average += dof_values[idof];
@@ -664,6 +671,27 @@ t8dg_advect_test_adapt (t8_forest_t forest,
                         t8_locidx_t which_tree,
                         t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
 {
+  t8dg_linear_advection_problem_t *problem;
+  t8_locidx_t         first_idata;
+  double             *dof_values;
+  int                 level;
+
+  first_idata = t8dg_itree_ielement_to_idata (forest_from, which_tree, lelement_id);
+  problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest);
+
+  level = ts->t8_element_level (elements[0]);
+  if (level == problem->maximum_refinement_level && num_elements == 1) {
+    /* It is not possible to refine this level */
+    return 0;
+  }
+
+  dof_values = t8dg_advect_problem_get_element_dof_values (problem, first_idata);
+  if (dof_values[0] < 0.2) {
+    return -(num_elements > 1 && level > problem->uniform_refinement_level);    //could discard second check
+  }
+  else if (dof_values[0] > 0.8) {
+    return level < problem->maximum_refinement_level;
+  }
   return 0;
 }
 
@@ -672,22 +700,58 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
                           t8_forest_t forest_new,
                           t8_locidx_t which_tree,
                           t8_eclass_scheme_c * ts,
-                          int num_outgoing, t8_locidx_t first_outgoing, int num_incoming, t8_locidx_t first_incoming)
+                          int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new)
 {
   t8dg_linear_advection_problem_t *problem;
-  t8_locidx_t         first_incoming_idata = t8dg_itree_ielement_to_idata (forest_old, which_tree, first_incoming);
-  t8_locidx_t         first_outgoing_idata = t8dg_itree_ielement_to_idata (forest_new, which_tree, first_outgoing);
+  t8_locidx_t         first_idata_old, first_idata_new;
+
+  double             *element_dof;
+  double             *element_dof_left;
+  double             *element_dof_right;
+  double             *element_dof_adapt;
+
+  double              average;
+
+  t8dg_quadrature_t  *quadrature;
 
   problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest_new);
   T8DG_ASSERT (forest_old == problem->forest);
+  T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_num_dof (problem->global_values) == 2, "Not yet implemented");
 
-  if (num_incoming == num_outgoing) {
-    t8dg_local_precomputed_values_copy_element_values (problem->local_values, first_incoming_idata,
-                                                       problem->local_values_adapt, first_outgoing_idata);
-    t8dg_sc_array_copy_only_at_indices (problem->dof_values, first_incoming_idata, problem->dof_values_adapt, first_outgoing_idata);
+  quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
+
+  first_idata_old = t8dg_itree_ielement_to_idata (forest_old, which_tree, first_ielem_old);
+  first_idata_new = t8dg_itree_ielement_to_idata (forest_new, which_tree, first_ielem_new);
+
+  if (num_elems_old == num_elems_new && num_elems_old == 1) {
+    t8dg_local_precomputed_values_copy_element_values (problem->local_values, first_idata_old,
+                                                       problem->local_values_adapt, first_idata_new);
+    t8dg_sc_array_copy_only_at_indices (problem->dof_values, first_idata_old, problem->dof_values_adapt, first_idata_new);
+  }
+  else if (num_elems_old == 1) {
+    element_dof = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old);
+    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new);
+    element_dof_adapt[0] = element_dof[0];
+    element_dof_adapt[1] = (element_dof[0] + element_dof[1]) / 2;
+
+    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new + 1);
+    element_dof_adapt[0] = (element_dof[0] + element_dof[1]) / 2;;
+    element_dof_adapt[1] = element_dof[1];
+
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new, quadrature);
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new + 1, quadrature);
+    //interpolate
   }
   else {
-    T8DG_ABORT ("Not yet implemented");
+    element_dof_left = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old);
+    element_dof_right = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old + 1);
+    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new);
+    average = (element_dof_left[1] + element_dof_right[0]) / 2;
+    element_dof_adapt[0] = (element_dof_left[0] + average) / 2;
+    element_dof_adapt[1] = (element_dof_right[1] + average) / 2;
+
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new, quadrature);
+    //project/restrict
   }
 }
 
