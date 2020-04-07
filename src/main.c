@@ -67,7 +67,6 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
   problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, u_initial, flow_velocity,
                                                          uniform_level, uniform_level + refinement_levels,
                                                          number_LGL_points, start_time, end_time, cfl, time_order, comm);
-  t8dg_advect_problem_init_elements (problem);
 
   t8_debugf ("Start Dof values:\n");
   t8dg_advect_problem_printdof (problem);

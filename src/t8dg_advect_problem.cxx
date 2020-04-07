@@ -371,6 +371,21 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   t8_debugf ("finished problem init\n");
 
+  t8dg_advect_problem_init_elements (problem);
+
+  if (problem->maximum_refinement_level > problem->uniform_refinement_level) {
+    int                 ilevel;
+
+    for (ilevel = problem->uniform_refinement_level; ilevel < problem->maximum_refinement_level; ilevel++) {
+      /* initial adapt */
+      t8dg_advect_problem_adapt (problem);
+      /* repartition */
+      t8dg_advect_problem_partition (problem);
+      /* Re initialize the elements */
+      t8dg_advect_problem_init_elements (problem);
+    }
+  }
+
   return problem;
 }
 
