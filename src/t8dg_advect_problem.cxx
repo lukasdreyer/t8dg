@@ -161,6 +161,43 @@ t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
   t8dg_sc_array_block_double_debug_print (problem->dof_values);
 }
 
+void
+t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
+{
+  double              delta_t, min_delta_t, flow_velocity, time_left, diam, cfl;
+  t8_locidx_t         num_trees, num_elems_in_tree, itree, ielement;
+  t8_element_t       *element;
+  double             *tree_vertices;
+
+  /* maximum possible delta_t value */
+  time_left = t8dg_timestepping_data_get_time_left (problem->time_data);
+  min_delta_t = time_left;
+  cfl = t8dg_timestepping_data_get_cfl (problem->time_data);
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  for (itree = 0; itree < num_trees; itree++) {
+    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
+
+    tree_vertices = t8_forest_get_tree_vertices (problem->forest, itree);
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
+      element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+      /* Compute the minimum diameter */
+      diam = t8_forest_element_diam (problem->forest, itree, element, tree_vertices);
+      T8_ASSERT (diam > 0);
+
+      flow_velocity = 1;        /*TODO: element_get_flow_velocity function */
+      /* Compute minimum necessary time step */
+      delta_t = time_left;
+      if (flow_velocity > 0) {
+        delta_t = cfl * diam / flow_velocity;
+      }
+      min_delta_t = SC_MIN (delta_t, min_delta_t);
+    }
+  }
+  sc_MPI_Allreduce (&min_delta_t, &delta_t, 1, sc_MPI_DOUBLE, sc_MPI_MIN, problem->comm);
+  t8dg_timestepping_data_set_time_step (problem->time_data, delta_t);
+}
+
 static void
 t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
                                t8_locidx_t ielement, t8_element_t * element)
@@ -333,7 +370,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   problem->dim = dim;
   problem->uniform_refinement_level = uniform_level;
-  problem->maximum_refinement_level = max_level;        /* TODO: make available as input */
+  problem->maximum_refinement_level = max_level;
 
   problem->coarse_geometry = coarse_geometry;
 
@@ -343,7 +380,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->description.numerical_flux_fn = t8dg_linear_numerical_flux_upwind_1D;
 
   problem->time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
-  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -uniform_level));     /* TODO: make dependent on cfl number and element diameter */
+//  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -uniform_level));
 
   problem->vtk_count = 0;
   problem->comm = comm;
@@ -354,6 +391,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   t8dg_quadrature_t  *quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
 
+  t8_debugf ("precompute local values\n");
   num_elements = t8_forest_get_num_element (problem->forest);
 
   problem->local_values = t8dg_local_precomputed_values_new (quadrature, num_elements);
@@ -652,6 +690,7 @@ void
 t8dg_advect_problem_advance_timestep (t8dg_linear_advection_problem_t * problem)
 {
   t8dg_timestepping_runge_kutta_step (t8dg_advect_time_derivative, t8dg_advect_get_time_data (problem), &(problem->dof_values), problem);
+  t8dg_timestepping_data_increase_step_number (problem->time_data);
 }
 
 void

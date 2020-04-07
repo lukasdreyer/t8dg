@@ -56,4 +56,6 @@ int                 t8dg_timestepping_data_get_step_number (t8dg_timestepping_da
 
 void                t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_data);
 
+double              t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data);
+
 #endif /* SRC_TIMESTEPPING_H_ */

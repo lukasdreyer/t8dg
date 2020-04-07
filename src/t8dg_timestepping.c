@@ -207,3 +207,9 @@ t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_dat
 {
   time_data->step_number++;
 }
+
+double
+t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data)
+{
+  return time_data->T - time_data->t;
+}

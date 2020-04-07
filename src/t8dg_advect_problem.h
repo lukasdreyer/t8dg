@@ -30,6 +30,8 @@ int                 t8dg_advect_problem_endtime_reached (t8dg_linear_advection_p
 
 int                 t8dg_advect_problem_get_stepnumber (t8dg_linear_advection_problem_t * problem);
 
+void                t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem);
+
 void                t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem);
 
 void                t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem);

@@ -73,6 +73,7 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
+    t8dg_advect_problem_set_time_step (problem);
     step_number = t8dg_advect_problem_get_stepnumber (problem);
     if (vtk_freq && step_number % vtk_freq == 0) {
       t8dg_advect_write_vtk (problem);
