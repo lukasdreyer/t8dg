@@ -52,4 +52,8 @@ void                t8dg_timestepping_data_set_time_step (t8dg_timestepping_data
 
 int                 t8dg_timestepping_data_is_endtime_reached (t8dg_timestepping_data_t * time_data);
 
+int                 t8dg_timestepping_data_get_step_number (t8dg_timestepping_data_t * time_data);
+
+void                t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_data);
+
 #endif /* SRC_TIMESTEPPING_H_ */

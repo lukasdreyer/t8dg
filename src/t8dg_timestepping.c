@@ -17,6 +17,7 @@ struct t8dg_timestepping_data
   double              t;        /**< current time */
   double              T;        /**< end time */
   double              cfl;      /**< cfl number*/
+  int                 step_number;
 };
 
 /*pre computed butcher tableau values for rk with values only on first diagonal*/
@@ -124,6 +125,7 @@ t8dg_timestepping_data_new (int time_order, double start_time, double end_time, 
   time_data->t = start_time;
   time_data->T = end_time;
   time_data->cfl = cfl;
+  time_data->step_number = 0;
   time_data->delta_t = -1;
   return time_data;
 }
@@ -192,4 +194,16 @@ int
 t8dg_timestepping_data_is_endtime_reached (t8dg_timestepping_data_t * time_data)
 {
   return !(time_data->t < time_data->T);
+}
+
+int
+t8dg_timestepping_data_get_step_number (t8dg_timestepping_data_t * time_data)
+{
+  return time_data->step_number;
+}
+
+void
+t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_data)
+{
+  time_data->step_number++;
 }

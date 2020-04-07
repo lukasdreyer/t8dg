@@ -15,9 +15,9 @@
 
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
-t8dg_linear_advection_problem_t *t8dg_advect_problem_init_linear_geometry_1D (t8_cmesh_t cmesh,
+t8dg_linear_advection_problem_t *t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
                                                                               t8dg_scalar_function_3d_time_fn u_0,
-                                                                              double flow_velocity, int level,
+                                                                              double flow_velocity, int uniform_level, int max_level,
                                                                               int number_LGL_points, double start_time,
                                                                               double end_time, double cfl, int time_order,
                                                                               sc_MPI_Comm comm);
@@ -27,6 +27,8 @@ void                t8dg_advect_problem_init_elements (t8dg_linear_advection_pro
 void                t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem);
 
 int                 t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem);
+
+int                 t8dg_advect_problem_get_stepnumber (t8dg_linear_advection_problem_t * problem);
 
 void                t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem);
 

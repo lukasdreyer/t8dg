@@ -144,6 +144,12 @@ t8dg_advect_get_time_data (t8dg_linear_advection_problem_t * problem)
 }
 
 int
+t8dg_advect_problem_get_stepnumber (t8dg_linear_advection_problem_t * problem)
+{
+  return t8dg_timestepping_data_get_step_number (problem->time_data);
+}
+
+int
 t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem)
 {
   return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
@@ -152,7 +158,7 @@ t8dg_advect_problem_endtime_reached (t8dg_linear_advection_problem_t * problem)
 void
 t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
 {
-  t8dg_sc_array_block_double_print (problem->dof_values);
+  t8dg_sc_array_block_double_debug_print (problem->dof_values);
 }
 
 static void
@@ -312,7 +318,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
                           int dim,
                           t8dg_scalar_function_3d_time_fn u_initial,
                           double flow_speed,
-                          int level,
+                          int uniform_level, int max_level,
                           int number_LGL_points, double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
@@ -323,11 +329,11 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   default_scheme = t8_scheme_new_default_cxx ();
   t8_debugf ("create uniform forest\n");
-  problem->forest = t8_forest_new_uniform (cmesh, default_scheme, level, 1, comm);
+  problem->forest = t8_forest_new_uniform (cmesh, default_scheme, uniform_level, 1, comm);
 
   problem->dim = dim;
-  problem->uniform_refinement_level = level;
-  problem->maximum_refinement_level = level + 2;        /* TODO: make available as input */
+  problem->uniform_refinement_level = uniform_level;
+  problem->maximum_refinement_level = max_level;        /* TODO: make available as input */
 
   problem->coarse_geometry = coarse_geometry;
 
@@ -337,7 +343,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->description.numerical_flux_fn = t8dg_linear_numerical_flux_upwind_1D;
 
   problem->time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
-  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -level));     /* TODO: make dependent on cfl number and element diameter */
+  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -uniform_level));     /* TODO: make dependent on cfl number and element diameter */
 
   problem->vtk_count = 0;
   problem->comm = comm;
@@ -370,17 +376,29 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
 /*TODO: which init function creates what, outsource problem description*/
 t8dg_linear_advection_problem_t *
-t8dg_advect_problem_init_linear_geometry_1D (t8_cmesh_t cmesh,
+t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
                                              t8dg_scalar_function_3d_time_fn u_initial,
                                              double flow_speed,
-                                             int level,
+                                             int uniform_level, int max_level,
                                              int number_LGL_points,
                                              double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
 {
 
+  t8_cmesh_t          cmesh;
+  switch (icmesh) {
+  case 0:
+    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
+    break;
+  case 1:
+    cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
+    break;
+  default:
+    T8DG_ABORT ("Not yet implemented");
+  }
+
   t8dg_coarse_geometry_t *coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
-  return t8dg_advect_problem_init (cmesh, coarse_geometry, 1, u_initial, flow_speed, level, number_LGL_points, start_time, end_time, cfl,
-                                   time_order, comm);
+  return t8dg_advect_problem_init (cmesh, coarse_geometry, 1, u_initial, flow_speed, uniform_level, max_level,
+                                   number_LGL_points, start_time, end_time, cfl, time_order, comm);
 }
 
 void
@@ -572,7 +590,6 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
 static void
 t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_change, const double t, const void *application_data)
 {
-  t8_debugf ("start calculating time derivate, %i\n", dof_change->elem_count);
   T8DG_ASSERT (application_data != NULL);
   t8dg_linear_advection_problem_t *problem = (t8dg_linear_advection_problem_t *) application_data;
   T8DG_ASSERT (dof_values == problem->dof_values);

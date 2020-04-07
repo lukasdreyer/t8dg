@@ -5,8 +5,6 @@
  *      Author: lukas
  */
 #include <t8.h>
-#include <t8_cmesh.h>
-#include <t8_vec.h>
 
 #include "t8dg.h"
 #include "t8dg_advect_problem.h"
@@ -54,39 +52,77 @@ t8dg_choose_initial_cond_fn (int initial_cond_arg)
  */
 
 void
-t8dg_advect_solve_1D (t8_cmesh_t cmesh, t8dg_scalar_function_3d_time_fn u_initial,
-                      double flow_velocity, int level, int number_LGL_points, double start_time,
-                      double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
+                      double flow_velocity, int uniform_level, int refinement_levels,
+                      int number_LGL_points, double start_time,
+                      double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
+  int                 step_number;
+  t8dg_scalar_function_3d_time_fn u_initial;
+  u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
   t8_debugf ("Start Advection Solve\n");
 
-  problem = t8dg_advect_problem_init_linear_geometry_1D (cmesh, u_initial, flow_velocity,
-                                                         level, number_LGL_points, start_time, end_time, cfl, time_order, comm);
+  problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, u_initial, flow_velocity,
+                                                         uniform_level, uniform_level + refinement_levels,
+                                                         number_LGL_points, start_time, end_time, cfl, time_order, comm);
   t8dg_advect_problem_init_elements (problem);
 
-  /*Current output */
-  t8_global_productionf ("Start Dof values:\n");
+  t8_debugf ("Start Dof values:\n");
   t8dg_advect_problem_printdof (problem);
-
-  t8dg_advect_write_vtk (problem);
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
+    step_number = t8dg_advect_problem_get_stepnumber (problem);
+    if (vtk_freq && step_number % vtk_freq == 0) {
+      t8dg_advect_write_vtk (problem);
+    }
+
     t8dg_advect_problem_advance_timestep (problem);
-    t8dg_advect_write_vtk (problem);
-    t8dg_advect_problem_adapt (problem);
-    t8dg_advect_problem_partition (problem);
+
+    if (adapt_freq && step_number % adapt_freq == adapt_freq - 1) {
+      t8dg_advect_problem_adapt (problem);
+      t8dg_advect_problem_partition (problem);
+    }
   }
 
+  t8dg_advect_write_vtk (problem);
+
   /*Current output */
-  t8_global_productionf ("End Dof values:\n");
+  t8_debugf ("End Dof values:\n");
   t8dg_advect_problem_printdof (problem);
-  t8_global_productionf ("test:\n");
 
   t8dg_advect_problem_destroy (&problem);
   return;
+}
+
+static int
+t8dg_check_options (int icmesh, int initial_cond_arg,
+                    int uniform_level, int refinement_levels,
+                    int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq)
+{
+  if (!(icmesh >= 0 && icmesh <= 1))
+    return 0;
+  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 3))
+    return 0;
+  if (!(uniform_level >= 0 && uniform_level <= 30))
+    return 0;
+  if (!(refinement_levels >= 0 && uniform_level + refinement_levels <= 30))
+    return 0;
+  if (!(number_LGL_points >= 1 && number_LGL_points <= 4))
+    return 0;
+  if (!(start_time < end_time))
+    return 0;
+  if (!(cfl > 0 && cfl <= 1))
+    return 0;
+  if (!(time_order >= 1 && time_order <= 4))
+    return 0;
+  if (!(vtk_freq >= 0))
+    return 0;
+  if (!(adapt_freq >= 0))
+    return 0;
+  return 1;
 }
 
 int
@@ -98,9 +134,12 @@ main (int argc, char *argv[])
   int                 parsed, helpme;
 
   int                 initial_cond_arg;
-  int                 level;
+  int                 uniform_level, refinement_levels;
   int                 time_order;
   int                 number_LGL_points;
+  int                 vtk_freq;
+  int                 adapt_freq;
+  int                 icmesh;
   double              flow_velocity;
   double              cfl;
   double              start_time;
@@ -124,7 +163,7 @@ main (int argc, char *argv[])
   opt = sc_options_new (argv[0]);
 
   sc_options_add_switch (opt, 'h', "help", &helpme, "Display a short help message.");
-  sc_options_add_int (opt, 'l', "level", &level, 3, "The uniform refinement level of the mesh. Default: 3");
+  sc_options_add_int (opt, 'l', "level", &uniform_level, 3, "The uniform initial refinement level of the mesh. Default: 3");
   sc_options_add_int (opt, 'L', "LGL", &number_LGL_points, 2, "The number of LGL basis points/basisfunctions in 1D. Default: 2");
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
   sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0, "The CFL number used to determine the timestep. Default: 1.0");
@@ -134,6 +173,10 @@ main (int argc, char *argv[])
   sc_options_add_double (opt, 'T', "end_time", &end_time, 1.0, "The end time of the solve. Default: 1.0");
   sc_options_add_int (opt, 'i', "initial_cond", &initial_cond_arg, 0, "Choose initial condition function. Default: 0\n"
                       "\t\t0: constant function\n" "\t\t1: hat function\n" "\t\t2: step function\n" "\t\t3: sine function");
+  sc_options_add_int (opt, 'r', "ref_levels", &refinement_levels, 0, "The number of refinement levels(>=0). Default: 0\n");
+  sc_options_add_int (opt, 'v', "vkt_freq", &vtk_freq, 1, "The number of steps until new vtk output. Default: 1\n" "0 means no vtk");
+  sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\n" "0 means no adapt");
+  sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees");
 
   parsed = sc_options_parse (t8_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
@@ -141,22 +184,13 @@ main (int argc, char *argv[])
     t8_global_essentialf ("%s\n", help);
     sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
-  else if (parsed >= 0) {
-    t8_cmesh_t          cmesh;
-    t8dg_scalar_function_3d_time_fn u_initial;
+  else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, refinement_levels, number_LGL_points,
+                                              start_time, end_time, cfl, time_order, vtk_freq, adapt_freq)) {
 
-    u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
-    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
-
-#if 0
-    cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
-#endif
     /* Computation */
-    t8dg_advect_solve_1D (cmesh, u_initial, flow_velocity,
-                          level, number_LGL_points, start_time, end_time, cfl, time_order, sc_MPI_COMM_WORLD);
-#if 0
-    t8_cmesh_destroy (&cmesh);  /*t8_forest_unref takes care! */
-#endif
+    t8dg_advect_solve_1D (icmesh, initial_cond_arg, flow_velocity,
+                          uniform_level, refinement_levels, number_LGL_points,
+                          start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, sc_MPI_COMM_WORLD);
   }
   else {
     /* wrong usage */
