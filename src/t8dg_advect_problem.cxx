@@ -767,6 +767,56 @@ t8dg_advect_test_adapt (t8_forest_t forest,
   return 0;
 }
 
+static int
+t8dg_advect_gradient_adapt (t8_forest_t forest,
+                            t8_forest_t forest_from,
+                            t8_locidx_t which_tree,
+                            t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+{
+  t8dg_linear_advection_problem_t *problem;
+  t8_locidx_t         first_idata;
+  double             *dof_values;
+  int                 level;
+  double              diam;
+  double             *tree_vertices;
+
+  double              gradient_threshold_refine = 0.8;
+  double              gradient_threshold_coarsen = 0.4;
+
+  first_idata = t8dg_itree_ielement_to_idata (forest_from, which_tree, lelement_id);
+  problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest);
+
+  T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_num_dof (problem->global_values) == 2, "Not yet implemented");
+
+  level = ts->t8_element_level (elements[0]);
+  if (level == problem->maximum_refinement_level && num_elements == 1) {
+    /* It is not possible to refine this level */
+    return 0;
+  }
+  tree_vertices = t8_forest_get_tree_vertices (forest_from, which_tree);
+
+  if (num_elements == 1) {
+    dof_values = t8dg_advect_problem_get_element_dof_values (problem, first_idata);
+    diam = t8_forest_element_diam (forest_from, which_tree, elements[0], tree_vertices);
+
+    double              gradient = fabs (dof_values[0] - dof_values[1]) / diam;
+    return gradient > gradient_threshold_refine;
+  }
+  else {
+    dof_values = t8dg_advect_problem_get_element_dof_values (problem, first_idata);
+    diam = t8_forest_element_diam (forest_from, which_tree, elements[0], tree_vertices);
+
+    double              gradient_left = fabs (dof_values[0] - dof_values[1]) / diam;
+
+    dof_values = t8dg_advect_problem_get_element_dof_values (problem, first_idata + 1);
+    diam = t8_forest_element_diam (forest_from, which_tree, elements[1], tree_vertices);
+
+    double              gradient_right = fabs (dof_values[0] - dof_values[1]) / diam;
+    return -(gradient_left < gradient_threshold_coarsen && gradient_right < gradient_threshold_coarsen);
+  }
+  return 0;
+}
+
 static void
 t8dg_advect_test_replace (t8_forest_t forest_old,
                           t8_forest_t forest_new,
@@ -844,7 +894,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
   /* Set the user data pointer of the new forest */
   t8_forest_set_user_data (forest_adapt, problem);
   /* Set the adapt function */
-  t8_forest_set_adapt (forest_adapt, problem->forest, t8dg_advect_test_adapt, 0);
+  t8_forest_set_adapt (forest_adapt, problem->forest, t8dg_advect_gradient_adapt, 0);
   if (problem->maximum_refinement_level - problem->uniform_refinement_level > 1) {
     /* We also want to balance the forest if there is a possibility of elements
      * with difference in refinement levels greater 1 */
