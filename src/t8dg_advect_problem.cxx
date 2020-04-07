@@ -756,8 +756,8 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
     element_dof_adapt[0] = (element_dof[0] + element_dof[1]) / 2;;
     element_dof_adapt[1] = element_dof[1];
 
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new, quadrature);
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new + 1, quadrature);
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new, quadrature);
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new + 1, quadrature);
     //interpolate
   }
   else {
@@ -768,7 +768,7 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
     element_dof_adapt[0] = (element_dof_left[0] + average) / 2;
     element_dof_adapt[1] = (element_dof_right[1] + average) / 2;
 
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_idata_new, quadrature);
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new, quadrature);
     //project/restrict
   }
 }
