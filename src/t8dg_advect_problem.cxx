@@ -737,6 +737,7 @@ t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
   problem->vtk_count++;
 }
 
+#if 0
 static int
 t8dg_advect_test_adapt (t8_forest_t forest,
                         t8_forest_t forest_from,
@@ -766,6 +767,7 @@ t8dg_advect_test_adapt (t8_forest_t forest,
   }
   return 0;
 }
+#endif
 
 static int
 t8dg_advect_gradient_adapt (t8_forest_t forest,
