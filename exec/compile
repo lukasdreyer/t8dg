@@ -28,7 +28,8 @@ MAINSOURCE='../src/main.c'
 TESTSOURCE='../test/t8dg_test_main.cxx ../test/t8dg_test_example.cxx'
 
 # There should be no need to change the following lines
-LIB="-L$T8_DIR/lib"
+LIB_PATH="$T8_DIR/lib"
+LIB="-L$LIB_PATH"
 TESTLIB="-L$GTEST_DIR"
 INCLUDE=$T8_DIR/include
 TESTINCLUDE=$GTEST_INCLUDE
@@ -36,7 +37,7 @@ TESTINCLUDE=$GTEST_INCLUDE
 LIBS="-lt8 -lp4est -lsc -lm -lz"
 TESTLIBS="-lgtest"
 
-export LD_LIBRARY_PATH=$LIB:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$LIB_PATH:$LD_LIBRARY_PATH
 
 # compile line
 echo libraries: $LIB
