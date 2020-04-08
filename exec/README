@@ -1,11 +1,20 @@
+This program depends on the t8code library (branch: feature-fix_include_installs).
+t8code can be found at https://github.com/holke/t8code.
+
+Install t8code as an external library in a folder.
+
+Edit the entries BASE_DIR and T8_DIR in the file ./exec/compile.
+
 To compile the t8dg program and the t8dg_test
 the first step is to build the Googletest library:
 
 cd lib
 make
+cd ..
 
-After that step, just call
+Now compile the binaries with
 
-./compile
+source compile
 
-in this folder.
+The source call is necessary to export the correct t8code library.
+In subsequent calls, only ./compile is necessary.
