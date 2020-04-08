@@ -1,0 +1,11 @@
+To compile the t8dg program and the t8dg_test
+the first step is to build the Googletest library:
+
+cd lib
+make
+
+After that step, just call
+
+./compile
+
+in this folder.
