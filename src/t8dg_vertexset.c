@@ -1,13 +1,14 @@
 
 #include "t8dg_vertexset.h"
 #include "t8dg.h"
+#include "t8dg_refcount.h"
 
 /** Vertex set used for the quadrature and functionbasis
  * Currently only for 1D
  */
 struct t8dg_vertexset
 {
-  int                 refcount;
+  t8dg_refcount_t     rc;
   t8dg_vertexset_type_t type;
   int                 dim;      /**< Dimension of the reference element*/
   int                 number_of_vertices;       /**< Number of element vertices*/
@@ -22,85 +23,62 @@ struct t8dg_vertexset
 #endif
 };
 
-void
-t8dg_vertexset_ref (t8dg_vertexset_t * vertexset)
-{
-  vertexset->refcount++;
-}
-
-void
-t8dg_vertexset_unref (t8dg_vertexset_t * vertexset)
-{
-  vertexset->refcount--;
-  if (!vertexset->refcount)
-    t8dg_vertexset_destroy (&vertexset);
-}
-
 t8dg_vertexset_type_t
 t8dg_vertexset_get_type (const t8dg_vertexset_t * vertexset)
 {
+  T8DG_ASSERT (vertexset != NULL);
   return vertexset->type;
 }
 
 int
 t8dg_vertexset_get_dim (const t8dg_vertexset_t * vertexset)
 {
+  T8DG_ASSERT (vertexset != NULL);
   return vertexset->dim;
 }
 
 int
 t8dg_vertexset_get_num_element_vertices (const t8dg_vertexset_t * vertexset)
 {
+  T8DG_ASSERT (vertexset != NULL);
   return vertexset->number_of_vertices;
 }
 
 int
 t8dg_vertexset_get_num_faces (const t8dg_vertexset_t * vertexset)
 {
+  T8DG_ASSERT (vertexset != NULL);
   return vertexset->number_of_faces;
 }
 
 int
 t8dg_vertexset_get_num_face_vertices (const t8dg_vertexset_t * vertexset, const int iface)
 {
+  T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (iface >= 0 && iface < vertexset->number_of_faces);
   return vertexset->number_of_facevertices[iface];
 }
 
 int
-t8dg_vertexset_get_LGL_facevertex_element_index (const t8dg_vertexset_t * vertexset, const int iface, const int ivertex)
+t8dg_vertexset_get_LGL_facevertex_element_index (const t8dg_vertexset_t * vertexset, const int iface, const int ifacevertex)
 {
+  T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_LGL);
-  T8DG_ASSERT (iface < vertexset->number_of_faces);
-  return *(int *) sc_array_index_int (vertexset->facevertex_indices[iface], ivertex);
-}
+  T8DG_ASSERT (iface >= 0 && iface < t8dg_vertexset_get_num_faces (vertexset));
+  T8DG_ASSERT (ifacevertex >= 0 && ifacevertex < t8dg_vertexset_get_num_face_vertices (vertexset, iface));
 
-void
-t8dg_vertexset_destroy (t8dg_vertexset_t ** pvertexset)
-{
-  int                 iface = 0;
-  t8dg_vertexset_t   *vertexset = *pvertexset;
-  if (t8dg_vertexset_get_type (vertexset) == T8DG_LGL) {
-    for (iface = 0; iface < vertexset->number_of_faces; iface++) {
-      sc_array_destroy (vertexset->facevertex_indices[iface]);
-      vertexset->facevertex_indices[iface] = NULL;
-    }
-  }
-  if (vertexset->vertices != NULL) {
-    sc_array_destroy (vertexset->vertices);
-    vertexset->vertices = NULL;
-  }
-  T8DG_FREE (vertexset);
-  *pvertexset = NULL;
+  return *(int *) sc_array_index_int (vertexset->facevertex_indices[iface], ifacevertex);
 }
 
 void
 t8dg_vertexset_get_vertex (double reference_vertex[3], const t8dg_vertexset_t * vertexset, const int ivertex)
 {
-  T8DG_ASSERT (vertexset != NULL);
-  T8DG_ASSERT (ivertex >= 0 && ivertex < vertexset->number_of_vertices);
   double             *vertex;
   int                 idim;
+
+  T8DG_ASSERT (vertexset != NULL);
+  T8DG_ASSERT (ivertex >= 0 && ivertex < vertexset->number_of_vertices);
+
   vertex = (double *) sc_array_index_int (vertexset->vertices, ivertex);
   for (idim = 0; idim < vertexset->dim; idim++) {
     reference_vertex[idim] = vertex[idim];
@@ -113,7 +91,11 @@ t8dg_vertexset_get_vertex (double reference_vertex[3], const t8dg_vertexset_t * 
 static void
 t8dg_vertexset_set_facevertex_index (t8dg_vertexset_t * vertices, const int iface, const int ifacevertex, const int ielemvertex)
 {
+  T8DG_ASSERT (vertices != NULL);
+  T8DG_ASSERT (iface >= 0 && iface < t8dg_vertexset_get_num_faces (vertices));
+  T8DG_ASSERT (ifacevertex >= 0 && ifacevertex < t8dg_vertexset_get_num_face_vertices (vertices, iface));
   T8DG_ASSERT (ielemvertex >= 0 && ielemvertex < t8dg_vertexset_get_num_element_vertices (vertices));
+
   *(int *) sc_array_index_int (vertices->facevertex_indices[iface], ifacevertex) = ielemvertex;
 }
 
@@ -124,9 +106,9 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
 
   int                 iface;
   t8dg_vertexset_t   *vertices;
-  vertices = T8DG_ALLOC (t8dg_vertexset_t, 1);
+  vertices = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
 
-  vertices->refcount = 1;
+  t8dg_refcount_init (&vertices->rc);
   vertices->type = T8DG_LGL;
 
   vertices->dim = 1;
@@ -170,4 +152,65 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
   }
 
   return vertices;
+}
+
+void
+t8dg_vertexset_reset (t8dg_vertexset_t ** pvertexset)
+{
+  int                 iface = 0;
+  t8dg_vertexset_t   *vertexset;
+  T8DG_ASSERT (pvertexset != NULL);
+  vertexset = *pvertexset;
+  T8DG_ASSERT (vertexset != NULL);
+  T8DG_ASSERT (vertexset->rc.refcount == 0);
+
+  if (t8dg_vertexset_get_type (vertexset) == T8DG_LGL) {
+    for (iface = 0; iface < vertexset->number_of_faces; iface++) {
+      sc_array_destroy (vertexset->facevertex_indices[iface]);
+      vertexset->facevertex_indices[iface] = NULL;
+    }
+  }
+  if (vertexset->vertices != NULL) {
+    sc_array_destroy (vertexset->vertices);
+    vertexset->vertices = NULL;
+  }
+  T8DG_FREE (vertexset);
+  *pvertexset = NULL;
+}
+
+void
+t8dg_vertexset_ref (t8dg_vertexset_t * vertexset)
+{
+  T8DG_ASSERT (vertexset != NULL);
+  t8dg_refcount_ref (&vertexset->rc);
+}
+
+void
+t8dg_vertexset_unref (t8dg_vertexset_t ** pvertexset)
+{
+  t8dg_vertexset_t   *vertexset;
+
+  T8DG_ASSERT (pvertexset != NULL);
+  vertexset = *pvertexset;
+  T8DG_ASSERT (vertexset != NULL);
+  T8DG_ASSERT (t8dg_refcount_is_active (&vertexset->rc));
+
+  if (t8dg_refcount_unref (&vertexset->rc)) {
+    t8dg_vertexset_reset (pvertexset);
+  }
+}
+
+void
+t8dg_vertexset_destroy (t8dg_vertexset_t ** pvertexset)
+{
+  t8dg_vertexset_t   *vertexset;
+
+  T8DG_ASSERT (pvertexset != NULL);
+  vertexset = *pvertexset;
+
+  T8DG_ASSERT (vertexset != NULL);
+  T8DG_ASSERT (t8dg_refcount_is_last (&vertexset->rc));
+
+  t8dg_refcount_unref (&vertexset->rc);
+  t8dg_vertexset_reset (pvertexset);
 }

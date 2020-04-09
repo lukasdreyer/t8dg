@@ -16,7 +16,9 @@ t8dg_functionbasis_new_Lagrange (t8dg_vertexset_t * vertexset)
 {
   T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_LGL);
-  t8dg_functionbasis_t *functionbasis = T8DG_ALLOC (t8dg_functionbasis_t, 1);
+
+  t8dg_functionbasis_t *functionbasis;
+  functionbasis = T8DG_ALLOC (t8dg_functionbasis_t, 1);
   t8dg_vertexset_ref (vertexset);
   functionbasis->vertexset = vertexset;
   functionbasis->number_of_dof = t8dg_vertexset_get_num_element_vertices (vertexset);
@@ -29,7 +31,7 @@ void
 t8dg_functionbasis_destroy (t8dg_functionbasis_t ** pfunctionbasis)
 {
   t8dg_functionbasis_t *functionbasis = *pfunctionbasis;
-  t8dg_vertexset_unref (functionbasis->vertexset);
+  t8dg_vertexset_unref (&functionbasis->vertexset);
   functionbasis->dim = -1;
   functionbasis->number_of_dof = -1;
   T8DG_FREE (functionbasis);

@@ -33,7 +33,7 @@ t8dg_global_precomputed_values_new_1D_LGL (const int number_of_LGL_vertices)
   vertices = t8dg_vertexset_new_1D_LGL (number_of_LGL_vertices);
   quadrature = t8dg_quadrature_new (vertices);
   functionbasis = t8dg_functionbasis_new_Lagrange (vertices);
-  t8dg_vertexset_unref (vertices);
+  t8dg_vertexset_unref (&vertices);
   values = T8DG_ALLOC (t8dg_global_precomputed_values_t, 1);
   values->quadrature = quadrature;
   values->functionbasis = functionbasis;
@@ -48,8 +48,13 @@ t8dg_global_precomputed_values_new_1D_LGL (const int number_of_LGL_vertices)
 void
 t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pvalues)
 {
-  t8dg_functionbasis_destroy (&(*pvalues)->functionbasis);
-  t8dg_quadrature_destroy (&(*pvalues)->quadrature);
+  T8DG_ASSERT (pvalues != NULL);
+  t8dg_global_precomputed_values_t *values;
+  values = *pvalues;
+  T8DG_ASSERT (values != NULL);
+
+  t8dg_functionbasis_destroy (&values->functionbasis);
+  t8dg_quadrature_destroy (&values->quadrature);
   T8DG_FREE (*pvalues);
   *pvalues = NULL;
 }

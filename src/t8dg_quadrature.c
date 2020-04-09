@@ -56,7 +56,7 @@ void
 t8dg_quadrature_destroy (t8dg_quadrature_t ** pquadrature)
 {
   t8dg_quadrature_t  *quadrature = *pquadrature;
-  t8dg_vertexset_unref (quadrature->vertices);
+  t8dg_vertexset_unref (&quadrature->vertices);
   quadrature->vertices = NULL;
   sc_array_destroy (quadrature->weights);
   quadrature->weights = NULL;
