@@ -83,9 +83,7 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
   element_dof_change = t8dg_sc_array_duplicate (element_dof_beginning);
 
   time_derivative (*pdof_array, element_dof_change, time_current, user_data);
-  t8_debugf ("test1\n");
   t8dg_sc_array_block_double_axpyz (rk_b[0] * time_step, element_dof_change, element_dof_beginning, element_dof_new);
-  t8_debugf ("test2\n");
 
   for (istep = 0; istep < time_order - 1; istep++) {
     /*calculate the y-value for which the derivative needs to be evaluated
@@ -101,13 +99,9 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
     /*add weighted summand to result */
     t8dg_sc_array_block_double_axpy (rk_b[istep + 1] * time_step, element_dof_change, element_dof_new);
   }
-  t8_debugf ("test3\n");
 
   t8dg_timestepping_data_set_current_time (time_data, time_beginning + time_step);
   t8dg_sc_array_swap (pdof_array, &element_dof_new);
-
-  t8_debugf ("dof-values:\n");
-  t8dg_sc_array_block_double_debug_print (*pdof_array);
 
   sc_array_destroy (element_dof_beginning);
   sc_array_destroy (element_dof_change);

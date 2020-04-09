@@ -134,3 +134,10 @@ t8dg_vec_print (double x[3])
 {
   t8dg_debugf ("%f %f %f\n", x[0], x[1], x[2]);
 }
+
+void               *
+t8dg_sc_array_index_locidx (const sc_array_t * array, t8dg_locidx_t it)
+{
+  T8DG_ASSERT (it >= 0 && (size_t) it < array->elem_count);
+  return array->array + array->elem_size * (size_t) it;
+}
