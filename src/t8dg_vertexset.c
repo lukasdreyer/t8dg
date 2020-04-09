@@ -145,8 +145,8 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
     break;
   case (4):
     vertex_array[0] = 0;
-    vertex_array[1] = (1 - sqrt (5)) / 2;
-    vertex_array[2] = (1 + sqrt (5)) / 2;
+    vertex_array[1] = (1 - sqrt (1. / 5)) / 2;
+    vertex_array[2] = (1 + sqrt (1. / 5)) / 2;
     vertex_array[3] = 1;
     break;
   default:
