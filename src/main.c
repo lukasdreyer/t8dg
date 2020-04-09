@@ -62,19 +62,19 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
   t8dg_scalar_function_3d_time_fn u_initial;
   u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
-  t8_debugf ("Start Advection Solve\n");
+  t8dg_debugf ("Start Advection Solve\n");
 
   problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, u_initial, flow_velocity,
                                                          uniform_level, uniform_level + refinement_levels,
                                                          number_LGL_points, start_time, end_time, cfl, time_order, comm);
 
-  t8_debugf ("Start Dof values:\n");
+  t8dg_debugf ("Start Dof values:\n");
   t8dg_advect_problem_printdof (problem);
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
     t8dg_advect_problem_set_time_step (problem);
-    step_number = t8dg_advect_problem_get_stepnumber (problem);
+    step_number = t8dg_advect_problem_get_stepnumber (problem); /*TODO: could also simply be in this loop */
     if (vtk_freq && step_number % vtk_freq == 0) {
       t8dg_advect_write_vtk (problem);
     }
@@ -90,7 +90,7 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
   t8dg_advect_write_vtk (problem);
 
   /*Current output */
-  t8_debugf ("End Dof values:\n");
+  t8dg_debugf ("End Dof values:\n");
   t8dg_advect_problem_printdof (problem);
 
   t8dg_advect_problem_destroy (&problem);
@@ -154,8 +154,10 @@ main (int argc, char *argv[])
 
   sc_init (sc_MPI_COMM_WORLD, 1, 1, NULL, SC_LP_ESSENTIAL);
 #ifdef T8_ENABLE_DEBUG
+  t8dg_init (SC_LP_DEBUG);
   t8_init (SC_LP_DEBUG);
 #else
+  t8dg_init (SC_LP_ESSENTIAL);
   t8_init (SC_LP_ESSENTIAL);
 #endif
 
@@ -178,11 +180,11 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\n" "0 means no adapt");
   sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees");
 
-  parsed = sc_options_parse (t8_get_package_id (), SC_LP_ERROR, opt, argc, argv);
+  parsed = sc_options_parse (t8dg_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
     /* display help message and usage */
-    t8_global_essentialf ("%s\n", help);
-    sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
+    t8dg_global_essentialf ("%s\n", help);
+    sc_options_print_usage (t8dg_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, refinement_levels, number_LGL_points,
                                               start_time, end_time, cfl, time_order, vtk_freq, adapt_freq)) {
@@ -194,8 +196,8 @@ main (int argc, char *argv[])
   }
   else {
     /* wrong usage */
-    t8_global_productionf ("\n\tERROR:Wrong usage.\n\n");
-    sc_options_print_usage (t8_get_package_id (), SC_LP_ERROR, opt, NULL);
+    t8dg_global_productionf ("\n\tERROR:Wrong usage.\n\n");
+    sc_options_print_usage (t8dg_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
 
   sc_options_destroy (opt);
