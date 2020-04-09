@@ -1,4 +1,4 @@
-
+#include <t8_eclass.h>
 #include "t8dg_vertexset.h"
 #include "t8dg.h"
 #include "t8dg_refcount.h"
@@ -16,7 +16,9 @@ struct t8dg_vertexset
   int                 number_of_facevertices[MAX_FACES];        /**< For each face, the number of face vertices*/
   sc_array_t         *vertices; /**< size: dim * number_of_vertices, make access available via function and allocate only if not tensor? */
   sc_array_t         *facevertex_indices[MAX_FACES];    /**< Lookup table, for each facequadindex save the elementquadindex*/
+
 #if 0
+  t8_eclass_t         element_class;    /* TODO: replace dim and number_of_faces by element_class */
   int                 tensorflag;
   t8dg_vertexset_t   *tensor1;
   t8dg_vertexset_t   *tensor2;
@@ -63,7 +65,7 @@ int
 t8dg_vertexset_get_LGL_facevertex_element_index (const t8dg_vertexset_t * vertexset, const int iface, const int ifacevertex)
 {
   T8DG_ASSERT (vertexset != NULL);
-  T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_LGL);
+  T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_VERT_LGL);
   T8DG_ASSERT (iface >= 0 && iface < t8dg_vertexset_get_num_faces (vertexset));
   T8DG_ASSERT (ifacevertex >= 0 && ifacevertex < t8dg_vertexset_get_num_face_vertices (vertexset, iface));
 
@@ -95,6 +97,7 @@ t8dg_vertexset_set_facevertex_index (t8dg_vertexset_t * vertices, const int ifac
   T8DG_ASSERT (iface >= 0 && iface < t8dg_vertexset_get_num_faces (vertices));
   T8DG_ASSERT (ifacevertex >= 0 && ifacevertex < t8dg_vertexset_get_num_face_vertices (vertices, iface));
   T8DG_ASSERT (ielemvertex >= 0 && ielemvertex < t8dg_vertexset_get_num_element_vertices (vertices));
+  T8DG_ASSERT (t8dg_vertexset_get_type (vertices) == T8DG_VERT_LGL);
 
   *(int *) sc_array_index_int (vertices->facevertex_indices[iface], ifacevertex) = ielemvertex;
 }
@@ -109,7 +112,7 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
   vertices = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
 
   t8dg_refcount_init (&vertices->rc);
-  vertices->type = T8DG_LGL;
+  vertices->type = T8DG_VERT_LGL;
 
   vertices->dim = 1;
   vertices->number_of_faces = 2;
@@ -164,7 +167,7 @@ t8dg_vertexset_reset (t8dg_vertexset_t ** pvertexset)
   T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (vertexset->rc.refcount == 0);
 
-  if (t8dg_vertexset_get_type (vertexset) == T8DG_LGL) {
+  if (t8dg_vertexset_get_type (vertexset) == T8DG_VERT_LGL) {
     for (iface = 0; iface < vertexset->number_of_faces; iface++) {
       sc_array_destroy (vertexset->facevertex_indices[iface]);
       vertexset->facevertex_indices[iface] = NULL;

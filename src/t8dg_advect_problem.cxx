@@ -394,7 +394,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   t8_debugf ("precompute local values\n");
   num_elements = t8_forest_get_num_element (problem->forest);
 
-  problem->local_values = t8dg_local_precomputed_values_new (quadrature, num_elements);
+  problem->local_values = t8dg_local_precomputed_values_new (quadrature, num_elements, problem->dim);
   problem->local_values_adapt = NULL;
 
   /*currently no ghost, since serial, but generally the dof_values need to be ghosted. */
@@ -913,7 +913,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
   num_elems_p_ghosts = num_elems + t8_forest_get_num_ghosts (forest_adapt);
 
   problem->local_values_adapt =
-    t8dg_local_precomputed_values_new (t8dg_global_precomputed_values_get_quadrature (problem->global_values), num_elems);
+    t8dg_local_precomputed_values_new (t8dg_global_precomputed_values_get_quadrature (problem->global_values), num_elems, problem->dim);
   problem->dof_values_adapt =
     sc_array_new_count (t8dg_global_precomputed_values_get_num_dof (problem->global_values) * sizeof (double), num_elems_p_ghosts);
 
@@ -968,7 +968,7 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem)
 
   /* Partition local precomputed values */
   local_values_partition = t8dg_local_precomputed_values_new (t8dg_global_precomputed_values_get_quadrature (problem->global_values),
-                                                              num_local_elems_new);
+                                                              num_local_elems_new, problem->dim);
   t8dg_local_precomputed_values_partition (problem->forest, forest_partition, problem->local_values, local_values_partition);
 
   t8dg_local_precomputed_values_destroy (&problem->local_values);

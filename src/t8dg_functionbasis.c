@@ -15,15 +15,23 @@ t8dg_functionbasis_t *
 t8dg_functionbasis_new_Lagrange (t8dg_vertexset_t * vertexset)
 {
   T8DG_ASSERT (vertexset != NULL);
-  T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_LGL);
 
   t8dg_functionbasis_t *functionbasis;
   functionbasis = T8DG_ALLOC (t8dg_functionbasis_t, 1);
   t8dg_vertexset_ref (vertexset);
   functionbasis->vertexset = vertexset;
   functionbasis->number_of_dof = t8dg_vertexset_get_num_element_vertices (vertexset);
-  functionbasis->type = T8DG_LAGRANGE_LGL;
   functionbasis->dim = t8dg_vertexset_get_dim (vertexset);
+  switch (t8dg_vertexset_get_type (vertexset)) {
+  case (T8DG_VERT_LGL):
+    functionbasis->type = T8DG_LAGRANGE_LGL;
+    break;
+  case (T8DG_VERT_GL):
+    functionbasis->type = T8DG_LAGRANGE_LGL;
+    break;
+  default:
+    T8DG_ABORT ("Not yet implemented");
+  }
   return functionbasis;
 }
 

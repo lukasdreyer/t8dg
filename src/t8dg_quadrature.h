@@ -14,6 +14,12 @@
 /** Index used to enumerate quadrature points*/
 typedef int         t8dg_quad_idx_t;
 
+typedef enum t8dg_quadrature_type
+{
+  T8DG_QUAD_LGL,
+  T8DG_QUAD_GL
+} t8dg_quadrature_type_t;
+
 /**Opaque handle typedef for quadrature*/
 typedef struct t8dg_quadrature t8dg_quadrature_t;
 
@@ -87,10 +93,8 @@ void                t8dg_quadrature_get_face_vertex (double vertex[3],
  */
 double              t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t iquad);
 
-t8dg_vertexset_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature);
+t8dg_quadrature_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature);
 
-t8dg_vertexset_t   *t8dg_quadrature_get_vertexset (const t8dg_quadrature_t * quadrature);
-
-int                 t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature);
+t8dg_quad_idx_t     t8dg_quadrature_get_LGL_facevertex_element_index (t8dg_quadrature_t * quadrature, int iface, int ifacevertex);
 
 #endif /* SRC_T8DG_QUADRATURE_H_ */

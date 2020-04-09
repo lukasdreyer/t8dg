@@ -10,8 +10,9 @@
 
 typedef enum t8dg_vertexset_type
 {
-  T8DG_LGL,
-  T8DG_GL,
+  T8DG_VERT_LGL,
+  T8DG_VERT_GL,
+  T8DG_VERT_FACE
 } t8dg_vertexset_type_t;
 
 typedef struct t8dg_vertexset t8dg_vertexset_t;
