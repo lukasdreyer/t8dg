@@ -8,6 +8,7 @@
 #ifndef SRC_T8DG_QUADRATURE_H_
 #define SRC_T8DG_QUADRATURE_H_
 
+#include "t8dg.h"               /*for scalar_fn */
 #include "t8dg_vertexset.h"
 #include <sc_containers.h>
 
@@ -27,14 +28,7 @@ typedef struct t8dg_quadrature t8dg_quadrature_t;
  * \param [in] index needs to be in [0]..[elem_count-1].
  */
 
-static inline void *
-t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz)
-{
-  T8DG_ASSERT (array != NULL);
-  T8DG_ASSERT (iz >= 0 && iz < (t8dg_quad_idx_t) array->elem_count);
-
-  return (void *) (array->array + (array->elem_size * iz));
-}
+void               *t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz);
 
 /*TODO: document
  *
@@ -96,5 +90,7 @@ double              t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * q
 t8dg_quadrature_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature);
 
 t8dg_quad_idx_t     t8dg_quadrature_get_LGL_facevertex_element_index (t8dg_quadrature_t * quadrature, int iface, int ifacevertex);
+
+double              t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn);
 
 #endif /* SRC_T8DG_QUADRATURE_H_ */

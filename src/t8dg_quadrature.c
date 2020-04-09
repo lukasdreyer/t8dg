@@ -19,8 +19,17 @@ struct t8dg_quadrature
   t8dg_quadrature_type_t type;
 };
 
+void               *
+t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz)
+{
+  T8DG_ASSERT (array != NULL);
+  T8DG_ASSERT (iz >= 0 && iz < (t8dg_quad_idx_t) array->elem_count);
+
+  return (void *) (array->array + (array->elem_size * iz));
+}
+
 static void
-t8dg_quadrature_fill_LGL (t8dg_quadrature_t * quadrature)
+t8dg_quadrature_fill_LGL_weights (t8dg_quadrature_t * quadrature)
 {
   T8DG_CHECK_ABORT (t8dg_vertexset_get_dim (quadrature->vertices) == 1, "Not yet implemented");
 
@@ -73,7 +82,7 @@ t8dg_quadrature_new (t8dg_vertexset_t * vertexset)
     for (iface = 0; iface < t8dg_vertexset_get_num_faces (quadrature->vertices); iface++) {
       quadrature->face_weights[iface] = sc_array_new_count (sizeof (double), t8dg_vertexset_get_num_face_vertices (vertexset, iface));
     }
-    t8dg_quadrature_fill_LGL (quadrature);
+    t8dg_quadrature_fill_LGL_weights (quadrature);
     break;
   default:
     T8DG_ABORT ("Not yet implemented");
@@ -162,4 +171,18 @@ t8dg_quad_idx_t
 t8dg_quadrature_get_LGL_facevertex_element_index (t8dg_quadrature_t * quadrature, int iface, int ifacevertex)
 {
   return t8dg_vertexset_get_LGL_facevertex_element_index (quadrature->vertices, iface, ifacevertex);
+}
+
+double
+t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn)
+{
+  t8dg_quad_idx_t     num_elem_quad, iquad;
+  double              integral = 0;
+  double              vertex[3];
+  num_elem_quad = t8dg_quadrature_get_num_element_vertices (quadrature);
+  for (iquad = 0; iquad < num_elem_quad; iquad++) {
+    t8dg_quadrature_get_element_vertex (vertex, quadrature, iquad);
+    integral += t8dg_quadrature_get_element_weight (quadrature, iquad) * integrand_fn (vertex);
+  }
+  return integral;
 }
