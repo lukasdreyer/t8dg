@@ -15,7 +15,7 @@
 #include <t8_forest.h>
 
 #include "t8dg.h"
-#include "t8dg_square_3D_matrix.h"
+#include "t8dg_dmatrix.h"
 
 /** returns the 3x3 jacobian of the geometry function*/
 typedef void        (*t8dg_jacobian_fn_3D) (const double vertex[DIM3], t8dg_square_3D_matrix_t jacobian, t8_forest_t forest,

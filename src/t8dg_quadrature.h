@@ -33,12 +33,20 @@ void               *t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_
 /*TODO: document
  *
  * */
-t8dg_quadrature_t  *t8dg_quadrature_new (t8dg_vertexset_t * vertexset);
+t8dg_quadrature_t  *t8dg_quadrature_new_vertexset (t8dg_vertexset_t * vertexset);
+
+t8dg_quadrature_t  *t8dg_quadrature_new_tensor_square (t8dg_quadrature_t * quad_line);
 
 /*TODO: document
  *
  * */
 void                t8dg_quadrature_destroy (t8dg_quadrature_t ** pquadrature);
+
+void                t8dg_quadrature_reset (t8dg_quadrature_t ** pquadrature);
+
+void                t8dg_quadrature_ref (t8dg_quadrature_t * quadrature);
+
+void                t8dg_quadrature_unref (t8dg_quadrature_t ** pquadrature);
 
 int                 t8dg_quadrature_get_num_faces (const t8dg_quadrature_t * quadrature);
 
@@ -89,8 +97,13 @@ double              t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * q
 
 t8dg_quadrature_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature);
 
+t8_eclass_t         t8dg_quadrature_get_eclass (const t8dg_quadrature_t * quadrature);
+
+int                 t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature);
+
 t8dg_quad_idx_t     t8dg_quadrature_get_LGL_facevertex_element_index (t8dg_quadrature_t * quadrature, int iface, int ifacevertex);
 
-double              t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn);
+double              t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn,
+                                                                 void *integrand_data);
 
 #endif /* SRC_T8DG_QUADRATURE_H_ */

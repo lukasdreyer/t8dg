@@ -198,43 +198,51 @@ t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
   t8dg_timestepping_data_set_time_step (problem->time_data, delta_t);
 }
 
+struct initial_fn_data
+{
+  t8dg_linear_advection_problem_t *problem;
+  t8_eclass_scheme_c *scheme;
+  t8_element_t       *element;
+  t8_locidx_t         itree;
+};
+static double
+t8dg_advect_problem_evaluate_initial_function_on_reference_element (const double reference_vertex[3], void *scalar_fn_data)
+{
+  double              coarse_vertex[DIM3];
+  double              image_vertex[DIM3];
+  double              start_time;
+  struct initial_fn_data *data;
+  t8dg_linear_advection_problem_t *problem;
+
+  data = (struct initial_fn_data *) scalar_fn_data;
+  problem = data->problem;
+  start_time = t8dg_timestepping_data_get_current_time (problem->time_data);
+  /* transform into coarse reference element */
+  t8dg_local_precomputed_values_fine_to_coarse_geometry (reference_vertex, coarse_vertex, data->scheme, data->element);
+
+  /* tree vertices are application data for linear geometry */
+  problem->coarse_geometry->geometry (coarse_vertex, image_vertex, problem->forest, data->itree);
+
+  /* apply initial condition function at image vertex and start time */
+  return problem->description.initial_condition_fn (image_vertex, start_time);
+
+}
+
 static void
 t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
                                t8_locidx_t ielement, t8_element_t * element)
 {
-  int                 idof;
-  double             *element_dof_values;
-  double              reference_vertex[DIM3];
-  double              coarse_vertex[DIM3];
-  double              image_vertex[DIM3];
-  double              start_time = t8dg_timestepping_data_get_current_time (problem->time_data);
   t8_locidx_t         idata;
 
   idata = t8dg_itree_ielement_to_idata (problem->forest, itree, ielement);
 
-  t8dg_functionbasis_t *functionbasis = t8dg_global_precomputed_values_get_functionbasis (problem->global_values);
+  sc_array_t         *element_dof_view = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
 
-  element_dof_values = t8dg_advect_problem_get_element_dof_values (problem, idata);
+  struct initial_fn_data data = { problem, scheme, element, itree };
 
-  for (idof = 0; idof < t8dg_functionbasis_get_num_dof (functionbasis); idof++) {
-    /*TODO: make available for general functionbasis */
-    /* get_basisfunction_nodal vertex */
-    t8dg_functionbasis_get_vertex (reference_vertex, functionbasis, idof);
-    t8_debugf ("reference_vertex\n");
-    t8dg_vec_print (reference_vertex);
-    /* transform into coarse reference element */
-    t8dg_local_precomputed_values_fine_to_coarse_geometry (reference_vertex, coarse_vertex, scheme, element);
-    t8_debugf ("coarse_vertex\n");
-    t8dg_vec_print (coarse_vertex);
-
-    /* tree vertices are application data for linear geometry */
-    problem->coarse_geometry->geometry (coarse_vertex, image_vertex, problem->forest, itree);
-    t8_debugf ("image_vertex\n");
-    t8dg_vec_print (image_vertex);
-
-    /* apply initial condition function at image vertex and start time */
-    element_dof_values[idof] = problem->description.initial_condition_fn (image_vertex, start_time);
-  }
+  t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
+                                            t8dg_advect_problem_evaluate_initial_function_on_reference_element, &data, element_dof_view);
+  sc_array_destroy (element_dof_view);
 }
 
 static void

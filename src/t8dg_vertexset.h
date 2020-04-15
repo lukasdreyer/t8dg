@@ -21,16 +21,12 @@ t8dg_vertexset_type_t t8dg_vertexset_get_type (const t8dg_vertexset_t * vertexse
 
 int                 t8dg_vertexset_get_dim (const t8dg_vertexset_t * vertexset);
 
-int                 t8dg_vertexset_get_num_element_vertices (const t8dg_vertexset_t * vertexset);
+int                 t8dg_vertexset_get_num_vertices (const t8dg_vertexset_t * vertexset);
 
-int                 t8dg_vertexset_get_num_faces (const t8dg_vertexset_t * vertexset);
+t8_eclass_t         t8dg_vertexset_get_eclass (const t8dg_vertexset_t * vertexset);
 
-int                 t8dg_vertexset_get_num_face_vertices (const t8dg_vertexset_t * vertexset, const int iface);
-
-int                 t8dg_vertexset_get_LGL_facevertex_element_index (const t8dg_vertexset_t * vertexset, const int iface,
-                                                                     const int ifacevertex);
-
-void                t8dg_vertexset_get_vertex (double reference_vertex[3], const t8dg_vertexset_t * vertexset, const int ivertex);
+void                t8dg_vertexset_fill_vertex3D (const t8dg_vertexset_t * vertexset, const int ivertex, const int startdim,
+                                                  double reference_vertex[3]);
 
 t8dg_vertexset_t   *t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices);
 

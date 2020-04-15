@@ -21,7 +21,7 @@ SOURCE='../src/t8dg.c ../src/t8dg_quadrature.c ../src/t8dg_functionbasis.c
  ../src/t8dg_global_precomputed_values.c ../src/t8dg_local_precomputed_values.cxx
  ../src/t8dg_vertexset.c ../src/t8dg_timestepping.c ../src/t8dg_mortar.c
  ../src/t8dg_sc_array.c ../src/t8dg_coarse_geometry.c ../src/t8dg_flux.c 
- ../src/t8dg_advect_problem.cxx ../src/t8dg_refcount.c'
+ ../src/t8dg_advect_problem.cxx ../src/t8dg_refcount.c ../src/t8dg_dmatrix.c'
 # The source of the main program 
 MAINSOURCE='../src/main.c'
 # The sources of the tests and test main program
@@ -34,7 +34,8 @@ TESTLIB="-L$GTEST_DIR"
 INCLUDE=$T8_DIR/include
 TESTINCLUDE=$GTEST_INCLUDE
 
-LIBS="-lt8 -lp4est -lsc -lm -lz"
+LIBS="-lt8 -lp4est -lsc -lm -lz -lopenblas"
+# CBLASLIB="-L/usr/local/lib"
 TESTLIBS="-lgtest"
 
 export LD_LIBRARY_PATH=$LIB_PATH:$LD_LIBRARY_PATH
