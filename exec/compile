@@ -25,7 +25,8 @@ SOURCE='../src/t8dg.c ../src/t8dg_quadrature.c ../src/t8dg_functionbasis.c
 # The source of the main program 
 MAINSOURCE='../src/main.c'
 # The sources of the tests and test main program
-TESTSOURCE='../test/t8dg_test_main.cxx ../test/t8dg_test_timestepping.cxx ../test/t8dg_test_quadrature.cxx'
+TESTSOURCE='../test/t8dg_test_main.cxx ../test/t8dg_test_timestepping.cxx ../test/t8dg_test_quadrature.cxx
+  ../test/t8dg_test_dmatrix.cxx'
 
 # There should be no need to change the following lines
 LIB_PATH="$T8_DIR/lib"
