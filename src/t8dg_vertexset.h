@@ -25,10 +25,14 @@ int                 t8dg_vertexset_get_num_vertices (const t8dg_vertexset_t * ve
 
 t8_eclass_t         t8dg_vertexset_get_eclass (const t8dg_vertexset_t * vertexset);
 
+double              t8dg_vertexset_get_first_coordinate (const t8dg_vertexset_t * vertexset, const int ivertex);
+
 void                t8dg_vertexset_fill_vertex3D (const t8dg_vertexset_t * vertexset, const int ivertex, const int startdim,
                                                   double reference_vertex[3]);
 
 t8dg_vertexset_t   *t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices);
+
+t8dg_vertexset_t   *t8dg_vertexset_new_childvertexset_1D (const t8dg_vertexset_t * vertexset, int ichild);
 
 void                t8dg_vertexset_destroy (t8dg_vertexset_t ** pvertexset);
 

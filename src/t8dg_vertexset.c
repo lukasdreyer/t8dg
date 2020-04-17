@@ -63,6 +63,12 @@ t8dg_vertexset_fill_vertex3D (const t8dg_vertexset_t * vertexset, const int iver
   }
 }
 
+double
+t8dg_vertexset_get_first_coordinate (const t8dg_vertexset_t * vertexset, const int ivertex)
+{
+  return *(double *) sc_array_index_int (vertexset->vertices, ivertex);
+}
+
 t8dg_vertexset_t   *
 t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
 {
@@ -107,6 +113,31 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
   }
 
   return vertices;
+}
+
+t8dg_vertexset_t   *
+t8dg_vertexset_new_childvertexset_1D (const t8dg_vertexset_t * vertexset, int ichild)
+{
+  T8DG_ASSERT (t8dg_vertexset_get_dim (vertexset) == 1);
+  T8DG_ASSERT (ichild == 0 || ichild == 1);
+
+  int                 ivertex;
+
+  t8dg_vertexset_t   *child_vertexset;
+  child_vertexset = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
+
+  t8dg_refcount_init (&child_vertexset->rc);
+  child_vertexset->type = T8DG_VERT_LGL;
+  child_vertexset->element_class = T8_ECLASS_LINE;
+
+  child_vertexset->number_of_vertices = t8dg_vertexset_get_num_vertices (vertexset);
+  child_vertexset->vertices = sc_array_new_count (sizeof (double), child_vertexset->number_of_vertices);
+
+  for (ivertex = 0; ivertex < child_vertexset->number_of_vertices; ivertex++) {
+    *(double *) sc_array_index_int (child_vertexset->vertices, ivertex) =
+      ichild / 2.0 + t8dg_vertexset_get_first_coordinate (vertexset, ivertex) / 2.0;
+  }
+  return child_vertexset;
 }
 
 void
