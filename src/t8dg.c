@@ -156,3 +156,10 @@ t8dg_transform_3tensoridx (int idx, const int tensordims[DIM3], int tensoridx[DI
   }
 
 }
+
+int
+t8dg_almost_equal (double x1, double x2)
+{
+  double              eps = 1e-10;
+  return fabs (x1 - x2) < eps;
+}
