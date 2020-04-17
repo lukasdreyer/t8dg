@@ -146,29 +146,12 @@ t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (const 
                                                                           sc_array_t * derivative_dof_values, sc_array_t * dof_values)
 {
   SC_CHECK_ABORT (t8dg_global_precomputed_values_get_dim (global_values) == 1 &&
-                  t8dg_functionbasis_get_type (global_values->functionbasis) == T8DG_LAGRANGE_LGL_1D, "Not yet implemented");
+                  t8dg_functionbasis_is_lagrange (global_values->functionbasis), "Not yet implemented");
 
-  double             *dof_array;
-  double             *derivative_array;
-  dof_array = (double *) sc_array_index (dof_values, 0);
-  derivative_array = (double *) sc_array_index (derivative_dof_values, 0);
+  t8dg_dmatrix_t     *derivative_matrix;
+  derivative_matrix = t8dg_functionbasis_get_derivative_matrix (global_values->functionbasis);
 
-  switch (global_values->number_of_dof) {
-  case (1):
-    dof_array[0] = 0;
-    break;
-  case (2):
-    dof_array[0] = -1 * derivative_array[0] - 1 * derivative_array[1];
-    dof_array[1] = 1 * derivative_array[0] + 1 * derivative_array[1];
-    break;
-  case (3):
-    dof_array[0] = -3 * derivative_array[0] - 1 * derivative_array[1] + 1 * derivative_array[2];
-    dof_array[1] = 4 * derivative_array[0] + 0 * derivative_array[1] - 4 * derivative_array[2];
-    dof_array[2] = -1 * derivative_array[0] + 1 * derivative_array[1] + 3 * derivative_array[2];
-    break;
-  default:
-    SC_ABORT ("derivative_matrix not yet implemented");
-  }
+  t8dg_dmatrix_transpose_mult_sc_array (derivative_matrix, derivative_dof_values, dof_values);
 }
 
 int
