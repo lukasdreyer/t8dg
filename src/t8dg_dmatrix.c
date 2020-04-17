@@ -18,7 +18,7 @@ struct t8dg_dmatrix
 };
 
 double
-t8dg_dmatrix_at (t8dg_dmatrix_t * matrix, int irow, int icolumn)
+t8dg_dmatrix_at (const t8dg_dmatrix_t * matrix, const int irow, const int icolumn)
 {
   T8DG_ASSERT (irow >= 0 && irow < matrix->nrows);
   T8DG_ASSERT (icolumn >= 0 && icolumn < matrix->ncolumns);
@@ -26,7 +26,7 @@ t8dg_dmatrix_at (t8dg_dmatrix_t * matrix, int irow, int icolumn)
 }
 
 void
-t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, int irow, int icolumn, double value)
+t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, const int irow, const int icolumn, const double value)
 {
   T8DG_ASSERT (irow >= 0 && irow < matrix->nrows);
   T8DG_ASSERT (icolumn >= 0 && icolumn < matrix->ncolumns);
@@ -34,7 +34,7 @@ t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, int irow, int icolumn, double valu
 }
 
 void
-t8dg_dmatrix_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b)
+t8dg_dmatrix_mult_sc_array (const t8dg_dmatrix_t * A, const sc_array_t * x, sc_array_t * b)
 {
   /*TODO ASSERT */
   cblas_dgemv (CblasRowMajor, CblasNoTrans, A->nrows, A->ncolumns, 1, A->values, A->ncolumns, (double *) x->array, 1, 0,
@@ -42,7 +42,7 @@ t8dg_dmatrix_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b)
 }
 
 void
-t8dg_dmatrix_transpose_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b)
+t8dg_dmatrix_transpose_mult_sc_array (const t8dg_dmatrix_t * A, const sc_array_t * x, sc_array_t * b)
 {
   /*TODO ASSERT */
   cblas_dgemv (CblasRowMajor, CblasTrans, A->nrows, A->ncolumns, 1, A->values, A->ncolumns, (double *) x->array, 1, 0, (double *) b->array,
@@ -50,7 +50,7 @@ t8dg_dmatrix_transpose_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_arr
 }
 
 void
-t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, int irow, double alpha)
+t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, const int irow, const double alpha)
 {
   T8DG_ASSERT (irow >= 0 && irow < matrix->nrows);
   int                 icolumn;

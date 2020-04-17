@@ -12,15 +12,15 @@
 
 typedef struct t8dg_dmatrix t8dg_dmatrix_t;
 
-double              t8dg_dmatrix_at (t8dg_dmatrix_t * dmatrix, int irow, int icolumn);
+double              t8dg_dmatrix_at (const t8dg_dmatrix_t * dmatrix, const int irow, const int icolumn);
 
-void                t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, int irow, int icolumn, double value);
+void                t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, const int irow, const int icolumn, const double value);
 
-void                t8dg_dmatrix_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b);
+void                t8dg_dmatrix_mult_sc_array (const t8dg_dmatrix_t * A, const sc_array_t * x, sc_array_t * b);
 
-void                t8dg_dmatrix_transpose_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b);
+void                t8dg_dmatrix_transpose_mult_sc_array (const t8dg_dmatrix_t * A, const sc_array_t * x, sc_array_t * b);
 
-void                t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, int irow, double alpha);
+void                t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, const int irow, const double alpha);
 
 t8dg_dmatrix_t     *t8dg_dmatrix_new (int nrows, int ncolumns);
 
