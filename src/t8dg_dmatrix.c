@@ -13,7 +13,6 @@
 struct t8dg_dmatrix
 {
   double             *values;
-  double            **mat;
   int                 nrows;
   int                 ncolumns;
 };
@@ -24,7 +23,6 @@ t8dg_dmatrix_at (t8dg_dmatrix_t * matrix, int irow, int icolumn)
   T8DG_ASSERT (irow >= 0 && irow < matrix->nrows);
   T8DG_ASSERT (icolumn >= 0 && icolumn < matrix->ncolumns);
   return matrix->values[irow * matrix->ncolumns + icolumn];
-  return matrix->mat[irow][icolumn];    /*TODO: which one to use? */
 }
 
 void
@@ -38,49 +36,60 @@ t8dg_dmatrix_set_at (t8dg_dmatrix_t * matrix, int irow, int icolumn, double valu
 void
 t8dg_dmatrix_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b)
 {
-  int                 lda = A->ncolumns;        /*TODO: No idea, test! */
-  cblas_dgemv (CblasRowMajor, CblasNoTrans, A->nrows, A->ncolumns, 1, A->values, lda, (double *) x->array, 1, 0, (double *) b->array, 1);
-
+  /*TODO ASSERT */
+  cblas_dgemv (CblasRowMajor, CblasNoTrans, A->nrows, A->ncolumns, 1, A->values, A->ncolumns, (double *) x->array, 1, 0,
+               (double *) b->array, 1);
 }
 
 void
 t8dg_dmatrix_transpose_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b)
 {
+  /*TODO ASSERT */
+  cblas_dgemv (CblasRowMajor, CblasTrans, A->nrows, A->ncolumns, 1, A->values, A->ncolumns, (double *) x->array, 1, 0, (double *) b->array,
+               1);
+}
 
+void
+t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, int irow, double alpha)
+{
+  T8DG_ASSERT (irow >= 0 && irow < matrix->nrows);
+  int                 icolumn;
+  for (icolumn = 0; icolumn < matrix->ncolumns; icolumn++) {
+    matrix->values[irow * matrix->ncolumns + icolumn] *= alpha;
+  }
 }
 
 t8dg_dmatrix_t     *
 t8dg_dmatrix_new (int nrows, int ncolumns)
 {
-  int                 irow;
   T8DG_ASSERT (nrows > 0 && ncolumns > 0);
   t8dg_dmatrix_t     *matrix = T8DG_ALLOC (t8dg_dmatrix_t, 1);
   matrix->values = T8DG_ALLOC (double, nrows * ncolumns);
   matrix->nrows = nrows;
   matrix->ncolumns = ncolumns;
-  matrix->mat = T8DG_ALLOC (double *, nrows);
-  for (irow = 0; irow < nrows; irow++) {
-    matrix->mat[irow] = matrix->values + irow * ncolumns;
-  }
+  return matrix;
+}
+
+t8dg_dmatrix_t     *
+t8dg_dmatrix_new_zero (int nrows, int ncolumns)
+{
+  T8DG_ASSERT (nrows > 0 && ncolumns > 0);
+  t8dg_dmatrix_t     *matrix = T8DG_ALLOC (t8dg_dmatrix_t, 1);
+  matrix->values = T8DG_ALLOC_ZERO (double, nrows * ncolumns);
+  matrix->nrows = nrows;
+  matrix->ncolumns = ncolumns;
   return matrix;
 }
 
 void
 t8dg_dmatrix_destroy (t8dg_dmatrix_t ** pmatrix)
 {
-  int                 irow;
-
   T8DG_ASSERT (pmatrix != NULL);
   t8dg_dmatrix_t     *matrix = *pmatrix;
   T8DG_ASSERT (matrix != NULL);
 
   T8DG_FREE (matrix->values);
   matrix->values = NULL;
-
-  for (irow = 0; irow < matrix->nrows; irow++) {
-    matrix->mat[irow] = NULL;
-  }
-  T8DG_FREE (matrix->mat);
 
   matrix->ncolumns = -1;
   matrix->nrows = -1;

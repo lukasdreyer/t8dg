@@ -20,7 +20,11 @@ void                t8dg_dmatrix_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t *
 
 void                t8dg_dmatrix_transpose_mult_sc_array (t8dg_dmatrix_t * A, sc_array_t * x, sc_array_t * b);
 
+void                t8dg_dmatrix_scale_row (t8dg_dmatrix_t * matrix, int irow, double alpha);
+
 t8dg_dmatrix_t     *t8dg_dmatrix_new (int nrows, int ncolumns);
+
+t8dg_dmatrix_t     *t8dg_dmatrix_new_zero (int nrows, int ncolumns);
 
 void                t8dg_dmatrix_destroy (t8dg_dmatrix_t ** pmatrix);
 
