@@ -837,23 +837,23 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
   t8dg_linear_advection_problem_t *problem;
   t8_locidx_t         first_idata_old, first_idata_new;
 
-  double             *element_dof;
-  double             *element_dof_left;
-  double             *element_dof_right;
-  double             *element_dof_adapt;
+  int                 ichild, num_children;
 
-  double              average;
+  sc_array_t         *element_dof_parent;
+  sc_array_t         *element_dof_child[MAX_SUBELEMENTS];
 
   t8dg_quadrature_t  *quadrature;
 
   problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest_new);
   T8DG_ASSERT (forest_old == problem->forest);
-  T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_num_dof (problem->global_values) == 2, "Not yet implemented");
+  T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_dim (problem->global_values) == 1, "Not yet implemented");
 
   quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
 
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, which_tree, first_ielem_old);
   first_idata_new = t8dg_itree_ielement_to_idata (forest_new, which_tree, first_ielem_new);
+
+  num_children = 2;             /*TODO: scheme dependent */
 
   if (num_elems_old == num_elems_new && num_elems_old == 1) {
     t8dg_local_precomputed_values_copy_element_values (problem->local_values, first_idata_old,
@@ -861,29 +861,33 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
     t8dg_sc_array_copy_only_at_indices (problem->dof_values, first_idata_old, problem->dof_values_adapt, first_idata_new);
   }
   else if (num_elems_old == 1) {
-    element_dof = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old);
-    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new);
-    element_dof_adapt[0] = element_dof[0];
-    element_dof_adapt[1] = (element_dof[0] + element_dof[1]) / 2;
-
-    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new + 1);
-    element_dof_adapt[0] = (element_dof[0] + element_dof[1]) / 2;;
-    element_dof_adapt[1] = element_dof[1];
-
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new, quadrature);
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new + 1, quadrature);
-    //interpolate
+    element_dof_parent = t8dg_sc_array_block_double_new_view (problem->dof_values, first_idata_old);
+    for (ichild = 0; ichild < num_children; ichild++) {
+      element_dof_child[ichild] = t8dg_sc_array_block_double_new_view (problem->dof_values_adapt, first_idata_new + ichild);
+      t8dg_global_precomputed_values_transform_element_dof_to_child_dof (problem->global_values, element_dof_parent,
+                                                                         element_dof_child[ichild], ichild);
+      t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new + ichild,
+                                                 quadrature);
+      sc_array_destroy (element_dof_child[ichild]);
+    }
+    sc_array_destroy (element_dof_parent);
   }
   else {
-    element_dof_left = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old);
-    element_dof_right = t8dg_advect_problem_get_element_dof_values (problem, first_idata_old + 1);
-    element_dof_adapt = t8dg_advect_problem_get_element_dof_values_adapt (problem, first_idata_new);
-    average = (element_dof_left[1] + element_dof_right[0]) / 2;
-    element_dof_adapt[0] = (element_dof_left[0] + average) / 2;
-    element_dof_adapt[1] = (element_dof_right[1] + average) / 2;
+    element_dof_parent = t8dg_sc_array_block_double_new_view (problem->dof_values_adapt, first_idata_new);
+    t8dg_sc_array_block_double_set_zero (element_dof_parent);
+    for (ichild = 0; ichild < num_children; ichild++) {
+      element_dof_child[ichild] = t8dg_sc_array_block_double_new_view (problem->dof_values, first_idata_old + ichild);
+
+    }
+    t8dg_global_precomputed_values_transform_child_dof_to_parent_dof (problem->global_values, element_dof_child,
+                                                                      element_dof_parent, num_children);
+
+    for (ichild = 0; ichild < num_children; ichild++) {
+      sc_array_destroy (element_dof_child[ichild]);
+    }
+    sc_array_destroy (element_dof_parent);
 
     t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new, quadrature);
-    //project/restrict
   }
 }
 

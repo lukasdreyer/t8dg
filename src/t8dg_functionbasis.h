@@ -36,9 +36,7 @@ int                 t8dg_functionbasis_is_lagrange (const t8dg_functionbasis_t *
 
 t8dg_dmatrix_t     *t8dg_functionbasis_get_derivative_matrix (t8dg_functionbasis_t * functionbasis);
 
-void                t8dg_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_values,
-                                                                          sc_array_t * derivative_dof_values,
-                                                                          const t8dg_functionbasis_t * functionbasis);
+t8dg_dmatrix_t     *t8dg_functionbasis_get_child_interpolation_matrix (t8dg_functionbasis_t * functionbasis, int ichild);
 
 t8dg_functionbasis_type_t t8dg_functionbasis_get_type (const t8dg_functionbasis_t * functionbasis);
 
