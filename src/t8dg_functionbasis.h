@@ -10,6 +10,7 @@
 
 #include "t8dg_vertexset.h"
 #include <sc_containers.h>
+#include "t8dg_dmatrix.h"
 
 typedef enum t8dg_functionbasis_type
 {
@@ -22,6 +23,18 @@ typedef struct t8dg_functionbasis t8dg_functionbasis_t;
 t8dg_functionbasis_t *t8dg_functionbasis_new_1D_Lagrange (t8dg_vertexset_t * vertexset);
 
 void                t8dg_functionbasis_destroy (t8dg_functionbasis_t ** pfunctionbasis);
+
+void                t8dg_functionbasis_unref (t8dg_functionbasis_t ** pfunctionbasis);
+
+void                t8dg_functionbasis_reset (t8dg_functionbasis_t ** pfunctionbasis);
+
+void                t8dg_functionbasis_ref (t8dg_functionbasis_t * functionbasis);
+
+t8dg_dmatrix_t     *t8dg_functionbasis_Lagrange_derivative_matrix (t8dg_functionbasis_t * functionbasis);
+
+int                 t8dg_functionbasis_is_lagrange (const t8dg_functionbasis_t * functionbasis);
+
+t8dg_dmatrix_t     *t8dg_functionbasis_get_derivative_matrix (t8dg_functionbasis_t * functionbasis);
 
 void                t8dg_functionbasis_apply_derivative_matrix_transpose (sc_array_t * dof_values,
                                                                           sc_array_t * derivative_dof_values,
@@ -36,5 +49,8 @@ int                 t8dg_functionbasis_get_dim (const t8dg_functionbasis_t * fun
 void                t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionbasis,
                                                               t8dg_scalar_function_3d_fn function, void *scalar_fn_data,
                                                               sc_array_t * dof_values);
+
+t8dg_dmatrix_t     *t8dg_functionbasis_Lagrange_interpolation_matrix (t8dg_functionbasis_t * functionbasis,
+                                                                      t8dg_vertexset_t * interpolation_vertices);
 
 #endif /* SRC_T8DG_FUNCTIONBASIS_H_ */
