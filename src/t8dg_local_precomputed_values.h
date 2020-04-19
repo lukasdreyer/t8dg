@@ -24,7 +24,7 @@ void                t8dg_local_precomputed_values_set_element (t8dg_local_precom
                                                                t8_forest_t forest, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
                                                                t8_locidx_t ielement, t8dg_quadrature_t * quadrature);
 
-t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems, int dim);
+t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems);
 
 void                t8dg_local_precomputed_values_destroy (t8dg_local_precomputed_values_t ** pvalues);
 

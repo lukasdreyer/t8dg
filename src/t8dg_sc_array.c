@@ -19,7 +19,7 @@ t8dg_sc_array_copy_only_at_indices (sc_array_t * incoming_array, t8_locidx_t inc
 }
 
 sc_array_t         *
-t8dg_sc_array_duplicate (sc_array_t * src)
+t8dg_sc_array_duplicate (const sc_array_t * src)
 {
   sc_array_t         *dest;
   dest = sc_array_new_count (src->elem_size, src->elem_count);

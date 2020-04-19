@@ -176,14 +176,14 @@ t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * val
 }
 
 t8dg_local_precomputed_values_t *
-t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems, int dim)
+t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems)
 {
   int                 iface;
   t8dg_local_precomputed_values_t *values = T8DG_ALLOC (t8dg_local_precomputed_values_t, 1);
 
   values->num_faces = t8dg_quadrature_get_num_faces (quadrature);
   values->num_elem_quad = t8dg_quadrature_get_num_element_vertices (quadrature);
-  values->dim = dim;
+  values->dim = t8dg_quadrature_get_dim (quadrature);
 
   /*for each element an array of double values */
   values->element_trafo_quad_weight =

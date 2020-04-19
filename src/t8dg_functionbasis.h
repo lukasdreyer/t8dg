@@ -51,4 +51,8 @@ void                t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functio
 t8dg_dmatrix_t     *t8dg_functionbasis_Lagrange_interpolation_matrix (t8dg_functionbasis_t * functionbasis,
                                                                       t8dg_vertexset_t * interpolation_vertices);
 
+/**An estimate on the max value of the derivative on the reference element given dof_values
+ * */
+//double                        t8dg_functionbasis_max_derivative(t8dg_functionbasis_t *functionbasis, sc_array_t *dof_values);
+
 #endif /* SRC_T8DG_FUNCTIONBASIS_H_ */

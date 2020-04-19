@@ -58,7 +58,7 @@ t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pval
 
 void
 t8dg_global_precomputed_values_transform_element_dof_to_element_quad (const t8dg_global_precomputed_values_t * values,
-                                                                      sc_array_t * element_dof_array, sc_array_t * element_quad_array)
+                                                                      const sc_array_t * element_dof_array, sc_array_t * element_quad_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
                     t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D, "Not yet implemented");
@@ -71,7 +71,7 @@ t8dg_global_precomputed_values_transform_element_dof_to_element_quad (const t8dg
 
 void
 t8dg_global_precomputed_values_transform_element_quad_to_element_dof (const t8dg_global_precomputed_values_t * values,
-                                                                      sc_array_t * element_quad_array, sc_array_t * element_dof_array)
+                                                                      const sc_array_t * element_quad_array, sc_array_t * element_dof_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
                     t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D, "Not yet implemented");
@@ -162,26 +162,6 @@ t8dg_global_precomputed_values_transform_element_dof_to_child_dof (const t8dg_gl
 
   interpolation_matrix = t8dg_functionbasis_get_child_interpolation_matrix (global_values->functionbasis, ichild);
   t8dg_dmatrix_mult_sc_array (interpolation_matrix, element_dof, child_dof);
-}
-
-void
-t8dg_global_precomputed_values_transform_child_dof_to_parent_dof (const t8dg_global_precomputed_values_t * global_values,
-                                                                  const sc_array_t * const child_dof[MAX_SUBELEMENTS],
-                                                                  sc_array_t * parent_dof, const int num_children)
-{
-  t8dg_dmatrix_t     *interpolation_matrix;
-  sc_array_t         *summand;
-  int                 ichild;
-
-  summand = t8dg_sc_array_duplicate (parent_dof);
-  t8dg_sc_array_block_double_set_zero (parent_dof);
-
-  for (ichild = 0; ichild < num_children; ichild++) {
-    interpolation_matrix = t8dg_functionbasis_get_child_interpolation_matrix (global_values->functionbasis, ichild);
-    t8dg_dmatrix_transpose_mult_sc_array (interpolation_matrix, child_dof[ichild], summand);
-    t8dg_sc_array_block_double_axpy (1. / num_children, summand, parent_dof);   /*incorporate mass matrices !!! */
-  }
-  sc_array_destroy (summand);
 }
 
 int

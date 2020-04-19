@@ -51,7 +51,7 @@ void                t8dg_sc_array_swap (sc_array_t ** parray1, sc_array_t ** par
 
 sc_array_t         *t8dg_sc_array_clone (sc_array_t * src);
 
-sc_array_t         *t8dg_sc_array_duplicate (sc_array_t * src);
+sc_array_t         *t8dg_sc_array_duplicate (const sc_array_t * src);
 
 void                t8dg_sc_array_copy (const sc_array_t * src, sc_array_t * dest);
 
