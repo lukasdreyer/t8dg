@@ -59,16 +59,23 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
 {
   t8dg_linear_advection_problem_t *problem;
   int                 step_number;
+  double              total_time, io_time, solve_time;
+  double              l2_error, l_inf_error;
   t8dg_scalar_function_3d_time_fn u_initial;
+
   u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
   t8dg_debugf ("Start Advection Solve\n");
+
+  total_time = -sc_MPI_Wtime ();
 
   problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, u_initial, flow_velocity,
                                                          uniform_level, uniform_level + refinement_levels,
                                                          number_LGL_points, start_time, end_time, cfl, time_order, comm);
 
-  t8dg_debugf ("Start Dof values:\n");
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_INIT, total_time + sc_MPI_Wtime ());
+
+  t8dg_debugf ("Dof values beginning:\n");
   t8dg_advect_problem_printdof (problem);
 
   /*Timeloop with Rungekutta timestepping: */
@@ -76,18 +83,34 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
     t8dg_advect_problem_set_time_step (problem);
     step_number = t8dg_advect_problem_get_stepnumber (problem); /*TODO: could also simply be in this loop */
     if (vtk_freq && step_number % vtk_freq == 0) {
+      io_time = -sc_MPI_Wtime ();
       t8dg_advect_write_vtk (problem);
+      io_time += sc_MPI_Wtime ();
+      t8dg_advect_problem_accumulate_stat (problem, ADVECT_IO, io_time);
     }
-
+    solve_time = -sc_MPI_Wtime ();
     t8dg_advect_problem_advance_timestep (problem);
+    solve_time += sc_MPI_Wtime ();
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_SOLVE, solve_time);
 
     if (adapt_freq && step_number % adapt_freq == adapt_freq - 1) {
-      t8dg_advect_problem_adapt (problem);
-      t8dg_advect_problem_partition (problem);
+      t8dg_advect_problem_adapt (problem, 1);
+      t8dg_advect_problem_partition (problem, 1);
     }
   }
 
   t8dg_advect_write_vtk (problem);
+
+  total_time += sc_MPI_Wtime ();
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_TOTAL, total_time);
+
+  l2_error = t8dg_advect_problem_l2_rel (problem, u_initial);
+  l_inf_error = t8dg_advect_problem_l_infty_rel (problem, u_initial);
+
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_2, l2_error);
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_INF, l_inf_error);
+
+  t8dg_advect_problem_compute_and_print_stats (problem);
 
   /*Current output */
   t8dg_debugf ("End Dof values:\n");

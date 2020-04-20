@@ -38,6 +38,8 @@ void                t8dg_sc_array_block_double_axpyz (double a, const sc_array_t
 void                t8dg_sc_array_block_double_debug_print (sc_array_t * array);
 void                t8dg_sc_array_block_double_print (sc_array_t * array);
 
+void                t8dg_sc_array_block_square_values (sc_array_t * src, sc_array_t * dest);
+
 /** Swaps 2 sc_arrays
  *
  * \param [in, out] parray1       	Pointer to the first sc_array

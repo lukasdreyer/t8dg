@@ -66,3 +66,37 @@ t8dg_precomputed_values_transform_child_dof_to_parent_dof (const t8dg_global_pre
   sc_array_destroy (mass_times_child_dof);
   sc_array_destroy (summand);
 }
+
+double
+t8dg_precomputed_values_element_norm_infty (sc_array_t * element_dof_values)
+{
+  double              norm = 0;
+  size_t              idof;
+  for (idof = 0; idof < element_dof_values->elem_size; idof++) {
+    norm = SC_MAX (norm, fabs (*(double *) sc_array_index (element_dof_values, idof)));
+  }
+  return norm;
+}
+
+double
+t8dg_precomputed_values_element_norm_l2 (sc_array_t * element_dof_values, t8dg_global_precomputed_values_t * global_values,
+                                         t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata)
+{
+  double              norm = 0;
+  size_t              idof;
+  sc_array_t         *mass_times_square_dof;
+  sc_array_t         *element_dof_square_values;
+
+  element_dof_square_values = t8dg_sc_array_duplicate (element_dof_values);
+  mass_times_square_dof = t8dg_sc_array_duplicate (element_dof_values);
+
+  t8dg_sc_array_block_square_values (element_dof_values, element_dof_square_values);
+  t8dg_precomputed_values_apply_element_mass_matrix (global_values, local_values, idata, element_dof_square_values, mass_times_square_dof);
+
+  for (idof = 0; idof < element_dof_values->elem_size; idof++) {
+    norm += *(double *) sc_array_index (element_dof_values, idof);
+  }
+  sc_array_destroy (element_dof_square_values);
+  sc_array_destroy (mass_times_square_dof);
+  return norm;
+}

@@ -15,6 +15,7 @@
 #include <t8_forest/t8_forest_partition.h>
 
 #include <sc_containers.h>
+#include <sc_statistics.h>
 
 #include "t8dg.h"
 #include "t8dg_coarse_geometry.h"
@@ -28,6 +29,32 @@
 #include "t8dg_sc_array.h"
 #include "t8dg_timestepping.h"
 #include "t8dg_mortar.h"
+
+/* Names of statistics that we measure */
+const char         *advect_stat_names[ADVECT_NUM_STATS] = {
+  "adapt",
+  "partition",
+  "partition_data",
+  "balance",
+  "ghost",
+  "ghost_exchange",
+  "ghost_exchange_wait",
+  "replace",
+  "vtk_print",
+  "init",
+  "AMR",
+  "solve",
+  "total",
+
+  "partition_procs_sent",
+  "balance_rounds",
+  "ghost_sent",
+  "number_elements",
+
+  "l_infty_error",
+  "l_2_error",
+  "mass_loss_[%]"
+};
 
 typedef struct t8dg_linear_advection_problem_description
 {
@@ -56,6 +83,7 @@ struct t8dg_linear_advection_problem
 						 reference element to the coarse image element*/
   int                 vtk_count;
   sc_MPI_Comm         comm; /**< MPI Communicator */
+  sc_statinfo_t       stats[ADVECT_NUM_STATS]; /**< Runtimes and other statistics. */
 
 /* The following sc_arrays contain data, that needs to be available for each processorlocal element. To facilitate partitioning, they are
  * saved in a linear array
@@ -80,12 +108,6 @@ static double      *
 t8dg_advect_problem_get_element_dof_values (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
 {
   return ((double *) t8_sc_array_index_locidx (problem->dof_values, idata));
-}
-
-static double      *
-t8dg_advect_problem_get_element_dof_values_adapt (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata)
-{
-  return ((double *) t8_sc_array_index_locidx (problem->dof_values_adapt, idata));
 }
 
 /*  get functions for structs at element and faces: */
@@ -163,6 +185,25 @@ t8dg_advect_problem_printdof (t8dg_linear_advection_problem_t * problem)
 }
 
 void
+t8dg_advect_problem_compute_and_print_stats (t8dg_linear_advection_problem_t * problem)
+{
+  sc_stats_compute (problem->comm, ADVECT_NUM_STATS, problem->stats);
+  sc_stats_print (t8dg_get_package_id (), SC_LP_ESSENTIAL, ADVECT_NUM_STATS, problem->stats, 1, 1);
+}
+
+void
+t8dg_advect_problem_accumulate_stat (t8dg_linear_advection_problem_t * problem, advect_stats_t stat, double value)
+{
+  T8DG_ASSERT (stat >= 0 && stat < ADVECT_NUM_STATS);
+  if (stat < ADVECT_NUM_TIME_STATS) {
+    sc_stats_set1 (&problem->stats[stat], problem->stats[stat].sum_values + value, advect_stat_names[stat]);
+  }
+  else {
+    sc_stats_accumulate (&problem->stats[stat], value);
+  }
+}
+
+void
 t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
 {
   double              delta_t, min_delta_t, flow_velocity, time_left, diam, cfl;
@@ -201,19 +242,20 @@ t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
 
 struct initial_fn_data
 {
-  t8dg_linear_advection_problem_t *problem;
+  const t8dg_linear_advection_problem_t *problem;
   t8_eclass_scheme_c *scheme;
   t8_element_t       *element;
   t8_locidx_t         itree;
+  t8dg_scalar_function_3d_time_fn function;
 };
 static double
-t8dg_advect_problem_evaluate_initial_function_on_reference_element (const double reference_vertex[3], void *scalar_fn_data)
+t8dg_advect_problem_evaluate_function_on_reference_element (const double reference_vertex[3], void *scalar_fn_data)
 {
   double              coarse_vertex[DIM3];
   double              image_vertex[DIM3];
   double              start_time;
   struct initial_fn_data *data;
-  t8dg_linear_advection_problem_t *problem;
+  const t8dg_linear_advection_problem_t *problem;
 
   data = (struct initial_fn_data *) scalar_fn_data;
   problem = data->problem;
@@ -225,7 +267,7 @@ t8dg_advect_problem_evaluate_initial_function_on_reference_element (const double
   problem->coarse_geometry->geometry (coarse_vertex, image_vertex, problem->forest, data->itree);
 
   /* apply initial condition function at image vertex and start time */
-  return problem->description.initial_condition_fn (image_vertex, start_time);
+  return data->function (image_vertex, start_time);
 
 }
 
@@ -239,11 +281,102 @@ t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_loc
 
   sc_array_t         *element_dof_view = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
 
-  struct initial_fn_data data = { problem, scheme, element, itree };
+  struct initial_fn_data data = { problem, scheme, element, itree, problem->description.initial_condition_fn };
 
   t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                            t8dg_advect_problem_evaluate_initial_function_on_reference_element, &data, element_dof_view);
+                                            t8dg_advect_problem_evaluate_function_on_reference_element, &data, element_dof_view);
   sc_array_destroy (element_dof_view);
+}
+
+double
+t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol)
+{
+  t8_locidx_t         num_elements, num_trees;
+  t8_locidx_t         ielement, itree, idata;
+  sc_array_t         *elem_ana_sol;
+  sc_array_t         *elem_dof_val;
+  sc_array_t         *elem_error;
+  double              error = 0, global_error;
+  double              ana_norm = 0, global_ana_norm;
+
+  struct initial_fn_data data = { problem, t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, 0,
+    problem->description.initial_condition_fn
+  };
+
+  elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
+  elem_error = t8dg_sc_array_duplicate (elem_ana_sol);
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    data.itree = itree;
+    num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
+    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
+      data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+      elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
+      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
+                                                t8dg_advect_problem_evaluate_function_on_reference_element, &data, elem_ana_sol);
+      t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
+      error = SC_MAX (error, t8dg_precomputed_values_element_norm_infty (elem_error));
+      ana_norm = SC_MAX (ana_norm, t8dg_precomputed_values_element_norm_infty (elem_ana_sol));
+      sc_array_destroy (elem_dof_val);
+    }
+  }
+  /* Compute the maximum of the error among all processes */
+  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+
+  sc_array_destroy (elem_ana_sol);
+  sc_array_destroy (elem_error);
+
+  /* Return the relative error, that is the l_infty error divided by
+   * the l_infty norm of the analytical solution */
+  return global_error / global_ana_norm;
+}
+
+double
+t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol)
+{
+  t8_locidx_t         num_elements, num_trees;
+  t8_locidx_t         ielement, itree, idata;
+  sc_array_t         *elem_ana_sol;
+  sc_array_t         *elem_dof_val;
+  sc_array_t         *elem_error;
+  double              error = 0, global_error;
+  double              ana_norm = 0, global_ana_norm;
+
+  struct initial_fn_data data = { problem, t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, 0,
+    problem->description.initial_condition_fn
+  };
+
+  elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
+  elem_error = t8dg_sc_array_duplicate (elem_ana_sol);
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    data.itree = itree;
+    num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
+    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
+      data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+      elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
+      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
+                                                t8dg_advect_problem_evaluate_function_on_reference_element, &data, elem_ana_sol);
+      t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
+      error = SC_MAX (error, t8dg_precomputed_values_element_norm_l2 (elem_error, problem->global_values, problem->local_values, idata));
+      ana_norm =
+        SC_MAX (ana_norm, t8dg_precomputed_values_element_norm_l2 (elem_ana_sol, problem->global_values, problem->local_values, idata));
+      sc_array_destroy (elem_dof_val);
+    }
+  }
+  /* Compute the maximum of the error among all processes */
+  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+
+  sc_array_destroy (elem_ana_sol);
+  sc_array_destroy (elem_error);
+
+  /* Return the relative error, that is the l_infty error divided by
+   * the l_infty norm of the analytical solution */
+  return global_error / global_ana_norm;
 }
 
 static void
@@ -370,6 +503,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
   int                 num_elements;
+  int                 istat;
   /* allocate problem */
   problem = T8_ALLOC (t8dg_linear_advection_problem_t, 1);
 
@@ -394,6 +528,10 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->vtk_count = 0;
   problem->comm = comm;
 
+  for (istat = 0; istat < ADVECT_NUM_STATS; istat++) {
+    sc_stats_init (&problem->stats[istat], advect_stat_names[istat]);
+  }
+
   t8_debugf ("precompute global values\n");
   /* these allocate memory: */
   problem->global_values = t8dg_global_precomputed_values_new_1D_LGL (number_LGL_points);
@@ -406,7 +544,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->local_values = t8dg_local_precomputed_values_new (quadrature, num_elements);
   problem->local_values_adapt = NULL;
 
-  /*currently no ghost, since serial, but generally the dof_values need to be ghosted. */
+  /* the dof_values need to be ghosted. */
   problem->dof_values =
     sc_array_new_count (sizeof (double) * t8dg_global_precomputed_values_get_num_dof (problem->global_values),
                         num_elements + t8_forest_get_num_ghosts (problem->forest));
@@ -416,7 +554,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   t8dg_advect_problem_mortars_new (problem);
   /*for each element and face a pointer to a mortar */
 
-  t8_debugf ("finished problem init\n");
+  t8_debugf ("start elementinit\n");
 
   t8dg_advect_problem_init_elements (problem);
 
@@ -425,9 +563,9 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
     for (ilevel = problem->uniform_refinement_level; ilevel < problem->maximum_refinement_level; ilevel++) {
       /* initial adapt */
-      t8dg_advect_problem_adapt (problem);
+      t8dg_advect_problem_adapt (problem, 0);
       /* repartition */
-      t8dg_advect_problem_partition (problem);
+      t8dg_advect_problem_partition (problem, 0);
       /* Re initialize the elements */
       t8dg_advect_problem_init_elements (problem);
     }
@@ -664,7 +802,7 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
 
   sc_array_t         *dof_flux;
   dof_flux = t8dg_sc_array_duplicate (dof_change);
-  t8_debugf ("test time derivate\n");
+  double              ghost_exchange_time, ghost_waittime;
 
   t8dg_advect_problem_apply_stiffness_matrix (problem, problem->dof_values, dof_change);
 
@@ -672,7 +810,13 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   t8dg_sc_array_block_double_debug_print (dof_change);
 
   /*Ghost exchange */
+  ghost_exchange_time = -sc_MPI_Wtime ();
   t8_forest_ghost_exchange_data (problem->forest, problem->dof_values);
+  ghost_exchange_time += sc_MPI_Wtime ();
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_EXCHANGE, ghost_exchange_time);
+  ghost_waittime = t8_forest_profile_get_ghostexchange_waittime (problem->forest);
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_WAIT, ghost_waittime);
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_AMR, ghost_exchange_time + ghost_waittime);
 
   t8dg_advect_problem_mortars_fill (problem);
   t8_debugf ("mortars filled\n");
@@ -703,6 +847,7 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
 void
 t8dg_advect_problem_advance_timestep (t8dg_linear_advection_problem_t * problem)
 {
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
   t8dg_timestepping_runge_kutta_step (t8dg_advect_time_derivative, t8dg_advect_get_time_data (problem), &(problem->dof_values), problem);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
 }
@@ -907,16 +1052,19 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
 }
 
 void
-t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
+t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measure_time)
 {
-  t8_debugf ("Into advect adapt\n");
   /* Nothing to do */
-  if (problem->maximum_refinement_level - problem->uniform_refinement_level == 0)
+  if (problem->maximum_refinement_level == problem->uniform_refinement_level)
     return;
 
   t8_locidx_t         num_elems_p_ghosts, num_elems;
   t8_forest_t         forest_adapt;
+  double              adapt_time, ghost_time, balance_time, replace_time;
+  int                 did_balance = 0, balance_rounds = 0;
+  t8_locidx_t         ghosts_sent;
 
+  t8_debugf ("Into advect adapt\n");
   /* Adapt the forest, but keep the old one */
   t8_forest_ref (problem->forest);
   t8_forest_init (&forest_adapt);
@@ -928,12 +1076,27 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
     /* We also want to balance the forest if there is a possibility of elements
      * with difference in refinement levels greater 1 */
     t8_forest_set_balance (forest_adapt, NULL, 1);
-//    did_balance = 1;
+    did_balance = 1;
   }
   /* We also want ghost elements in the new forest */
   t8_forest_set_ghost (forest_adapt, 1, T8_GHOST_FACES);
   /* Commit the forest, adaptation and balance happens here */
   t8_forest_commit (forest_adapt);
+
+  if (measure_time) {
+    adapt_time = t8_forest_profile_get_adapt_time (forest_adapt);
+    ghost_time = t8_forest_profile_get_ghost_time (forest_adapt, &ghosts_sent);
+    if (did_balance) {
+      balance_time = t8_forest_profile_get_balance_time (forest_adapt, &balance_rounds);
+    }
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_ADAPT, adapt_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST, ghost_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_SENT, ghosts_sent);
+    if (did_balance) {
+      t8dg_advect_problem_accumulate_stat (problem, ADVECT_BALANCE, balance_time);
+      t8dg_advect_problem_accumulate_stat (problem, ADVECT_BALANCE_ROUNDS, balance_rounds);
+    }
+  }
 
   /* Allocate new memory for the element_data of the advected forest */
   num_elems = t8_forest_get_num_element (forest_adapt);
@@ -948,7 +1111,13 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
    * It is necessary that the old and new forest only differ by at most one level.
    * We guarantee this by calling adapt non-recursively and calling balance without
    * repartitioning. */
+  replace_time = -sc_MPI_Wtime ();
   t8_forest_iterate_replace (forest_adapt, problem->forest, t8dg_advect_test_replace);
+  replace_time += sc_MPI_Wtime ();
+  if (measure_time) {
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_REPLACE, replace_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_AMR, ghost_time + adapt_time + balance_time + replace_time);
+  }
 
   /* clean the old element data */
   t8dg_advect_problem_mortars_destroy (problem);
@@ -970,7 +1139,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem)
 }
 
 void
-t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem)
+t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem, int measure_time)
 {
   t8_forest_t         forest_partition;
   t8dg_local_precomputed_values_t *local_values_partition;
@@ -979,12 +1148,24 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem)
   sc_array_t         *dof_values_partition_local_view;
   t8_locidx_t         num_local_elems_new, num_local_elems_old, num_ghosts_new;
 
+  double              partition_time, ghost_time, partition_data_time;
+  int                 procs_sent, ghosts_sent;
+
   t8_forest_ref (problem->forest);
   t8_forest_init (&forest_partition);
 
   t8_forest_set_partition (forest_partition, problem->forest, 0);
   t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
   t8_forest_commit (forest_partition);
+
+  if (measure_time) {
+    partition_time = t8_forest_profile_get_partition_time (forest_partition, &procs_sent);
+    ghost_time = t8_forest_profile_get_ghost_time (forest_partition, &ghosts_sent);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_PARTITION, partition_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST, ghost_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_SENT, ghosts_sent);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_PARTITION_PROCS, procs_sent);
+  }
 
   num_local_elems_old = t8_forest_get_num_element (problem->forest);
   num_local_elems_new = t8_forest_get_num_element (forest_partition);
@@ -1010,7 +1191,14 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem)
   dof_values_local_view = sc_array_new_view (problem->dof_values, 0, num_local_elems_old);
   dof_values_partition_local_view = sc_array_new_view (dof_values_partition, 0, num_local_elems_new);
 
+  partition_data_time = -sc_MPI_Wtime ();
   t8_forest_partition_data (problem->forest, forest_partition, dof_values_local_view, dof_values_partition_local_view);
+  partition_data_time += sc_MPI_Wtime ();
+
+  if (measure_time) {
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_PARTITION_DATA, partition_data_time);
+    t8dg_advect_problem_accumulate_stat (problem, ADVECT_AMR, partition_time + ghost_time + partition_data_time);
+  }
 
   t8_debugf (" [ADVECT] Done partition dof_values\n");
 

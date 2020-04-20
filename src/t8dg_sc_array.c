@@ -147,3 +147,23 @@ t8dg_sc_array_block_double_set_zero (sc_array_t * array)
     array_double[idouble] = 0;
   }
 }
+
+void
+t8dg_sc_array_block_square_values (sc_array_t * src, sc_array_t * dest)
+{
+  T8DG_ASSERT (src != NULL && dest != NULL);
+  T8DG_ASSERT (src->array != NULL && dest->array != NULL);
+  T8DG_ASSERT (src->elem_size % sizeof (double) == 0 && dest->elem_size % sizeof (double) == 0);
+  T8DG_ASSERT (src->elem_count == dest->elem_count);
+  T8DG_ASSERT (src->elem_size == dest->elem_size);
+  double             *src_array_double;
+  double             *dest_array_double;
+  size_t              idx;
+  size_t              double_count;
+  double_count = src->elem_count * src->elem_size / sizeof (double);
+  src_array_double = (double *) sc_array_index (src, 0);
+  dest_array_double = (double *) sc_array_index (dest, 0);
+  for (idx = 0; idx < double_count; idx++) {
+    dest_array_double[idx] = SC_SQR (src_array_double[idx]);
+  }
+}
