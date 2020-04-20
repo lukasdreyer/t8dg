@@ -72,8 +72,6 @@ t8dg_vertexset_get_first_coordinate (const t8dg_vertexset_t * vertexset, const i
 t8dg_vertexset_t   *
 t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
 {
-  SC_CHECK_ABORT (number_of_LGL_vertices >= 1 && number_of_LGL_vertices <= 4, "Only up to 4 LGL vertices implemented"); /*Larger not implemented */
-
   t8dg_vertexset_t   *vertices;
   vertices = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
 
@@ -107,9 +105,33 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
     vertex_array[2] = (1 + sqrt (1. / 5)) / 2;
     vertex_array[3] = 1;
     break;
+  case (5):
+    vertex_array[0] = 0;
+    vertex_array[1] = (1 - sqrt (3. / 7)) / 2;
+    vertex_array[2] = 0.5;
+    vertex_array[3] = (1 + sqrt (3. / 7)) / 2;
+    vertex_array[4] = 1;
+    break;
+  case (6):
+    vertex_array[0] = 0;
+    vertex_array[1] = (1 - sqrt (1. / 3 + 2 * sqrt (7) / 21)) / 2;
+    vertex_array[2] = (1 - sqrt (1. / 3 - 2 * sqrt (7) / 21)) / 2;
+    vertex_array[3] = (1 + sqrt (1. / 3 - 2 * sqrt (7) / 21)) / 2;
+    vertex_array[4] = (1 + sqrt (1. / 3 + 2 * sqrt (7) / 21)) / 2;
+    vertex_array[5] = 1;
+    break;
+  case (7):
+    vertex_array[0] = 0;
+    vertex_array[1] = (1 - sqrt ((5. + 2 * sqrt (5. / 3)) / 11)) / 2;
+    vertex_array[2] = (1 - sqrt ((5. - 2 * sqrt (5. / 3)) / 11)) / 2;
+    vertex_array[3] = 0.5;
+    vertex_array[4] = (1 + sqrt ((5. - 2 * sqrt (5. / 3)) / 11)) / 2;
+    vertex_array[5] = (1 + sqrt ((5. + 2 * sqrt (5. / 3)) / 11)) / 2;
+    vertex_array[6] = 1;
+    break;
+
   default:
-    printf ("Not yet implemented!\n");
-    T8DG_ASSERT (0);
+    T8DG_ABORT ("Not yet implemented!");
   }
 
   return vertices;

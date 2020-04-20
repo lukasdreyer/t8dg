@@ -36,6 +36,7 @@ T8_EXTERN_C_BEGIN ();
 #define MAX_FACES 2
 #define MAX_SUBFACES 1
 #define MAX_SUBELEMENTS 2
+#define MAX_LGL_NUMBER 7
 
 typedef t8_locidx_t t8dg_locidx_t;
 

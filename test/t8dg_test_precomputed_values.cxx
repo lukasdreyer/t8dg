@@ -10,7 +10,7 @@
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <mpi.h>
 
-#define TEST_MAX_LGL_NUMBER 4
+
 /* *INDENT-OFF* */
 class PrecomputedValuesProjectionTest : public ::testing::Test
 /* *INDENT-ON* */
@@ -36,7 +36,7 @@ protected:
 
     scheme = t8_forest_get_eclass_scheme (forest, T8_ECLASS_LINE);
 
-    for (i_lgl = 0; i_lgl < TEST_MAX_LGL_NUMBER; i_lgl++) {
+    for (i_lgl = 0; i_lgl < MAX_LGL_NUMBER; i_lgl++) {
       global_values[i_lgl] = t8dg_global_precomputed_values_new_1D_LGL (i_lgl + 1);
       quadrature = t8dg_global_precomputed_values_get_quadrature (global_values[i_lgl]);
       local_values[i_lgl] = t8dg_local_precomputed_values_new (quadrature, 1);
@@ -56,7 +56,7 @@ protected:
   /* *INDENT-ON* */
   {
     int                 i_lgl;
-    for (i_lgl = 0; i_lgl < TEST_MAX_LGL_NUMBER; i_lgl++) {
+    for (i_lgl = 0; i_lgl < MAX_LGL_NUMBER; i_lgl++) {
       t8dg_global_precomputed_values_destroy (global_values + i_lgl);
       t8dg_local_precomputed_values_destroy (local_values + i_lgl);
       t8dg_local_precomputed_values_destroy (local_values_adapt + i_lgl);
@@ -67,12 +67,12 @@ protected:
     t8_forest_unref (&forest);
   }
 
-  t8dg_global_precomputed_values_t *global_values[TEST_MAX_LGL_NUMBER];
-  t8dg_local_precomputed_values_t *local_values[TEST_MAX_LGL_NUMBER];
-  t8dg_local_precomputed_values_t *local_values_adapt[TEST_MAX_LGL_NUMBER];
+  t8dg_global_precomputed_values_t *global_values[MAX_LGL_NUMBER];
+  t8dg_local_precomputed_values_t *local_values[MAX_LGL_NUMBER];
+  t8dg_local_precomputed_values_t *local_values_adapt[MAX_LGL_NUMBER];
 
-  sc_array_t         *dof_values_adapt[TEST_MAX_LGL_NUMBER];
-  sc_array_t         *dof_values[TEST_MAX_LGL_NUMBER];
+  sc_array_t         *dof_values_adapt[MAX_LGL_NUMBER];
+  sc_array_t         *dof_values[MAX_LGL_NUMBER];
   t8_forest_t         forest, forest_adapt;
 };
 
@@ -82,17 +82,17 @@ TEST_F (PrecomputedValuesProjectionTest, const_one)
   sc_array_t         *element_dof_values_child[2];
   sc_array_t         *element_dof_values_parent;
 
-  for (i_lgl = 0; i_lgl < TEST_MAX_LGL_NUMBER; i_lgl++) {
+  for (i_lgl = 0; i_lgl < MAX_LGL_NUMBER; i_lgl++) {
     for (ichild = 0; ichild < 2; ichild++) {
       element_dof_values_child[ichild] = t8dg_sc_array_block_double_new_view (dof_values_adapt[i_lgl], ichild);
       for (idof = 0; idof <= i_lgl; idof++) {
-        *(double *) sc_array_index (element_dof_values_child[ichild], idof) = idof + ichild * (i_lgl + 1);
+        *(double *) sc_array_index (element_dof_values_child[ichild], idof) = 1;        //idof + ichild * (i_lgl + 1);
       }
       sc_array_destroy (element_dof_values_child[ichild]);
     }
   }
 
-  for (i_lgl = 0; i_lgl < TEST_MAX_LGL_NUMBER; i_lgl++) {
+  for (i_lgl = 0; i_lgl < MAX_LGL_NUMBER; i_lgl++) {
     for (ichild = 0; ichild < 2; ichild++) {
       element_dof_values_child[ichild] = t8dg_sc_array_block_double_new_view (dof_values_adapt[i_lgl], ichild);
     }
@@ -100,10 +100,12 @@ TEST_F (PrecomputedValuesProjectionTest, const_one)
     t8dg_precomputed_values_transform_child_dof_to_parent_dof (global_values[i_lgl], element_dof_values_child, element_dof_values_parent,
                                                                2, local_values_adapt[i_lgl], local_values[i_lgl], 0, 0);
 
+    for (idof = 0; idof < i_lgl; idof++) {
+      EXPECT_NEAR (*(double *) sc_array_index_int (element_dof_values_parent, idof), 1, 1e-10);
+    }
     for (ichild = 0; ichild < 2; ichild++) {
       sc_array_destroy (element_dof_values_child[ichild]);
     }
-    t8dg_sc_array_block_double_debug_print (element_dof_values_parent);
     sc_array_destroy (element_dof_values_parent);
   }
 }

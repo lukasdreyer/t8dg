@@ -110,7 +110,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(refinement_levels >= 0 && uniform_level + refinement_levels <= 30))
     return 0;
-  if (!(number_LGL_points >= 1 && number_LGL_points <= 4))
+  if (!(number_LGL_points >= 1 && number_LGL_points <= MAX_LGL_NUMBER))
     return 0;
   if (!(start_time < end_time))
     return 0;

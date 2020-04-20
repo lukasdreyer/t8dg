@@ -67,6 +67,30 @@ t8dg_quadrature_fill_LGL_1D_weights (t8dg_quadrature_t * quadrature)
     weights[2] = 5. / 12;
     weights[3] = 1. / 12;
     break;
+  case (5):
+    weights[0] = 1. / 20;
+    weights[1] = 49. / 180;
+    weights[2] = 16. / 45;
+    weights[3] = 49. / 180;
+    weights[4] = 1. / 20;
+    break;
+  case (6):
+    weights[0] = 1. / 30;
+    weights[1] = (14 - sqrt (7)) / 60;
+    weights[2] = (14 + sqrt (7)) / 60;
+    weights[3] = (14 + sqrt (7)) / 60;
+    weights[4] = (14 - sqrt (7)) / 60;
+    weights[5] = 1. / 30;
+    break;
+  case (7):
+    weights[0] = 1. / 42;
+    weights[1] = (124 - 7 * sqrt (15)) / 700;
+    weights[2] = (124 + 7 * sqrt (15)) / 700;
+    weights[3] = 128. / 525;
+    weights[4] = (124 + 7 * sqrt (15)) / 700;
+    weights[5] = (124 - 7 * sqrt (15)) / 700;
+    weights[6] = 1. / 42;
+    break;
   default:
     T8DG_ABORT ("Not yet implemented!\n");
   }

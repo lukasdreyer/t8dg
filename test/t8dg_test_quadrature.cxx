@@ -32,7 +32,7 @@ TEST (quadrature1D, integrate_const_one)
   int                 num_LGL;
   t8dg_quadrature_t  *quadrature;
   t8dg_vertexset_t   *vertexset;
-  for (num_LGL = 1; num_LGL <= 4; num_LGL++) {
+  for (num_LGL = 1; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
     quadrature = t8dg_quadrature_new_vertexset (vertexset);
@@ -48,10 +48,11 @@ TEST (quadrature1D, integrate_max_order)
   int                 num_LGL, power;
   t8dg_quadrature_t  *quadrature;
   t8dg_vertexset_t   *vertexset;
-  for (num_LGL = 2; num_LGL <= 4; num_LGL++) {
+  for (num_LGL = 2; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     quadrature = t8dg_quadrature_new_vertexset (vertexset);
     power = 2 * num_LGL - 3;
+    printf ("%i\n", num_LGL);
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature, x_pow, &power), 1.0 / (power + 1), 1e-10);
     t8dg_quadrature_destroy (&quadrature);
     t8dg_vertexset_destroy (&vertexset);
@@ -64,7 +65,7 @@ TEST (quadrature2D, integrate_const_one)
   t8dg_quadrature_t  *quadrature_line;
   t8dg_quadrature_t  *quadrature_square;
   t8dg_vertexset_t   *vertexset;
-  for (num_LGL = 1; num_LGL <= 4; num_LGL++) {
+  for (num_LGL = 1; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
     quadrature_line = t8dg_quadrature_new_vertexset (vertexset);
@@ -85,7 +86,7 @@ TEST (quadrature2D, integrate_max_order)
   t8dg_vertexset_t   *vertexset;
   int                 power;
   double              result;
-  for (num_LGL = 2; num_LGL <= 4; num_LGL++) {
+  for (num_LGL = 2; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
     quadrature_line = t8dg_quadrature_new_vertexset (vertexset);
