@@ -300,7 +300,7 @@ t8dg_quadrature_destroy (t8dg_quadrature_t ** pquadrature)
 {
   t8dg_quadrature_t  *quadrature;
 
-  T8DG_ASSERT (quadrature != NULL);
+  T8DG_ASSERT (pquadrature != NULL);
   quadrature = *pquadrature;
 
   T8DG_ASSERT (quadrature != NULL);

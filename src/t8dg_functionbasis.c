@@ -118,19 +118,17 @@ t8dg_functionbasis_get_num_dof (const t8dg_functionbasis_t * functionbasis)
   return functionbasis->number_of_dof;
 }
 
-/*TODO ASSERT*/
 static void
 t8dg_functionbasis_get_Lagrange_vertex (const t8dg_functionbasis_t * functionbasis, const int idof, double vertex[3])
 {
+  T8DG_ASSERT (functionbasis != NULL);
+  T8DG_ASSERT (t8dg_functionbasis_is_lagrange (functionbasis));
+  T8DG_ASSERT (idof >= 0 && idof < t8dg_functionbasis_get_num_dof (functionbasis));
   int                 itensor;
   int                 idoftensor[DIM3];
   int                 startdim = 0;
-  T8DG_ASSERT (functionbasis != NULL);
-  T8DG_ASSERT (t8dg_functionbasis_is_lagrange (functionbasis));
 
-  vertex[0] = 0;
-  vertex[1] = 0;
-  vertex[2] = 0;
+  vertex[0] = vertex[1] = vertex[2] = 0;
 
   if (functionbasis->num_tensor == 1) {
     t8dg_vertexset_fill_vertex3D (functionbasis->vertexset, idof, 0, vertex);
@@ -253,6 +251,7 @@ void
 t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionbasis,
                                           t8dg_scalar_function_3d_fn function, void *scalar_fn_data, sc_array_t * dof_values)
 {
+  T8DG_ASSERT ((size_t) functionbasis->number_of_dof == dof_values->elem_count);
   int                 idof;
   if (t8dg_functionbasis_is_lagrange (functionbasis)) {
     for (idof = 0; idof < functionbasis->number_of_dof; idof++) {
@@ -260,6 +259,9 @@ t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionb
       t8dg_functionbasis_get_Lagrange_vertex (functionbasis, idof, vertex);
       *(double *) sc_array_index_int (dof_values, idof) = function (vertex, scalar_fn_data);
     }
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
   }
 }
 
@@ -302,7 +304,7 @@ t8dg_functionbasis_destroy (t8dg_functionbasis_t ** pfunctionbasis)
 {
   t8dg_functionbasis_t *functionbasis;
 
-  T8DG_ASSERT (functionbasis != NULL);
+  T8DG_ASSERT (pfunctionbasis != NULL);
   functionbasis = *pfunctionbasis;
 
   T8DG_ASSERT (functionbasis != NULL);

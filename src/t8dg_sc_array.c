@@ -76,8 +76,8 @@ t8dg_sc_array_block_double_axpyz (double a, const sc_array_t * x, const sc_array
   T8DG_ASSERT (z != NULL && x != NULL && y != NULL);
   T8DG_ASSERT (z->array != NULL && x->array != NULL && y->array != NULL);
   T8DG_ASSERT (x->elem_size % sizeof (double) == 0 && y->elem_size % sizeof (double) == 0 && z->elem_size % sizeof (double) == 0);
-  T8DG_ASSERT (x->elem_count * x->elem_size == y->elem_count * y->elem_size);
-  T8DG_ASSERT (x->elem_count * x->elem_size == z->elem_count * z->elem_size);
+  T8DG_ASSERT (x->elem_count == y->elem_count && x->elem_count == z->elem_count);
+  T8DG_ASSERT (x->elem_size == y->elem_size && x->elem_size == z->elem_size);
 
   /*View array as double array */
   double             *x_double, *y_double, *z_double;

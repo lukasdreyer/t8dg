@@ -1068,6 +1068,9 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   /* Adapt the forest, but keep the old one */
   t8_forest_ref (problem->forest);
   t8_forest_init (&forest_adapt);
+  /* Enable profiling to measure the runtime */
+  t8_forest_set_profiling (forest_adapt, 1);
+
   /* Set the user data pointer of the new forest */
   t8_forest_set_user_data (forest_adapt, problem);
   /* Set the adapt function */
@@ -1148,11 +1151,14 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem, int me
   sc_array_t         *dof_values_partition_local_view;
   t8_locidx_t         num_local_elems_new, num_local_elems_old, num_ghosts_new;
 
-  double              partition_time, ghost_time, partition_data_time;
+  double              partition_time, ghost_time = 0, partition_data_time;
   int                 procs_sent, ghosts_sent;
 
   t8_forest_ref (problem->forest);
   t8_forest_init (&forest_partition);
+
+  /* Enable profiling to measure the runtime */
+  t8_forest_set_profiling (forest_partition, 1);
 
   t8_forest_set_partition (forest_partition, problem->forest, 0);
   t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
