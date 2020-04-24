@@ -41,6 +41,28 @@ t8dg_global_precomputed_values_new_1D_LGL (const int number_of_LGL_vertices)
   return values;
 }
 
+t8dg_global_precomputed_values_t *
+t8dg_global_precomputed_values_new_hypercube_LGL (const int dim, const int number_of_1D_LGL_vertices)
+{
+  t8dg_global_precomputed_values_t *values;
+  t8dg_vertexset_t   *vertices;
+  t8dg_quadrature_t  *quadrature;
+  t8dg_functionbasis_t *functionbasis;
+  vertices = t8dg_vertexset_new_1D_LGL (number_of_1D_LGL_vertices);
+  quadrature = t8dg_quadrature_new_hypercube (dim, vertices);
+  functionbasis = t8dg_functionbasis_new_hypercube_lagrange (dim, vertices);
+  t8dg_vertexset_unref (&vertices);
+
+  values = T8DG_ALLOC (t8dg_global_precomputed_values_t, 1);
+  values->quadrature = quadrature;
+  values->functionbasis = functionbasis;
+  values->number_of_faces = t8dg_quadrature_get_num_faces (values->quadrature);
+  values->number_of_element_quad_points = t8dg_quadrature_get_num_element_vertices (values->quadrature);
+  values->number_of_dof = t8dg_functionbasis_get_num_dof (values->functionbasis);
+  values->dim = dim;
+  return values;
+}
+
 void
 t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pvalues)
 {
