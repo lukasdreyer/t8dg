@@ -33,19 +33,11 @@ int                 t8dg_mortar_is_valid (t8dg_mortar_t * mortar);
 
 int                 t8dg_mortar_get_side (t8dg_mortar_t * mortar, t8_locidx_t idata);
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_mortar_fill (t8dg_mortar_t * mortar,
-                   sc_array_t * element_dof_values,
-                   t8dg_timestepping_data_t * time_data,
-                   t8dg_global_precomputed_values_t * global_values,
-                   t8dg_local_precomputed_values_t * local_values,
-                   t8dg_linear_flux_t * flux, t8dg_linear_numerical_flux_fn numerical_flux_fn);
+void                t8dg_mortar_fill (t8dg_mortar_t * mortar,
+                                      sc_array_t * element_dof_values,
+                                      t8dg_timestepping_data_t * time_data,
+                                      t8dg_global_precomputed_values_t * global_values,
+                                      t8dg_local_precomputed_values_t * local_values,
+                                      t8dg_linear_flux_t * flux, t8dg_linear_numerical_flux_fn numerical_flux_fn);
 
 #endif /* SRC_T8DG_MORTAR_H_ */
