@@ -10,14 +10,13 @@ struct t8dg_global_precomputed_values
   int                 dim;
   int                 number_of_faces;
   int                 number_of_element_quad_points;
-//  int                 number_of_face_quad_points;
+//  int                 number_of_face_quad_points[MAX_FACES];
   int                 number_of_dof;
   t8dg_quadrature_t  *quadrature;
   t8dg_functionbasis_t *functionbasis;
 #if 0
   sc_dmatrix_t        vandermonde;      /*if LGL for fb and quad, does not need to be allocated */
   sc_dmatrix_t        face_vandermonde[MAX_FACES];      /* if LGL for fb and quad use lookuptable instead */
-  sc_dmatrix_t        interpolate_to_subelement[MAX_SUB_ELEMENTS];
 #endif
 };
 

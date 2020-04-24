@@ -4,6 +4,7 @@
 #include <sc_containers.h>
 #include "t8dg_dmatrix.h"
 #include "t8dg_refcount.h"
+#include "t8dg_tensor.h"
 
 /** The functionbasis provides the the directional derivative_matrix and interpolation/projection */
 struct t8dg_functionbasis
@@ -205,7 +206,7 @@ t8dg_functionbasis_get_Lagrange_vertex (const t8dg_functionbasis_t * functionbas
     t8dg_vertexset_fill_vertex3D (functionbasis->vertexset, idof, 0, vertex);
   }
   else {
-    t8dg_transform_3tensoridx (idof, functionbasis->tensor_num_dof, idoftensor);
+    t8dg_tensor_transform_tensoridx (idof, functionbasis->tensor_num_dof, idoftensor);
     for (itensor = 0; itensor < functionbasis->num_tensor; itensor++) {
       t8dg_vertexset_fill_vertex3D (functionbasis->tensor_fb[itensor]->vertexset, idoftensor[itensor], startdim, vertex);
       startdim += t8dg_functionbasis_get_dim (functionbasis->tensor_fb[itensor]);

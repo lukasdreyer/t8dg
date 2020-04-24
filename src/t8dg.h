@@ -45,8 +45,6 @@ typedef double      (*t8dg_scalar_function_3d_time_fn) (const double x[DIM3], co
 typedef double      (*t8dg_scalar_function_3d_fn) (const double x[DIM3], void *scalar_fn_data);
 
 void               *t8dg_sc_array_index_locidx (const sc_array_t * array, t8dg_locidx_t it);
-void                t8dg_transform_3tensoridx (int idx, const int tensordims[DIM3], int itensor[DIM3]); /*MACRO? */
-
 t8_locidx_t         t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement);
 void                t8dg_vec_print (double x[3]);
 int                 t8dg_almost_equal (double x1, double x2);

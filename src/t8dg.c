@@ -142,21 +142,6 @@ t8dg_sc_array_index_locidx (const sc_array_t * array, t8dg_locidx_t it)
   return array->array + array->elem_size * (size_t) it;
 }
 
-void
-t8dg_transform_3tensoridx (int idx, const int tensordims[DIM3], int tensoridx[DIM3])
-{
-  /*TODO: Check */
-  int                 numtensor = 0, itensor;
-  while (numtensor < 3 && tensordims[numtensor] > 0) {
-    numtensor++;
-  }
-  for (itensor = 0; itensor < numtensor; itensor++) {
-    tensoridx[itensor] = idx % tensordims[itensor];
-    idx /= tensordims[itensor];
-  }
-
-}
-
 int
 t8dg_almost_equal (double x1, double x2)
 {

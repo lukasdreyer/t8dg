@@ -2,6 +2,7 @@
 #include "t8dg_quadrature.h"
 #include "t8dg_vertexset.h"
 #include "t8dg_refcount.h"
+#include "t8dg_tensor.h"
 #include <t8_eclass.h>
 
 typedef struct t8dg_face_quadrature t8dg_face_quadrature_t;
@@ -195,7 +196,7 @@ t8dg_quadrature_get_element_vertex (double vertex[3], const t8dg_quadrature_t * 
     t8dg_vertexset_fill_vertex3D (quadrature->vertexset, iquad, 0, vertex);
   }
   else {
-    t8dg_transform_3tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
+    t8dg_tensor_transform_tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
     for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
       t8dg_vertexset_fill_vertex3D (quadrature->tensor_quad[itensor]->vertexset, iquadtensor[itensor], startdim, vertex);
       startdim += t8dg_quadrature_get_dim (quadrature->tensor_quad[itensor]);
@@ -215,7 +216,7 @@ t8dg_quadrature_get_element_weight (const t8dg_quadrature_t * quadrature, const 
     weight = *(double *) t8dg_sc_array_index_quadidx (quadrature->weights, iquad);
   }
   else {
-    t8dg_transform_3tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
+    t8dg_tensor_transform_tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
     for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
       weight *= t8dg_quadrature_get_element_weight (quadrature->tensor_quad[itensor], iquadtensor[itensor]);
     }
