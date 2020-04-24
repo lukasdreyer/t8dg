@@ -18,7 +18,8 @@ typedef int         t8dg_quad_idx_t;
 typedef enum t8dg_quadrature_type
 {
   T8DG_QUAD_LGL,
-  T8DG_QUAD_GL
+  T8DG_QUAD_GL,
+  T8_QUAD_UNKNOWN
 } t8dg_quadrature_type_t;
 
 /**Opaque handle typedef for quadrature*/
@@ -35,7 +36,9 @@ void               *t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_
  * */
 t8dg_quadrature_t  *t8dg_quadrature_new_vertexset (t8dg_vertexset_t * vertexset);
 
-t8dg_quadrature_t  *t8dg_quadrature_new_tensor_square (t8dg_quadrature_t * quad_line);
+t8dg_quadrature_t  *t8dg_quadrature_new_tensor (int num_tensor, t8dg_quadrature_t * quad_tensors[3]);
+
+t8dg_quadrature_t  *t8dg_quadrature_new_hypercube (int dim, t8dg_vertexset_t * vertexset1D);
 
 /*TODO: document
  *
@@ -101,7 +104,8 @@ t8_eclass_t         t8dg_quadrature_get_eclass (const t8dg_quadrature_t * quadra
 
 int                 t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature);
 
-t8dg_quad_idx_t     t8dg_quadrature_get_LGL_facevertex_element_index (t8dg_quadrature_t * quadrature, int iface, int ifacevertex);
+t8dg_quad_idx_t
+    t8dg_quadrature_lgl_facequadix_lookup (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad);
 
 double              t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn,
                                                                  void *integrand_data);

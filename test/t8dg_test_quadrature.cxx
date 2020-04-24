@@ -52,7 +52,6 @@ TEST (quadrature1D, integrate_max_order)
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     quadrature = t8dg_quadrature_new_vertexset (vertexset);
     power = 2 * num_LGL - 3;
-    printf ("%i\n", num_LGL);
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature, x_pow, &power), 1.0 / (power + 1), 1e-10);
     t8dg_quadrature_destroy (&quadrature);
     t8dg_vertexset_destroy (&vertexset);
@@ -62,18 +61,15 @@ TEST (quadrature1D, integrate_max_order)
 TEST (quadrature2D, integrate_const_one)
 {
   int                 num_LGL;
-  t8dg_quadrature_t  *quadrature_line;
   t8dg_quadrature_t  *quadrature_square;
   t8dg_vertexset_t   *vertexset;
   for (num_LGL = 1; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
-    quadrature_line = t8dg_quadrature_new_vertexset (vertexset);
-    quadrature_square = t8dg_quadrature_new_tensor_square (quadrature_line);
+    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset);
     EXPECT_EQ (t8dg_quadrature_get_num_element_vertices (quadrature_square), num_LGL * num_LGL);
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature_square, const_one, NULL), 1, 1e-10);
     t8dg_quadrature_destroy (&quadrature_square);
-    t8dg_quadrature_destroy (&quadrature_line);
     t8dg_vertexset_destroy (&vertexset);
   }
 }
@@ -81,7 +77,6 @@ TEST (quadrature2D, integrate_const_one)
 TEST (quadrature2D, integrate_max_order)
 {
   int                 num_LGL;
-  t8dg_quadrature_t  *quadrature_line;
   t8dg_quadrature_t  *quadrature_square;
   t8dg_vertexset_t   *vertexset;
   int                 power;
@@ -89,14 +84,12 @@ TEST (quadrature2D, integrate_max_order)
   for (num_LGL = 2; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
-    quadrature_line = t8dg_quadrature_new_vertexset (vertexset);
-    quadrature_square = t8dg_quadrature_new_tensor_square (quadrature_line);
+    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset);
     EXPECT_EQ (t8dg_quadrature_get_num_element_vertices (quadrature_square), num_LGL * num_LGL);
     power = 2 * num_LGL - 3;
     result = 1. / ((power + 1) * (power + 1));
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature_square, x_times_one_minus_y_pow, &power), result, 1e-10);
     t8dg_quadrature_destroy (&quadrature_square);
-    t8dg_quadrature_destroy (&quadrature_line);
     t8dg_vertexset_destroy (&vertexset);
   }
 }

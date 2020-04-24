@@ -112,11 +112,32 @@ t8dg_global_precomputed_values_transform_element_dof_to_face_quad (const t8dg_gl
   num_face_vertices = t8dg_quadrature_get_num_face_vertices (values->quadrature, iface);
 
   for (ifacequad = 0; ifacequad < num_face_vertices; ifacequad++) {
-    iquad = (iface == 0) ? 0 : t8dg_quadrature_get_num_element_vertices (values->quadrature) - 1;
-     /*TODO*/
-      *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad) =
+    iquad = t8dg_quadrature_lgl_facequadix_lookup (values->quadrature, iface, ifacequad);
+    *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad) =
       *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad);
   }
+}
+
+static void
+t8dg_global_precomputed_values_transform_face_quad_to_element_dof_lgl_lookup (t8dg_global_precomputed_values_t * values,
+                                                                              const int iface,
+                                                                              const sc_array_t * face_quad_array,
+                                                                              sc_array_t * element_dof_array)
+{
+  t8dg_quad_idx_t     iquad, ifacequad, num_element_vertices, num_face_vertices;
+
+  num_element_vertices = t8dg_quadrature_get_num_element_vertices (values->quadrature);
+  num_face_vertices = t8dg_quadrature_get_num_face_vertices (values->quadrature, iface);
+
+  for (iquad = 0; iquad < num_element_vertices; iquad++) {
+    *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) = 0;
+  }
+  for (ifacequad = 0; ifacequad < num_face_vertices; ifacequad++) {
+    iquad = t8dg_quadrature_lgl_facequadix_lookup (values->quadrature, iface, ifacequad);
+    *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) =
+      *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad);
+  }
+
 }
 
 void
@@ -134,19 +155,11 @@ t8dg_global_precomputed_values_transform_face_quad_to_element_dof (t8dg_global_p
   T8DG_ASSERT (element_dof_array->elem_count == (size_t) t8dg_functionbasis_get_num_dof (values->functionbasis));
   T8DG_ASSERT (face_quad_array->elem_count == (size_t) t8dg_quadrature_get_num_face_vertices (values->quadrature, iface));
 
-  t8dg_quad_idx_t     iquad, ifacequad, num_element_vertices, num_face_vertices;
-
-  num_element_vertices = t8dg_quadrature_get_num_element_vertices (values->quadrature);
-  num_face_vertices = t8dg_quadrature_get_num_face_vertices (values->quadrature, iface);
-
-  for (iquad = 0; iquad < num_element_vertices; iquad++) {
-    *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) = 0;
+  if (t8dg_global_precomputed_values_lgl_compatible (values->functionbasis, values->quadrature)) {
+    t8dg_global_precomputed_values_transform_face_quad_to_element_dof_lgl_lookup (values, iface, face_quad_array, element_dof_array);
   }
-  for (ifacequad = 0; ifacequad < num_face_vertices; ifacequad++) {
-    iquad = (iface == 0) ? 0 : t8dg_quadrature_get_num_element_vertices (values->quadrature) - 1;
-     /*TODO*/
-      *(double *) t8dg_sc_array_index_quadidx (element_dof_array, iquad) =
-      *(double *) t8dg_sc_array_index_quadidx (face_quad_array, ifacequad);
+  else {
+    T8DG_ABORT ("FaceVandermonde only implemented for LGL");
   }
 }
 
