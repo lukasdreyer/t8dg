@@ -55,14 +55,25 @@ t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pval
   *pvalues = NULL;
 }
 
+static int
+t8dg_global_precomputed_values_lgl_compatible (t8dg_functionbasis_t * functionbasis, t8dg_quadrature_t * quadrature)
+{
+  if (t8dg_quadrature_get_type (quadrature) != T8DG_QUAD_LGL || t8dg_functionbasis_get_type (functionbasis) != T8DG_LAGRANGE_LGL)
+    return 0;
+  if (t8dg_quadrature_get_num_element_vertices (quadrature) != t8dg_functionbasis_get_num_dof (functionbasis))
+    return 0;
+  /*TODO: Check each dimension */
+  return 1;
+}
+
 void
 t8dg_global_precomputed_values_transform_element_dof_to_element_quad (const t8dg_global_precomputed_values_t * values,
                                                                       const sc_array_t * element_dof_array, sc_array_t * element_quad_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
-                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D, "Not yet implemented");
+                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL, "Not yet implemented");
   if (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL
-      && t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D) {
+      && t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL) {
     t8dg_sc_array_copy (element_dof_array, element_quad_array);
     return;
   }
@@ -73,9 +84,9 @@ t8dg_global_precomputed_values_transform_element_quad_to_element_dof (const t8dg
                                                                       const sc_array_t * element_quad_array, sc_array_t * element_dof_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
-                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D, "Not yet implemented");
+                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL, "Not yet implemented");
   if (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL
-      && t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D) {
+      && t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL) {
     t8dg_sc_array_copy (element_quad_array, element_dof_array);
     return;
   }
@@ -87,7 +98,7 @@ t8dg_global_precomputed_values_transform_element_dof_to_face_quad (const t8dg_gl
                                                                    const sc_array_t * element_dof_array, sc_array_t * face_quad_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
-                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D &&
+                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL &&
                     t8dg_quadrature_get_num_element_vertices (values->quadrature) == t8dg_functionbasis_get_num_dof (values->functionbasis),
                     "Not yet implemented");
 
@@ -114,7 +125,7 @@ t8dg_global_precomputed_values_transform_face_quad_to_element_dof (t8dg_global_p
                                                                    const sc_array_t * face_quad_array, sc_array_t * element_dof_array)
 {
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (values->quadrature) == T8DG_QUAD_LGL &&
-                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL_1D &&
+                    t8dg_functionbasis_get_type (values->functionbasis) == T8DG_LAGRANGE_LGL &&
                     t8dg_quadrature_get_num_element_vertices (values->quadrature) == t8dg_functionbasis_get_num_dof (values->functionbasis),
                     "Not yet implemented");
 
@@ -144,13 +155,8 @@ void
 t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (const t8dg_global_precomputed_values_t * global_values,
                                                                           sc_array_t * derivative_dof_values, sc_array_t * dof_values)
 {
-  SC_CHECK_ABORT (t8dg_global_precomputed_values_get_dim (global_values) == 1 &&
-                  t8dg_functionbasis_is_lagrange (global_values->functionbasis), "Not yet implemented");
-
-  t8dg_dmatrix_t     *derivative_matrix;
-  derivative_matrix = t8dg_functionbasis_get_derivative_matrix (global_values->functionbasis);
-
-  t8dg_dmatrix_transpose_mult_sc_array (derivative_matrix, derivative_dof_values, dof_values);
+  int                 direction_idx = 0;        /*TODO: as Input */
+  t8dg_functionbasis_apply_derivative_matrix_transpose (global_values->functionbasis, direction_idx, derivative_dof_values, dof_values);
 }
 
 void
@@ -158,7 +164,7 @@ t8dg_global_precomputed_values_transform_element_dof_to_child_dof (const t8dg_gl
                                                                    const sc_array_t * element_dof, sc_array_t * child_dof, const int ichild)
 {
   t8dg_dmatrix_t     *interpolation_matrix;
-
+  /*TODO: move to functionbasis and implement for tensorstructures! */
   interpolation_matrix = t8dg_functionbasis_get_child_interpolation_matrix (global_values->functionbasis, ichild);
   t8dg_dmatrix_mult_sc_array (interpolation_matrix, element_dof, child_dof);
 }

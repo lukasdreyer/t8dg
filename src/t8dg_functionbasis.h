@@ -14,8 +14,9 @@
 
 typedef enum t8dg_functionbasis_type
 {
-  T8DG_LAGRANGE_LGL_1D,
-  T8DG_LAGRANGE_GL_1D
+  T8DG_LAGRANGE_LGL,
+  T8DG_LAGRANGE_GL,
+  T8DG_FB_UNKNOWN
 } t8dg_functionbasis_type_t;
 
 typedef struct t8dg_functionbasis t8dg_functionbasis_t;
@@ -33,13 +34,37 @@ int                 t8dg_functionbasis_is_valid (const t8dg_functionbasis_t * fu
 
 int                 t8dg_functionbasis_is_lagrange (const t8dg_functionbasis_t * functionbasis);
 
+int                 t8dg_functionbasis_is_tensor (const t8dg_functionbasis_t * functionbasis);
+
 t8dg_functionbasis_type_t t8dg_functionbasis_get_type (const t8dg_functionbasis_t * functionbasis);
 
 int                 t8dg_functionbasis_get_num_dof (const t8dg_functionbasis_t * functionbasis);
 
 int                 t8dg_functionbasis_get_dim (const t8dg_functionbasis_t * functionbasis);
 
-t8dg_dmatrix_t     *t8dg_functionbasis_get_derivative_matrix (t8dg_functionbasis_t * functionbasis);
+int                 t8dg_functionbasis_get_num_children (t8dg_functionbasis_t * functionbasis);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_functionbasis_apply_derivative_matrix_transpose (const t8dg_functionbasis_t * functionbasis, int direction_idx,
+                                                       sc_array_t * derivative_dof_values, sc_array_t * dof_values);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_functionbasis_apply_derivative_matrix (const t8dg_functionbasis_t * functionbasis, int direction_idx,
+                                             sc_array_t * dof_values, sc_array_t * derivative_dof_values);
 
 t8dg_dmatrix_t     *t8dg_functionbasis_get_child_interpolation_matrix (t8dg_functionbasis_t * functionbasis, int ichild);
 
@@ -48,6 +73,10 @@ t8dg_dmatrix_t     *t8dg_functionbasis_get_child_interpolation_matrix (t8dg_func
  *
  */
 t8dg_functionbasis_t *t8dg_functionbasis_new_1D_Lagrange (t8dg_vertexset_t * vertexset);
+
+t8dg_functionbasis_t *t8dg_functionbasis_new_hypercube_lagrange (int dim, t8dg_vertexset_t * vertexset);
+
+t8dg_functionbasis_t *t8dg_functionbasis_new_tensor (int num_tensor, t8dg_functionbasis_t * fb_tensor[DIM3]);
 
 /** Destroy a functionbasis.
  * \param [in] pfunctionbasis		On input, the functionbasis pointed to must exist

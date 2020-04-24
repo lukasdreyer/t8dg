@@ -21,7 +21,7 @@ struct t8dg_functionbasis
   /* We will need precalculated values for Triangle/tet ? */
 
   /* These are only explicitely saved for non tensor */
-  t8dg_dmatrix_t     *derivative_matrix;                                /**< precalculated derivative Matrix */
+  t8dg_dmatrix_t     *derivative_matrix[DIM3];                                /**< precalculated derivative Matrix */
   t8dg_dmatrix_t     *interpolate_to_child_matrix[MAX_SUBELEMENTS];     /**< precalculated interpolation Matrix */
 
   /* Tensor Information */
@@ -92,20 +92,75 @@ t8dg_functionbasis_new_1D_Lagrange (t8dg_vertexset_t * vertexset)
   t8dg_vertexset_destroy (&left_vertexset);
   t8dg_vertexset_destroy (&right_vertexset);
 
-  functionbasis->derivative_matrix = t8dg_functionbasis_Lagrange_derivative_matrix (functionbasis);
+  functionbasis->derivative_matrix[0] = t8dg_functionbasis_Lagrange_derivative_matrix (functionbasis);
 
   switch (t8dg_vertexset_get_type (vertexset)) {
   case (T8DG_VERT_LGL):
-    functionbasis->type = T8DG_LAGRANGE_LGL_1D;
+    functionbasis->type = T8DG_LAGRANGE_LGL;
     break;
   case (T8DG_VERT_GL):
-    functionbasis->type = T8DG_LAGRANGE_GL_1D;
+    functionbasis->type = T8DG_LAGRANGE_GL;
     break;
   default:
     T8DG_ABORT ("Not yet implemented");
   }
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
   return functionbasis;
+}
+
+t8dg_functionbasis_t *
+t8dg_functionbasis_new_tensor (int num_tensor, t8dg_functionbasis_t * fb_tensor[DIM3])
+{
+  T8DG_ASSERT (num_tensor == 2 || num_tensor == 3);
+  int                 itensor;
+  t8dg_functionbasis_t *functionbasis_tensor;
+  functionbasis_tensor = T8DG_ALLOC_ZERO (t8dg_functionbasis_t, 1);
+
+  t8dg_refcount_init (&functionbasis_tensor->rc);
+  if (num_tensor == 2) {
+    functionbasis_tensor->element_class = T8_ECLASS_QUAD;
+    //could also be prism
+  }
+  else if (num_tensor == 3) {
+    functionbasis_tensor->element_class = T8_ECLASS_HEX;
+
+  }
+  functionbasis_tensor->num_tensor = num_tensor;
+  functionbasis_tensor->number_of_dof = 1;
+  functionbasis_tensor->type = fb_tensor[0]->type;
+  for (itensor = 0; itensor < functionbasis_tensor->num_tensor; itensor++) {
+    functionbasis_tensor->tensor_fb[itensor] = fb_tensor[itensor];
+    t8dg_functionbasis_ref (fb_tensor[itensor]);
+    functionbasis_tensor->tensor_num_dof[itensor] = t8dg_functionbasis_get_num_dof (fb_tensor[itensor]);
+    functionbasis_tensor->number_of_dof *= functionbasis_tensor->tensor_num_dof[itensor];
+    if (functionbasis_tensor->type != fb_tensor[itensor]->type) {
+      functionbasis_tensor->type = T8DG_FB_UNKNOWN;
+    }
+  }
+  return functionbasis_tensor;
+}
+
+t8dg_functionbasis_t *
+t8dg_functionbasis_new_hypercube_lagrange (int dim, t8dg_vertexset_t * vertexset)
+{
+  T8DG_ASSERT (vertexset != NULL);
+  T8DG_ASSERT (t8dg_vertexset_get_eclass (vertexset) == T8_ECLASS_LINE);
+  T8DG_ASSERT (dim >= 1 && dim <= 3);
+
+  t8dg_functionbasis_t *functionbasis1D;
+  functionbasis1D = t8dg_functionbasis_new_1D_Lagrange (vertexset);
+  if (dim == 1)
+    return functionbasis1D;
+
+  int                 idim;
+  t8dg_functionbasis_t *functionbasis_tensor;
+  t8dg_functionbasis_t *fb_tensor[3] = { NULL, NULL, NULL };
+  for (idim = 0; idim < dim; idim++) {
+    fb_tensor[idim] = functionbasis1D;
+  }
+  functionbasis_tensor = t8dg_functionbasis_new_tensor (dim, fb_tensor);
+  t8dg_functionbasis_unref (&functionbasis1D);
+  return functionbasis_tensor;
 }
 
 t8dg_dmatrix_t     *
@@ -233,6 +288,106 @@ t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionb
   }
 }
 
+void
+t8dg_functionbasis_apply_derivative_matrix_transpose (const t8dg_functionbasis_t * functionbasis, int direction_idx,
+                                                      sc_array_t * derivative_dof_values, sc_array_t * dof_values)
+{
+  SC_CHECK_ABORT (t8dg_functionbasis_is_lagrange (functionbasis), "Not yet implemented");
+  T8DG_ASSERT (derivative_dof_values->elem_size == sizeof (double) && dof_values->elem_size == sizeof (double));
+  T8DG_ASSERT (derivative_dof_values->elem_count == (size_t) functionbasis->number_of_dof &&
+               dof_values->elem_count == (size_t) functionbasis->number_of_dof);
+  T8DG_ASSERT (direction_idx >= 0 && direction_idx < t8dg_functionbasis_get_dim (functionbasis));
+
+  int                 itensor, ivector;
+  int                 num_vectors = 0;
+  int                 vector_length;
+  int                 stride = 1;
+  sc_array_t         *vector_derivative_dof_values;
+  sc_array_t         *vector_dof_values;
+
+  if (functionbasis->num_tensor == 1) {
+    t8dg_dmatrix_transpose_mult_sc_array (functionbasis->derivative_matrix[direction_idx], derivative_dof_values, dof_values);
+  }
+  else {
+    for (itensor = 0; itensor < functionbasis->num_tensor; itensor++) {
+      if (direction_idx < t8dg_functionbasis_get_dim (functionbasis->tensor_fb[itensor])) {
+        num_vectors = t8dg_tensor_mult_other_lengths (functionbasis->num_tensor, functionbasis->tensor_num_dof, itensor);
+        vector_length = functionbasis->tensor_num_dof[itensor];
+        vector_derivative_dof_values = sc_array_new_count (sizeof (double), vector_length);
+        vector_dof_values = sc_array_new_count (sizeof (double), vector_length);
+
+        for (ivector = 0; ivector < num_vectors; ivector++) {
+          t8dg_tensor_array_extract_vector (derivative_dof_values, ivector, stride, vector_derivative_dof_values);
+          t8dg_tensor_array_extract_vector (dof_values, ivector, stride, vector_dof_values);
+
+          t8dg_dmatrix_transpose_mult_sc_array (functionbasis->tensor_fb[itensor]->derivative_matrix[direction_idx],
+                                                vector_derivative_dof_values, vector_dof_values);
+
+          t8dg_tensor_array_inject_vector (vector_dof_values, ivector, stride, dof_values);
+        }
+        sc_array_destroy (vector_derivative_dof_values);
+        sc_array_destroy (vector_dof_values);
+        return;
+
+      }
+      else {
+        direction_idx -= t8dg_functionbasis_get_dim (functionbasis->tensor_fb[itensor]);
+        stride *= functionbasis->tensor_num_dof[itensor];
+      }
+    }
+  }
+}
+
+void
+t8dg_functionbasis_apply_derivative_matrix (const t8dg_functionbasis_t * functionbasis, int direction_idx,
+                                            sc_array_t * dof_values, sc_array_t * derivative_dof_values)
+{
+  SC_CHECK_ABORT (t8dg_functionbasis_is_lagrange (functionbasis), "Not yet implemented");
+  T8DG_ASSERT (derivative_dof_values->elem_size == sizeof (double) && dof_values->elem_size == sizeof (double));
+  T8DG_ASSERT (derivative_dof_values->elem_count == (size_t) functionbasis->number_of_dof &&
+               dof_values->elem_count == (size_t) functionbasis->number_of_dof);
+  T8DG_ASSERT (direction_idx >= 0 && direction_idx < t8dg_functionbasis_get_dim (functionbasis));
+
+  int                 itensor, ivector;
+  int                 num_vectors = 0;
+  int                 vector_length;
+  int                 stride = 1;
+  sc_array_t         *vector_derivative_dof_values;
+  sc_array_t         *vector_dof_values;
+
+  if (functionbasis->num_tensor == 1) {
+    t8dg_dmatrix_mult_sc_array (functionbasis->derivative_matrix[direction_idx], dof_values, derivative_dof_values);
+  }
+  else {
+    for (itensor = 0; itensor < functionbasis->num_tensor; itensor++) {
+      if (direction_idx < t8dg_functionbasis_get_dim (functionbasis->tensor_fb[itensor])) {
+        num_vectors = t8dg_tensor_mult_other_lengths (functionbasis->num_tensor, functionbasis->tensor_num_dof, itensor);
+        vector_length = functionbasis->tensor_num_dof[itensor];
+        vector_derivative_dof_values = sc_array_new_count (sizeof (double), vector_length);
+        vector_dof_values = sc_array_new_count (sizeof (double), vector_length);
+
+        for (ivector = 0; ivector < num_vectors; ivector++) {
+          t8dg_tensor_array_extract_vector (derivative_dof_values, ivector, stride, vector_derivative_dof_values);
+          t8dg_tensor_array_extract_vector (dof_values, ivector, stride, vector_dof_values);
+
+          t8dg_dmatrix_mult_sc_array (functionbasis->tensor_fb[itensor]->derivative_matrix[direction_idx],
+                                      vector_dof_values, vector_derivative_dof_values);
+
+          t8dg_tensor_array_inject_vector (vector_derivative_dof_values, ivector, stride, derivative_dof_values);
+        }
+        sc_array_destroy (vector_derivative_dof_values);
+        sc_array_destroy (vector_dof_values);
+        return;
+
+      }
+      else {
+        direction_idx -= t8dg_functionbasis_get_dim (functionbasis->tensor_fb[itensor]);
+        stride *= functionbasis->tensor_num_dof[itensor];
+      }
+    }
+  }
+}
+
 int
 t8dg_functionbasis_is_valid (const t8dg_functionbasis_t * functionbasis)
 {
@@ -244,7 +399,14 @@ int
 t8dg_functionbasis_is_lagrange (const t8dg_functionbasis_t * functionbasis)
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
-  return functionbasis->type == T8DG_LAGRANGE_LGL_1D || functionbasis->type == T8DG_LAGRANGE_GL_1D;
+  return functionbasis->type == T8DG_LAGRANGE_LGL || functionbasis->type == T8DG_LAGRANGE_GL;
+}
+
+int
+t8dg_functionbasis_is_tensor (const t8dg_functionbasis_t * functionbasis)
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  return functionbasis->num_tensor > 1;
 }
 
 int
@@ -275,18 +437,19 @@ t8dg_functionbasis_get_eclass (const t8dg_functionbasis_t * functionbasis)
   return functionbasis->element_class;
 }
 
+int
+t8dg_functionbasis_get_num_children (t8dg_functionbasis_t * functionbasis)
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  T8DG_ASSERT (!t8dg_functionbasis_is_tensor (functionbasis));
+  return 1 << t8dg_functionbasis_get_dim (functionbasis);
+}
+
 t8dg_dmatrix_t     *
 t8dg_functionbasis_get_child_interpolation_matrix (t8dg_functionbasis_t * functionbasis, int ichild)
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
   return functionbasis->interpolate_to_child_matrix[ichild];
-}
-
-t8dg_dmatrix_t     *
-t8dg_functionbasis_get_derivative_matrix (t8dg_functionbasis_t * functionbasis)
-{
-  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
-  return functionbasis->derivative_matrix;
 }
 
 void
@@ -299,7 +462,7 @@ t8dg_functionbasis_ref (t8dg_functionbasis_t * functionbasis)
 static void
 t8dg_functionbasis_reset (t8dg_functionbasis_t * functionbasis)
 {
-  int                 itensor;
+  int                 itensor, idim, ichild;
 
   T8DG_ASSERT (functionbasis != NULL);
 
@@ -311,10 +474,12 @@ t8dg_functionbasis_reset (t8dg_functionbasis_t * functionbasis)
       t8dg_vertexset_unref (&functionbasis->vertexset);
       functionbasis->vertexset = NULL;
     }
-    t8dg_dmatrix_destroy (&functionbasis->derivative_matrix);
-    t8dg_dmatrix_destroy (&functionbasis->interpolate_to_child_matrix[0]);
-    t8dg_dmatrix_destroy (&functionbasis->interpolate_to_child_matrix[1]);
-
+    for (idim = 0; idim < t8dg_functionbasis_get_dim (functionbasis); idim++) {
+      t8dg_dmatrix_destroy (&functionbasis->derivative_matrix[idim]);
+    }
+    for (ichild = 0; ichild < t8dg_functionbasis_get_num_children (functionbasis); ichild++) {
+      t8dg_dmatrix_destroy (&functionbasis->interpolate_to_child_matrix[ichild]);
+    }
   }
   else {
     for (itensor = 0; itensor < functionbasis->num_tensor; itensor++) {
@@ -335,9 +500,10 @@ t8dg_functionbasis_unref (t8dg_functionbasis_t ** pfunctionbasis)
   T8DG_ASSERT (functionbasis != NULL);
   T8DG_ASSERT (t8dg_refcount_is_active (&functionbasis->rc));
 
-  if (t8dg_refcount_unref (&functionbasis->rc)) {
+  if (t8dg_refcount_is_last (&functionbasis->rc)) {
     t8dg_functionbasis_reset (functionbasis);
   }
+  t8dg_refcount_unref (&functionbasis->rc);
   *pfunctionbasis = NULL;
 }
 
@@ -352,7 +518,7 @@ t8dg_functionbasis_destroy (t8dg_functionbasis_t ** pfunctionbasis)
   T8DG_ASSERT (functionbasis != NULL);
   T8DG_ASSERT (t8dg_refcount_is_last (&functionbasis->rc));
 
-  t8dg_refcount_unref (&functionbasis->rc);
   t8dg_functionbasis_reset (functionbasis);
+  t8dg_refcount_unref (&functionbasis->rc);
   *pfunctionbasis = NULL;
 }
