@@ -23,7 +23,7 @@ t8dg_precomputed_values_apply_element_inverse_mass_matrix (const t8dg_global_pre
                                                            const t8dg_locidx_t idata, const sc_array_t * dof_values,
                                                            sc_array_t * result_dof_values)
 {
-  T8DG_CHECK_ABORT (t8dg_functionbasis_get_type (t8dg_global_precomputed_values_get_functionbasis (global_values)) == T8DG_LAGRANGE_LGL_1D
+  T8DG_CHECK_ABORT (t8dg_functionbasis_get_type (t8dg_global_precomputed_values_get_functionbasis (global_values)) == T8DG_LAGRANGE_LGL
                     && t8dg_quadrature_get_type (t8dg_global_precomputed_values_get_quadrature (global_values)) == T8DG_QUAD_LGL,
                     "Not yet implemented");
 
@@ -79,8 +79,8 @@ t8dg_precomputed_values_element_norm_infty (sc_array_t * element_dof_values)
 }
 
 double
-t8dg_precomputed_values_element_norm_l2 (sc_array_t * element_dof_values, t8dg_global_precomputed_values_t * global_values,
-                                         t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata)
+t8dg_precomputed_values_element_norm_l2_squared (sc_array_t * element_dof_values, t8dg_global_precomputed_values_t * global_values,
+                                                 t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata)
 {
   T8DG_ASSERT (element_dof_values->elem_count == (size_t) t8dg_global_precomputed_values_get_num_dof (global_values));
   double              norm = 0;
@@ -97,7 +97,7 @@ t8dg_precomputed_values_element_norm_l2 (sc_array_t * element_dof_values, t8dg_g
   t8dg_precomputed_values_apply_element_mass_matrix (global_values, local_values, idata, element_dof_square_values, mass_times_square_dof);
 
   for (idof = 0; idof < num_dof; idof++) {
-    norm += *(double *) sc_array_index_int (element_dof_values, idof);
+    norm += *(double *) sc_array_index_int (mass_times_square_dof, idof);
   }
   sc_array_destroy (element_dof_square_values);
   sc_array_destroy (mass_times_square_dof);

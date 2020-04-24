@@ -361,21 +361,23 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
                                                 t8dg_advect_problem_evaluate_function_on_reference_element, &data, elem_ana_sol);
       t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
-      error = SC_MAX (error, t8dg_precomputed_values_element_norm_l2 (elem_error, problem->global_values, problem->local_values, idata));
-      ana_norm =
-        SC_MAX (ana_norm, t8dg_precomputed_values_element_norm_l2 (elem_ana_sol, problem->global_values, problem->local_values, idata));
+      error += t8dg_precomputed_values_element_norm_l2_squared (elem_error, problem->global_values, problem->local_values, idata),
+        ana_norm += t8dg_precomputed_values_element_norm_l2_squared (elem_ana_sol, problem->global_values, problem->local_values, idata);
       sc_array_destroy (elem_dof_val);
     }
   }
-  /* Compute the maximum of the error among all processes */
-  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
-  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+  /* Compute the sum of the error among all processes */
+  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_SUM, problem->comm);
+  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_SUM, problem->comm);
 
   sc_array_destroy (elem_ana_sol);
   sc_array_destroy (elem_error);
 
-  /* Return the relative error, that is the l_infty error divided by
-   * the l_infty norm of the analytical solution */
+  global_ana_norm = sqrt (global_ana_norm);
+  global_error = sqrt (global_error);
+
+  /* Return the relative error, that is the l_2 error divided by
+   * the l_2 norm of the analytical solution */
   return global_error / global_ana_norm;
 }
 
@@ -818,6 +820,7 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_WAIT, ghost_waittime);
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_AMR, ghost_exchange_time + ghost_waittime);
 
+  t8_debugf ("fill mortars\n");
   t8dg_advect_problem_mortars_fill (problem);
   t8_debugf ("mortars filled\n");
   t8dg_advect_problem_apply_boundary_integrals (problem, dof_flux);

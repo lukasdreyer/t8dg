@@ -37,7 +37,7 @@ double
  
  
  
- t8dg_precomputed_values_element_norm_l2 (sc_array_t * element_dof_values, t8dg_global_precomputed_values_t * global_values,
-                                          t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata);
+ t8dg_precomputed_values_element_norm_l2_squared (sc_array_t * element_dof_values, t8dg_global_precomputed_values_t * global_values,
+                                                  t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata);
 
 #endif /* SRC_T8DG_PRECOMPUTED_VALUES_H_ */
