@@ -44,8 +44,8 @@ t8dg_sc_array_clone (sc_array_t * src)
 void
 t8dg_sc_array_copy (const sc_array_t * src, sc_array_t * dest)
 {
-  SC_ASSERT (dest->elem_size == src->elem_size);
-  SC_ASSERT (dest->elem_count == src->elem_count);
+  T8DG_ASSERT (dest->elem_size == src->elem_size);
+  T8DG_ASSERT (dest->elem_count == src->elem_count);
 
   memcpy (dest->array, src->array, src->elem_count * src->elem_size);
 }
