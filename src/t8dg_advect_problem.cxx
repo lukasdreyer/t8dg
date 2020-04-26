@@ -240,54 +240,6 @@ t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
   t8dg_timestepping_data_set_time_step (problem->time_data, delta_t);
 }
 
-struct initial_fn_data
-{
-  const t8dg_linear_advection_problem_t *problem;
-  t8_eclass_scheme_c *scheme;
-  t8_element_t       *element;
-  t8_locidx_t         itree;
-  t8dg_scalar_function_3d_time_fn function;
-};
-static double
-t8dg_advect_problem_evaluate_function_on_reference_element (const double reference_vertex[3], void *scalar_fn_data)
-{
-  double              coarse_vertex[DIM3];
-  double              image_vertex[DIM3];
-  double              start_time;
-  struct initial_fn_data *data;
-  const t8dg_linear_advection_problem_t *problem;
-
-  data = (struct initial_fn_data *) scalar_fn_data;
-  problem = data->problem;
-  start_time = t8dg_timestepping_data_get_current_time (problem->time_data);
-  /* transform into coarse reference element */
-  t8dg_local_precomputed_values_fine_to_coarse_geometry (reference_vertex, coarse_vertex, data->scheme, data->element);
-
-  /* tree vertices are application data for linear geometry */
-  problem->coarse_geometry->geometry (coarse_vertex, image_vertex, problem->forest, data->itree);
-
-  /* apply initial condition function at image vertex and start time */
-  return data->function (image_vertex, start_time);
-
-}
-
-static void
-t8dg_element_set_dofs_initial (t8dg_linear_advection_problem_t * problem, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
-                               t8_locidx_t ielement, t8_element_t * element)
-{
-  t8_locidx_t         idata;
-
-  idata = t8dg_itree_ielement_to_idata (problem->forest, itree, ielement);
-
-  sc_array_t         *element_dof_view = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
-
-  struct initial_fn_data data = { problem, scheme, element, itree, problem->description.initial_condition_fn };
-
-  t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                            t8dg_advect_problem_evaluate_function_on_reference_element, &data, element_dof_view);
-  sc_array_destroy (element_dof_view);
-}
-
 double
 t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol)
 {
@@ -299,8 +251,9 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
   double              error = 0, global_error;
   double              ana_norm = 0, global_ana_norm;
 
-  struct initial_fn_data data = { problem, t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, 0,
-    problem->description.initial_condition_fn
+  t8dg_precomputed_values_fn_evaluation_data_t data =
+    { t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, problem->coarse_geometry,
+    problem->forest, 0, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
   elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
@@ -314,7 +267,7 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
       data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
       elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                                t8dg_advect_problem_evaluate_function_on_reference_element, &data, elem_ana_sol);
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, elem_ana_sol);
       t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
       error = SC_MAX (error, t8dg_precomputed_values_element_norm_infty (elem_error));
       ana_norm = SC_MAX (ana_norm, t8dg_precomputed_values_element_norm_infty (elem_ana_sol));
@@ -344,8 +297,9 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
   double              error = 0, global_error;
   double              ana_norm = 0, global_ana_norm;
 
-  struct initial_fn_data data = { problem, t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, 0,
-    problem->description.initial_condition_fn
+  t8dg_precomputed_values_fn_evaluation_data_t data =
+    { t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, problem->coarse_geometry,
+    problem->forest, 0, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
   elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
@@ -359,7 +313,7 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
       data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
       elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                                t8dg_advect_problem_evaluate_function_on_reference_element, &data, elem_ana_sol);
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, elem_ana_sol);
       t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
       error += t8dg_precomputed_values_element_norm_l2_squared (elem_error, problem->global_values, problem->local_values, idata),
         ana_norm += t8dg_precomputed_values_element_norm_l2_squared (elem_ana_sol, problem->global_values, problem->local_values, idata);
@@ -606,27 +560,37 @@ t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
 void
 t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem)
 {
-  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         itree = 0, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
-  t8_element_t       *element;
-
-  t8_eclass_scheme_c *scheme;
+  t8_element_t       *element = NULL;
+  sc_array_t         *element_dof_view;
+  t8_eclass_scheme_c *scheme = NULL;
 
   t8dg_quadrature_t  *quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
+
+  t8dg_precomputed_values_fn_evaluation_data_t data = { scheme, element, problem->coarse_geometry,
+    problem->forest, itree, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
+  };
 
   t8_debugf ("Start element init \n");
   num_trees = t8_forest_get_num_local_trees (problem->forest);
 
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
     scheme = t8_forest_get_eclass_scheme (problem->forest, t8_forest_get_tree_class (problem->forest, itree));
+    data.scheme = scheme;
+    data.itree = itree;
 
     num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
       element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
-
+      data.element = element;
       t8dg_local_precomputed_values_set_element (problem->local_values, problem->forest, itree, scheme, ielement, quadrature);
 
-      t8dg_element_set_dofs_initial (problem, itree, scheme, ielement, element);
+      element_dof_view = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
+
+      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, element_dof_view);
+      sc_array_destroy (element_dof_view);
     }
   }
   t8_debugf ("End element init \n");
