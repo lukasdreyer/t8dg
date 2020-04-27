@@ -1,0 +1,62 @@
+# This file is part of t8dgcode
+# Non-recursive Makefile.am in src
+# Included from toplevel directory
+
+libt8dg_generated_headers = src/t8dg_config.h
+libt8dg_installed_headers = \
+  src/t8dg.h \
+  t8dg_functionbasis.h \
+  t8dg_refcount.h \
+  t8dg_global_precomputed_values.h \
+  t8dg_local_precomputed_values.h \
+  t8dg_coarse_geometry.h \
+  t8dg_precomputed_values.h \
+  t8dg_vertexset.h \
+  t8dg_flux.h \	 
+  t8dg_mortar.h	\ 
+  t8dg_timestepping.h \
+  t8dg_dmatrix.h \		 
+  t8dg_quadrature.h \
+  t8dg_advect_problem.h	\
+  t8dg.h \
+  t8dg_sc_array.h \
+  t8dg_tensor.h
+
+libt8dg_internal_headers = \
+libt8dg_compiled_sources = \
+  t8dg_functionbasis.c \
+  t8dg_refcount.c \
+  t8dg_global_precomputed_values.c \
+  t8dg_advect_problem.cxx \
+  t8dg_sc_array.c \
+  t8dg.c \		 
+  t8dg_local_precomputed_values.cxx \
+  t8dg_tensor.c \
+  t8dg_coarse_geometry.c \
+  t8dg_mortar.c	\	    
+  t8dg_timestepping.c \
+  t8dg_dmatrix.c \		 
+  t8dg_precomputed_values.c \
+  t8dg_vertexset.c \
+  t8dg_flux.c \	 
+  t8dg_quadrature.c
+
+
+# this variable is used for headers that are not publicly installed
+T8DG_CPPFLAGS =
+
+lib_LTLIBRARIES += src/libt8dg.la
+src_libt8dg_la_SOURCES = \
+	$(libt8dg_internal_headers) \
+	$(libt8dg_compiled_sources)
+src_libt8dg_la_CPPFLAGS = $(AM_CPPFLAGS) $(T8DG_CPPFLAGS)
+src_libt8dg_la_LDFLAGS = -release $(VERSION)
+LDADD += @top_builddir@/src/libt8dg.la \
+        @T8DG_T8_LDADD@ @T8DG_P4EST_LDADD@ @T8DG_SC_LDADD@
+EXTRA_src_libt8dg_la_DEPENDENCIES = @T8DG_T8_LDADD@ @T8DG_P4EST_LDADD@ @T8DG_SC_LDADD@
+
+nodist_include_HEADERS += $(libt8dg_generated_headers)
+include_HEADERS += $(libt8dg_installed_headers)
+
+AM_CPPFLAGS += -I@top_srcdir@/src \
+        @T8DG_SC_CPPFLAGS@ @T8DG_P4EST_CPPFLAGS@ @T8DG_T8_CPPFLAGS@
