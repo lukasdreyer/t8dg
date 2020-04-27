@@ -35,3 +35,10 @@ Kommentare
 	- Bei jeder Funktion kurz erklaeren, was sie macht
 	- Idealerweise auch input/output parameter dokumentieren
 	- Leerzeichen. /* das ist lesbarer */ /*als das*/ (Wird vielleicht vom indent skript geloest)
+
+Build system
+	- What is the difference between Doxyfile and Doxyfile.in?
+		- Can we remove Doxyfile?
+	- Correctly sort the headers and source files in src/Makefile.am
+	- Fuer Johannes: In configure.ac P4EST_ARG_ENABLE_DEBUG. Fehlt die Zeile in t8code/?
+	- Add your mail to AC_INIT in configure.ac
