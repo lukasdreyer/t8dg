@@ -120,11 +120,10 @@ t8dg_linear_1D_geometry_fn (const t8_forest_t forest, const t8_locidx_t itree, v
 
   double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
 
-  double             *x_0 = tree_vertices;
-  double             *x_1 = tree_vertices + DIM3;
+  double              image_coarse_element_length_vector[3];
 
-  double              h = t8_vec_dist (x_0, x_1);
-  t8_vec_axpyz (vertex, x_0, image_vertex, h);
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector, -1);
+  t8_vec_axpyz (image_coarse_element_length_vector, tree_vertices, image_vertex, vertex[0]);
 }
 
 t8dg_coarse_geometry_t *
