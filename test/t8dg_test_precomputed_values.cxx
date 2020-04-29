@@ -26,8 +26,6 @@ protected:
     int                 num_lgl;
     t8_cmesh_t          cmesh;
     t8_scheme_cxx_t    *default_scheme;
-
-    t8_eclass_scheme_c *scheme;
     t8dg_quadrature_t  *quadrature;
 
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
@@ -37,7 +35,9 @@ protected:
     forest_adapt = t8_forest_new_uniform (cmesh, default_scheme, 1, 1, sc_MPI_COMM_WORLD);
     forest = t8_forest_new_uniform (cmesh, default_scheme, 0, 1, sc_MPI_COMM_WORLD);
 
-    scheme = t8_forest_get_eclass_scheme (forest, T8_ECLASS_LINE);
+    coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
+    t8dg_geometry_transformation_data_t geometry_data = { coarse_geometry, forest, 0, 0 };
+    t8dg_geometry_transformation_data_t geometry_data_adapt = { coarse_geometry, forest_adapt, 0, 0 };
 
     num_lgl = GetParam ();
 
@@ -45,9 +45,10 @@ protected:
     quadrature = t8dg_global_precomputed_values_get_quadrature (global_values);
     local_values = t8dg_local_precomputed_values_new (quadrature, 1);
     local_values_adapt = t8dg_local_precomputed_values_new (quadrature, 2);
-    t8dg_local_precomputed_values_set_element (local_values, forest, 0, scheme, 0, quadrature);
-    t8dg_local_precomputed_values_set_element (local_values_adapt, forest_adapt, 0, scheme, 0, quadrature);
-    t8dg_local_precomputed_values_set_element (local_values_adapt, forest_adapt, 0, scheme, 1, quadrature);
+    t8dg_local_precomputed_values_set_element (local_values, &geometry_data, quadrature);
+    t8dg_local_precomputed_values_set_element (local_values_adapt, &geometry_data_adapt, quadrature);
+    geometry_data_adapt.ielement = 1;
+    t8dg_local_precomputed_values_set_element (local_values_adapt, &geometry_data_adapt, quadrature);
 
     dof_values_adapt = sc_array_new_count (sizeof (double) * num_lgl, 2);
     dof_values = sc_array_new_count (sizeof (double) * num_lgl, 1);
@@ -61,6 +62,7 @@ protected:
     t8dg_global_precomputed_values_destroy (&global_values);
     t8dg_local_precomputed_values_destroy (&local_values);
     t8dg_local_precomputed_values_destroy (&local_values_adapt);
+    t8dg_coarse_geometry_destroy (&coarse_geometry);
     sc_array_destroy (dof_values_adapt);
     sc_array_destroy (dof_values);
     t8_forest_unref (&forest_adapt);
@@ -70,6 +72,7 @@ protected:
   t8dg_global_precomputed_values_t *global_values;
   t8dg_local_precomputed_values_t *local_values;
   t8dg_local_precomputed_values_t *local_values_adapt;
+  t8dg_coarse_geometry_t *coarse_geometry;
 
   sc_array_t         *dof_values_adapt;
   sc_array_t         *dof_values;
@@ -125,14 +128,14 @@ protected:
     t8_cmesh_t          cmesh;
     t8_scheme_cxx_t    *default_scheme;
 
-    t8_eclass_scheme_c *scheme;
     t8dg_quadrature_t  *quadrature;
 
     cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
     default_scheme = t8_scheme_new_default_cxx ();
     forest = t8_forest_new_uniform (cmesh, default_scheme, level, 1, sc_MPI_COMM_WORLD);
     coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
-    scheme = t8_forest_get_eclass_scheme (forest, T8_ECLASS_LINE);
+
+    t8dg_geometry_transformation_data_t geometry_data = { coarse_geometry, forest, 0, 0 };
 
     num_lgl = std::get < 0 > (GetParam ());
 
@@ -140,8 +143,10 @@ protected:
     quadrature = t8dg_global_precomputed_values_get_quadrature (global_values);
     local_values = t8dg_local_precomputed_values_new (quadrature, t8_forest_get_num_element (forest));
     for (itree = 0; itree < t8_forest_get_num_local_trees (forest); itree++) {
+      geometry_data.itree = itree;
       for (ielement = 0; ielement < t8_forest_get_tree_num_elements (forest, itree); ielement++) {
-        t8dg_local_precomputed_values_set_element (local_values, forest, itree, scheme, ielement, quadrature);
+        geometry_data.ielement = ielement;
+        t8dg_local_precomputed_values_set_element (local_values, &geometry_data, quadrature);
       }
     }
 
@@ -211,19 +216,19 @@ TEST_P (PrecomputedValuesL2norm1D, test_functions)
   double              norm_squared = 0, norm;
   sc_array_t         *element_dof_values;
 
-  t8dg_precomputed_values_fn_evaluation_data_t data =
-    { NULL, NULL, coarse_geometry, forest, itree, std::get < 0 > (std::get < 1 > (GetParam ())), time };
+  t8dg_geometry_transformation_data_t geometry_data = { coarse_geometry, forest, 0, 0 };
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, std::get < 0 > (std::get < 1 > (GetParam ())), time };
+
   functionbasis = t8dg_global_precomputed_values_get_functionbasis (global_values);
 
   for (itree = 0, idata = 0; itree < t8_forest_get_num_local_trees (forest); itree++) {
-    data.scheme = t8_forest_get_eclass_scheme (forest, T8_ECLASS_LINE);
-    data.itree = itree;
+    geometry_data.itree = itree;
     for (ielement = 0; ielement < t8_forest_get_tree_num_elements (forest, itree); ielement++, idata++) {
-      data.element = t8_forest_get_element_in_tree (forest, itree, ielement);
+      geometry_data.ielement = ielement;
 
       element_dof_values = t8dg_sc_array_block_double_new_view (dof_values, idata);
-      t8dg_functionbasis_interpolate_scalar_fn (functionbasis, t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data,
-                                                element_dof_values);
+      t8dg_functionbasis_interpolate_scalar_fn (functionbasis, t8dg_precomputed_values_transform_reference_vertex_and_evaluate,
+                                                &evaluation_data, element_dof_values);
       norm_squared += t8dg_precomputed_values_element_norm_l2_squared (element_dof_values, global_values, local_values, idata);
       sc_array_destroy (element_dof_values);
     }

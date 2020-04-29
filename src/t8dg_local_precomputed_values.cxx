@@ -8,10 +8,10 @@
 #include "t8dg.h"
 #include "t8dg_local_precomputed_values.h"
 #include "t8dg_sc_array.h"
+#include "t8dg_geometry.h"
+#include "t8dg_flux.h"
 
 #include <t8_vec.h>
-#include <t8_element_cxx.hxx>
-#include <t8_element.h>
 #include <t8_forest/t8_forest_partition.h>
 
 struct t8dg_local_precomputed_values
@@ -32,20 +32,22 @@ struct t8dg_local_precomputed_values
 };
 
 static double      *
-t8dg_local_precomputed_values_get_face_quad_trafo_weights (const t8dg_local_precomputed_values_t * values, t8_locidx_t idata, int faceindex)
+t8dg_local_precomputed_values_get_face_quad_trafo_weights (const t8dg_local_precomputed_values_t * values, const t8_locidx_t idata,
+                                                           const int faceindex)
 {
   return ((double *) t8_sc_array_index_locidx (values->face_trafo_quad_weight[faceindex], idata));
 }
 
 static double      *
-t8dg_local_precomputed_values_get_element_quad_trafo_weights (const t8dg_local_precomputed_values_t * values, t8_locidx_t idata)
+t8dg_local_precomputed_values_get_element_quad_trafo_weights (const t8dg_local_precomputed_values_t * values, const t8_locidx_t idata)
 {
   return ((double *) t8_sc_array_index_locidx (values->element_trafo_quad_weight, idata));
 }
 
 double             *
-t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (t8dg_local_precomputed_values_t * values,
-                                                                          t8_locidx_t idata, t8dg_quad_idx_t iquad, int idim)
+t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (const t8dg_local_precomputed_values_t * values,
+                                                                          const t8_locidx_t idata, const t8dg_quad_idx_t iquad,
+                                                                          const int idim)
 {
   T8_ASSERT (idim >= 0 && idim < values->dim);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < values->element_transformed_gradient_tangential_vectors->elem_size / (DIM3 * sizeof (double)));
@@ -54,8 +56,8 @@ t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (t8dg_l
 }
 
 double             *
-t8dg_local_precomputed_values_get_face_normal_vector (t8dg_local_precomputed_values_t * values, t8_locidx_t idata, int iface,
-                                                      t8dg_quad_idx_t iquad)
+t8dg_local_precomputed_values_get_face_normal_vector (const t8dg_local_precomputed_values_t * values, const t8_locidx_t idata,
+                                                      const int iface, const t8dg_quad_idx_t iquad)
 {
   T8_ASSERT (iface >= 0 && iface < MAX_FACES);
   T8_ASSERT (iquad >= 0 && (size_t) iquad < values->face_normal_vectors[iface]->elem_size / (DIM3 * sizeof (double)));
@@ -63,29 +65,7 @@ t8dg_local_precomputed_values_get_face_normal_vector (t8dg_local_precomputed_val
 }
 
 void
-t8dg_local_precomputed_values_fine_to_coarse_geometry (const double refined_element_vertex[DIM3],
-                                                       double coarse_element_vertex[DIM3], t8_eclass_scheme_c * scheme,
-                                                       const t8_element_t * element)
-{
-  T8DG_ASSERT (coarse_element_vertex != NULL && refined_element_vertex != NULL);
-  int                 idim;
-  int                 vertex_int_coords[3] = { 0, 0, 0 };
-  int                 level = scheme->t8_element_level (element);
-  double              translation_vector[3] = { 0, 0, 0 };
-  double              scaling_factor = pow (2, -level);
-  double              length_inv = 1. / scheme->t8_element_root_len (element);
-  scheme->t8_element_vertex_coords (element, 0, vertex_int_coords);
-  for (idim = 0; idim < DIM3; idim++) {
-    translation_vector[idim] = length_inv * vertex_int_coords[idim];
-  }
-
-  t8_vec_axpyz (refined_element_vertex, translation_vector, coarse_element_vertex, scaling_factor);
-  /*hx+x_0 */
-}
-
-void
-t8dg_local_precomputed_values_copy_element_values (t8dg_local_precomputed_values_t * incoming_values,
-                                                   t8_locidx_t incoming_idata,
+t8dg_local_precomputed_values_copy_element_values (t8dg_local_precomputed_values_t * incoming_values, t8_locidx_t incoming_idata,
                                                    t8dg_local_precomputed_values_t * outgoing_values, t8_locidx_t outgoing_idata)
 {
   int                 iface;
@@ -106,77 +86,55 @@ t8dg_local_precomputed_values_copy_element_values (t8dg_local_precomputed_values
 
 void
 t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
-                                           t8_forest_t forest, t8_locidx_t itree, t8_eclass_scheme_c * scheme,
-                                           t8_locidx_t ielement, t8dg_quadrature_t * quadrature)
+                                           const t8dg_geometry_transformation_data_t * geometry_data, const t8dg_quadrature_t * quadrature)
 {
-  SC_CHECK_ABORT (values->dim == 1, "Not yet implemented");
-  double              coarse_1D_tangential_vector[DIM3];        /* vector between endvertices of the line in the image */
-
-  double              gram_det, scaling_factor, norm_tangential_vector;
-  int                 iquad, iface;
-  int                 level;
+  double              gram_det, face_gram_det;
+  int                 iquad, iface, idim;
   t8_locidx_t         idata;
-  t8_element_t       *element;
-
-  int                 idim = 0;
-
-  double             *tree_vertices;
 
   /*pointer on the values to fill */
   double             *element_quad_trafo;       /*size: num_elem_quad */
   double             *face_quad_trafo;  /*size: num_face_quad */
   double             *transformed_gradient_tangential_vector;   /*size: 3, gets evaluated for each element quad point */
-  double             *normal_vector;    /*size: 3, gets evaluated for each element quad point */
+  double             *image_normal_vector;      /*size: 3, gets evaluated for each element quad point */
 
-  idata = t8dg_itree_ielement_to_idata (forest, itree, ielement);
+  double              reference_vertex[3];
+  double              reference_tangential_vector[3] = { 1, 0, 0 };
 
-  element = t8_forest_get_element_in_tree (forest, itree, ielement);
-
-  level = scheme->t8_element_level (element);
-  scaling_factor = pow (2, -level);
-
-  tree_vertices = t8_forest_get_tree_vertices (forest, itree);
-
-  /*tangential vector of the coarse element */
-  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, coarse_1D_tangential_vector, -1);
-
-  norm_tangential_vector = t8_vec_norm (coarse_1D_tangential_vector);
-  gram_det = scaling_factor * norm_tangential_vector;
+  idata = t8dg_itree_ielement_to_idata (geometry_data->forest, geometry_data->itree, geometry_data->ielement);
 
   element_quad_trafo = t8dg_local_precomputed_values_get_element_quad_trafo_weights (values, idata);
   for (iquad = 0; iquad < values->num_elem_quad; iquad++) {
+    t8dg_quadrature_get_element_vertex (quadrature, iquad, reference_vertex);
+    gram_det = t8dg_geometry_calculate_gram_determinant (geometry_data, reference_vertex);
     element_quad_trafo[iquad] = gram_det * t8dg_quadrature_get_element_weight (quadrature, iquad);
+    for (idim = 0; idim < t8dg_quadrature_get_dim (quadrature); idim++) {
+      transformed_gradient_tangential_vector =
+        t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (values, idata, iquad, idim);
 
-    transformed_gradient_tangential_vector =
-      t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (values, idata, iquad, idim);
-    t8_vec_axb (coarse_1D_tangential_vector, transformed_gradient_tangential_vector,
-                1. / (scaling_factor * norm_tangential_vector * norm_tangential_vector), 0);
+      reference_tangential_vector[0] = reference_tangential_vector[1] = reference_tangential_vector[2] = 0;
+      reference_tangential_vector[idim] = 1;
+
+      t8dg_geometry_calculate_transformed_gradient_tangential_vector (geometry_data, reference_vertex, reference_tangential_vector,
+                                                                      transformed_gradient_tangential_vector);
+    }
   }
 
   for (iface = 0; iface < values->num_faces; iface++) {
     face_quad_trafo = t8dg_local_precomputed_values_get_face_quad_trafo_weights (values, idata, iface);
     for (iquad = 0; iquad < values->num_face_quad[iface]; iquad++) {
       /*for 1D elements the faceintegrals are just the value at the facequadrature point */
-      face_quad_trafo[iquad] = 1;
-      normal_vector = t8dg_local_precomputed_values_get_face_normal_vector (values, idata, iface, iquad);
-      /*scale the element tangential_vector to a unit vector in the right direction */
-      switch (iface) {
-      case 0:
-        t8_vec_axb (coarse_1D_tangential_vector, normal_vector, -1. / norm_tangential_vector, 0);
-        break;
-      case 1:
-        t8_vec_axb (coarse_1D_tangential_vector, normal_vector, 1. / norm_tangential_vector, 0);
-        break;
-      default:
-        T8DG_ASSERT (0);
-        break;
-      }
+      t8dg_quadrature_get_face_vertex (quadrature, iface, iquad, reference_vertex);
+      face_gram_det = t8dg_geometry_calculate_face_gram_determinant (geometry_data, iface, reference_vertex);
+      face_quad_trafo[iquad] = face_gram_det * t8dg_quadrature_get_face_weight (quadrature, iface, iquad);
+      image_normal_vector = t8dg_local_precomputed_values_get_face_normal_vector (values, idata, iface, iquad);
+      t8dg_geometry_calculate_normal_vector (geometry_data, iface, reference_vertex, image_normal_vector);
     }
   }
 }
 
 t8dg_local_precomputed_values_t *
-t8dg_local_precomputed_values_new (t8dg_quadrature_t * quadrature, t8_locidx_t num_local_elems)
+t8dg_local_precomputed_values_new (const t8dg_quadrature_t * quadrature, const t8_locidx_t num_local_elems)
 {
   int                 iface;
   t8dg_local_precomputed_values_t *values = T8DG_ALLOC (t8dg_local_precomputed_values_t, 1);
@@ -270,5 +228,37 @@ t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t for
 
     t8_forest_partition_data (forest_old, forest_partition,
                               local_values_old->face_trafo_quad_weight[iface], local_values_partition->face_trafo_quad_weight[iface]);
+  }
+}
+
+void
+t8dg_local_precomputed_values_element_multiply_flux_value (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
+                                                           const t8dg_geometry_transformation_data_t * geometry_data,
+                                                           t8dg_quadrature_t * quadrature, double current_time,
+                                                           sc_array_t * element_quad_values)
+{
+  t8dg_quad_idx_t     iquad, num_quad_vertices;
+  double             *transformed_gradient_tangential_vector;
+  double              reference_vertex[3];
+  double              image_vertex[3];
+  double              flux_vec[3];
+  double              flux_value;
+  t8_locidx_t         idata;
+  int                 idim = 0; /*TODO: loop over dim */
+  num_quad_vertices = t8dg_quadrature_get_num_element_vertices (quadrature);
+
+  idata = t8dg_itree_ielement_to_idata (geometry_data->forest, geometry_data->itree, geometry_data->ielement);
+  for (iquad = 0; iquad < num_quad_vertices; iquad++) {
+    transformed_gradient_tangential_vector =
+      t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (local_values, idata, iquad, idim);
+
+    t8dg_quadrature_get_element_vertex (quadrature, iquad, reference_vertex);
+
+    t8dg_geometry_transform_reference_vertex_to_image_vertex (geometry_data, reference_vertex, image_vertex);
+
+    t8dg_flux_calulate_flux (flux, image_vertex, flux_vec, current_time);
+    flux_value = t8_vec_dot (flux_vec, transformed_gradient_tangential_vector);
+
+    *(double *) t8dg_sc_array_index_quadidx (element_quad_values, iquad) *= flux_value;
   }
 }

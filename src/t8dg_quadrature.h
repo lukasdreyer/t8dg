@@ -71,8 +71,8 @@ t8dg_quad_idx_t     t8dg_quadrature_get_num_face_vertices (const t8dg_quadrature
  * \param [in] quadrature            		quadrature
  * \param [in] iquad            		Index of the element quadrature point
 */
-void                t8dg_quadrature_get_element_vertex (double vertex[3],
-                                                        const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad);
+void                t8dg_quadrature_get_element_vertex (const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad,
+                                                        double vertex[3]);
 
 /** Returns the quadrature weight of an element vertex. (TODO: sum equals 1 or VOL(element)?
  * \param [in] quadrature            		quadrature
@@ -87,8 +87,9 @@ double              t8dg_quadrature_get_element_weight (const t8dg_quadrature_t 
  * \param [in] iface            		Face index
  * \param [in] iquad            		Index of the element quadrature point
 */
-void                t8dg_quadrature_get_face_vertex (double vertex[3],
-                                                     const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t iquad);
+ /*TODO*/
+  void      t8dg_quadrature_get_face_vertex (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t iquad,
+                                             double vertex[3]);
 
 /** Returns the quadrature weight of a face vertex. (TODO: sum equals 1 or VOL(element)?
  * \param [in] quadrature            		quadrature

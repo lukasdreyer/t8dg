@@ -260,7 +260,7 @@ t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature)
 }
 
 void
-t8dg_quadrature_get_element_vertex (double vertex[3], const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad)
+t8dg_quadrature_get_element_vertex (const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad, double vertex[3])
 {
   vertex[0] = 0;
   vertex[1] = 0;
@@ -312,7 +312,7 @@ t8dg_quadrature_get_num_face_vertices (const t8dg_quadrature_t * quadrature, con
 }
 
 void
-t8dg_quadrature_get_face_vertex (double vertex[3], const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad)
+t8dg_quadrature_get_face_vertex (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad, double vertex[3])
 {
   T8DG_ASSERT (quadrature != NULL);
   T8DG_CHECK_ABORT (t8dg_quadrature_get_type (quadrature) == T8DG_QUAD_LGL, "Not yet implemented");
@@ -345,7 +345,7 @@ t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8d
   double              vertex[3];
   num_elem_quad = t8dg_quadrature_get_num_element_vertices (quadrature);
   for (iquad = 0; iquad < num_elem_quad; iquad++) {
-    t8dg_quadrature_get_element_vertex (vertex, quadrature, iquad);
+    t8dg_quadrature_get_element_vertex (quadrature, iquad, vertex);
     integral += t8dg_quadrature_get_element_weight (quadrature, iquad) * integrand_fn (vertex, integrand_data);
   }
   return integral;

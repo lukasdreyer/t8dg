@@ -13,44 +13,15 @@
 #include <t8_forest.h>
 
 #include "t8dg.h"
-#include "t8dg_local_precomputed_values.h"
-#include "t8dg_quadrature.h"
-#include "t8dg_coarse_geometry.h"
 
-typedef struct t8dg_linear_flux t8dg_linear_flux_t;
+typedef struct t8dg_flux t8dg_flux_t;
 
-/** linear numerical flux function for the 1D case  */
-typedef double      (*t8dg_linear_numerical_flux_fn) (const double u_minus, const double u_plus,
-                                                      const double flow_vector[3], const double normal_vector[3]);
-/** time dependent flow velocity vector field*/
-typedef void        (*t8dg_linear_flux_velocity_time_fn) (const double x_vec[3], double flux_velocity[3], const double t,
-                                                          const void *flux_data);
+t8dg_flux_t        *t8dg_flux_new_linear_constant_flux (const double flow_direction[3], const double flow_velocity);
 
-t8dg_linear_flux_t *t8dg_linear_flux_new_1D_linear_geometry (const double tangential_vector[3], const double flow_velocity);
+void                t8dg_flux_destroy (t8dg_flux_t ** pflux);
 
-void                t8dg_linear_flux_destroy (t8dg_linear_flux_t ** pflux);
+void                t8dg_flux_calulate_flux (const t8dg_flux_t * flux, const double x_vec[3], double flux_vec[3], const double t);
 
-void                t8dg_linear_flux_calulate_flux (t8dg_linear_flux_t * linear_flux, double x_vec[3], double flux_vec[3], double t);
-
-/** For linear dependent flow- and normal vector, values of u at both adjacent elements,
- * calculates the 1D upwind flux.
- * The normal vector points from element_minus to element_plus.
- * All values should be evaluated at the same point, F_e(x_q)
- *
- * \param [in] u_minus            		value of u at quadpoint on element_minus
- * \param [in] u_plus            		value of u at quadpoint on element_plus
- * \param [in] flow_vector            		flow vector
- * \param [in] normal_vector            	normal vector
- *
- * \return                      		Flux value
- */
-
-double              t8dg_linear_numerical_flux_upwind_1D (const double u_minus, const double u_plus, const double flow_vector[3],
-                                                          const double normal_vector[3]);
-
-void                t8dg_flux_element_multiply_flux_value (const t8dg_linear_flux_t * linear_flux, sc_array_t * element_quad_values,
-                                                           double current_time, t8dg_local_precomputed_values_t * local_values,
-                                                           t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement,
-                                                           t8dg_quadrature_t * quadrature, t8dg_coarse_geometry_t * coarse_geometry);
-
+double              t8dg_flux_calculate_numerical_flux_value (const t8dg_flux_t * flux, const double u_minus, const double u_plus,
+                                                              const double flow_vector[3], const double normal_vector[3]);
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

@@ -16,28 +16,32 @@
 #include "t8dg_global_precomputed_values.h"
 #include "t8dg_flux.h"
 #include "t8dg_local_precomputed_values.h"
+#include "t8dg_geometry.h"
 
 typedef struct t8dg_mortar t8dg_mortar_t;
+typedef struct t8dg_mortar_array t8dg_mortar_array_t;
 
-sc_array_t         *t8dg_mortar_get_flux (t8dg_mortar_t * mortar);
+typedef struct t8dg_mortar_fill_data
+{
+  const t8dg_global_precomputed_values_t *global_values;
+  const t8dg_local_precomputed_values_t *local_values;
+  t8dg_geometry_transformation_data_t *geometry_data;
+  const t8dg_flux_t  *flux;
+  sc_array_t         *dof_values;
+  const double        time;
+} t8dg_mortar_fill_data_t;
 
-t8dg_mortar_t      *t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface);
+void                t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_data);
 
-void                t8dg_mortar_destroy (t8dg_mortar_t ** pmortar);
+void                t8dg_mortar_array_fill (t8dg_mortar_array_t * mortar_array, t8dg_mortar_fill_data_t * mortar_fill_data);
 
-void                t8dg_mortar_get_idata_iface (t8dg_mortar_t * mortar, t8_locidx_t * pidata, int *piface, int side);
+t8dg_mortar_array_t *t8dg_mortar_array_new_empty (t8_forest_t forest, int num_faces);
 
-void                t8dg_mortar_invalidate (t8dg_mortar_t * mortar);
+void                t8dg_mortar_array_invalidate_all (t8dg_mortar_array_t * mortar_array);
 
-int                 t8dg_mortar_is_valid (t8dg_mortar_t * mortar);
+void                t8dg_mortar_array_destroy (t8dg_mortar_array_t ** pmortar_array);
 
-int                 t8dg_mortar_get_side (t8dg_mortar_t * mortar, t8_locidx_t idata);
-
-void                t8dg_mortar_fill (t8dg_mortar_t * mortar,
-                                      sc_array_t * element_dof_values,
-                                      t8dg_timestepping_data_t * time_data,
-                                      t8dg_global_precomputed_values_t * global_values,
-                                      t8dg_local_precomputed_values_t * local_values,
-                                      t8dg_linear_flux_t * flux, t8dg_linear_numerical_flux_fn numerical_flux_fn);
+/*TODO!!!!!*/
+sc_array_t         *t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_locidx_t idata, int iface);
 
 #endif /* SRC_T8DG_MORTAR_H_ */

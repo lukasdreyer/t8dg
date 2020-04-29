@@ -10,16 +10,11 @@
 
 #include "t8dg_local_precomputed_values.h"
 #include "t8dg_global_precomputed_values.h"
-#include "t8dg_coarse_geometry.h"
-#include "t8_element.h"
+#include "t8dg_geometry.h"
 
 typedef struct t8dg_precomputed_values_fn_evaluation_data
 {
-  t8_eclass_scheme_c *scheme;
-  t8_element_t       *element;
-  t8dg_coarse_geometry_t *coarse_geometry;
-  t8_forest_t         forest;
-  t8_locidx_t         itree;
+  t8dg_geometry_transformation_data_t *geometry_data;
   t8dg_scalar_function_3d_time_fn function;
   double              time;
 } t8dg_precomputed_values_fn_evaluation_data_t;

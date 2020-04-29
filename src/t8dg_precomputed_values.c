@@ -108,16 +108,12 @@ t8dg_precomputed_values_element_norm_l2_squared (sc_array_t * element_dof_values
 double
 t8dg_precomputed_values_transform_reference_vertex_and_evaluate (const double reference_vertex[3], void *scalar_fn_data)
 {
-  double              coarse_vertex[DIM3];
   double              image_vertex[DIM3];
   t8dg_precomputed_values_fn_evaluation_data_t *data;
 
   data = (t8dg_precomputed_values_fn_evaluation_data_t *) scalar_fn_data;
-  /* transform into coarse reference element */
-  t8dg_local_precomputed_values_fine_to_coarse_geometry (reference_vertex, coarse_vertex, data->scheme, data->element);
 
-  /* tree vertices are application data for linear geometry */
-  data->coarse_geometry->geometry (coarse_vertex, image_vertex, data->forest, data->itree);
+  t8dg_geometry_transform_reference_vertex_to_image_vertex (data->geometry_data, reference_vertex, image_vertex);
 
   /* apply initial condition function at image vertex and start time */
   return data->function (image_vertex, data->time);

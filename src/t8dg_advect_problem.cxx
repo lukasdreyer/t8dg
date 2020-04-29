@@ -1,10 +1,3 @@
-/*
- * t8dg_advect.c
- *
- *  Created on: Mar 22, 2020
- *      Author: lukas
- */
-
 #include <t8.h>
 #include <t8_forest.h>
 #include <t8_vec.h>
@@ -29,6 +22,7 @@
 #include "t8dg_sc_array.h"
 #include "t8dg_timestepping.h"
 #include "t8dg_mortar.h"
+#include "t8dg_geometry.h"
 
 /* Names of statistics that we measure */
 const char         *advect_stat_names[ADVECT_NUM_STATS] = {
@@ -56,15 +50,6 @@ const char         *advect_stat_names[ADVECT_NUM_STATS] = {
   "mass_loss_[%]"
 };
 
-typedef struct t8dg_linear_advection_problem_description
-{
-  t8dg_scalar_function_3d_time_fn initial_condition_fn;           /**< Initial condition function */
-  t8dg_linear_flux_t *flux;
-  t8dg_linear_numerical_flux_fn numerical_flux_fn;             /**< Approximation to the Riemann problem */
-  t8dg_scalar_function_3d_time_fn source_sink_fn;
-
-} t8dg_linear_advection_problem_description_t;
-
 /** The container for all information needed to solve the advection problem.
  */
 struct t8dg_linear_advection_problem
@@ -76,7 +61,13 @@ struct t8dg_linear_advection_problem
 
   t8_forest_t         forest;                                   /**< The t8_forest used to adapt the coarse mesh*/
 
-  t8dg_linear_advection_problem_description_t description;
+  struct t8dg_linear_advection_problem_description
+  {
+    t8dg_scalar_function_3d_time_fn initial_condition_fn;           /**< Initial condition function */
+    t8dg_flux_t        *flux;
+    t8dg_scalar_function_3d_time_fn source_sink_fn;
+  } description;
+
   t8dg_timestepping_data_t *time_data;
   t8dg_global_precomputed_values_t *global_values;
   t8dg_coarse_geometry_t *coarse_geometry;   /**< coarse geometry, that gives the geometry and Jacobian of the geometry from the coarse
@@ -96,7 +87,7 @@ struct t8dg_linear_advection_problem
   sc_array_t         *dof_values_adapt;
 
   /* those need to be recalculated for each time step, remain processor local */
-  sc_array_t         *face_mortar[MAX_FACES];                   /**< contains pointer to face_mortars, so that fluxes need only be calculated once */
+  t8dg_mortar_array_t *face_mortars;                           /**< contains pointer to face_mortars, so that fluxes need only be calculated once */
 
 };
 
@@ -111,54 +102,6 @@ t8dg_advect_problem_get_element_dof_values (const t8dg_linear_advection_problem_
 }
 
 /*  get functions for structs at element and faces: */
-
-static t8dg_mortar_t *
-t8dg_advect_element_get_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface)
-{
-  T8_ASSERT (iface >= 0 && iface < MAX_FACES);
-  return *((t8dg_mortar_t **) t8_sc_array_index_locidx (problem->face_mortar[iface], idata));
-}
-
-static void
-t8dg_advect_element_set_face_mortar (const t8dg_linear_advection_problem_t * problem, t8_locidx_t idata, int iface, t8dg_mortar_t * mortar)
-{
-  T8_ASSERT (iface >= 0 && iface < MAX_FACES);
-  *((t8dg_mortar_t **) t8_sc_array_index_locidx (problem->face_mortar[iface], idata)) = mortar;
-}
-
-/* Given an allocated mortar, set it for both elements adjacent to the face. */
-static void
-t8dg_advect_element_set_face_mortar_both (const t8dg_linear_advection_problem_t * problem, t8dg_mortar_t * mortar)
-{
-  t8_locidx_t         idata;
-  int                 iface;
-
-  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 0);
-  if (idata < t8_forest_get_num_element (problem->forest)) {
-    t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
-  }
-  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 1);
-  if (idata < t8_forest_get_num_element (problem->forest)) {
-    t8dg_advect_element_set_face_mortar (problem, idata, iface, mortar);
-  }
-}
-
-/* Given an allocated mortar, set it for both elements adjacent to the face. */
-static void
-t8dg_advect_element_set_face_mortar_both_to_NULL (const t8dg_linear_advection_problem_t * problem, t8dg_mortar_t * mortar)
-{
-  t8_locidx_t         idata;
-  int                 iface;
-
-  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 0);
-  if (idata < t8_forest_get_num_element (problem->forest)) {
-    t8dg_advect_element_set_face_mortar (problem, idata, iface, NULL);
-  }
-  t8dg_mortar_get_idata_iface (mortar, &idata, &iface, 1);
-  if (idata < t8_forest_get_num_element (problem->forest)) {
-    t8dg_advect_element_set_face_mortar (problem, idata, iface, NULL);
-  }
-}
 
 t8dg_timestepping_data_t *
 t8dg_advect_get_time_data (t8dg_linear_advection_problem_t * problem)
@@ -251,9 +194,10 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
   double              error = 0, global_error;
   double              ana_norm = 0, global_ana_norm;
 
-  t8dg_precomputed_values_fn_evaluation_data_t data =
-    { t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, problem->coarse_geometry,
-    problem->forest, 0, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
+
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
+    t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
   elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
@@ -261,13 +205,14 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
 
   num_trees = t8_forest_get_num_local_trees (problem->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    data.itree = itree;
+    geometry_data.itree = itree;
     num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
     for (ielement = 0; ielement < num_elements; ielement++, idata++) {
-      data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+      geometry_data.ielement = ielement;
       elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, elem_ana_sol);
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &evaluation_data,
+                                                elem_ana_sol);
       t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
       error = SC_MAX (error, t8dg_precomputed_values_element_norm_infty (elem_error));
       ana_norm = SC_MAX (ana_norm, t8dg_precomputed_values_element_norm_infty (elem_ana_sol));
@@ -297,9 +242,10 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
   double              error = 0, global_error;
   double              ana_norm = 0, global_ana_norm;
 
-  t8dg_precomputed_values_fn_evaluation_data_t data =
-    { t8_forest_get_eclass_scheme (problem->forest, T8_ECLASS_LINE), NULL, problem->coarse_geometry,
-    problem->forest, 0, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
+
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
+    t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
   elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_dof (problem->global_values));
@@ -307,13 +253,14 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
 
   num_trees = t8_forest_get_num_local_trees (problem->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    data.itree = itree;
+    geometry_data.itree = itree;
     num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
     for (ielement = 0; ielement < num_elements; ielement++, idata++) {
-      data.element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
+      geometry_data.ielement = ielement;
       elem_dof_val = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, elem_ana_sol);
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &evaluation_data,
+                                                elem_ana_sol);
       t8dg_sc_array_block_double_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
       error += t8dg_precomputed_values_element_norm_l2_squared (elem_error, problem->global_values, problem->local_values, idata),
         ana_norm += t8dg_precomputed_values_element_norm_l2_squared (elem_ana_sol, problem->global_values, problem->local_values, idata);
@@ -333,118 +280,6 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
   /* Return the relative error, that is the l_2 error divided by
    * the l_2 norm of the analytical solution */
   return global_error / global_ana_norm;
-}
-
-static void
-t8dg_advect_problem_mortars_fill (t8dg_linear_advection_problem_t * problem)
-{
-  t8_locidx_t         itree, ielement, idata;
-  t8_locidx_t         num_trees, num_elems_in_tree;
-  int                 iface, num_faces;
-  t8dg_mortar_t      *mortar;
-
-  num_trees = t8_forest_get_num_local_trees (problem->forest);
-  for (itree = 0, idata = 0; itree < num_trees; itree++) {
-
-    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-
-      num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
-      for (iface = 0; iface < num_faces; iface++) {
-        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
-
-        /*for all faces check wether mortar is already allocated/computed */
-        if (mortar == NULL) {
-          mortar = t8dg_mortar_new (problem->forest, itree, ielement, iface);
-          t8dg_advect_element_set_face_mortar_both (problem, mortar);
-        }
-        if (!(t8dg_mortar_is_valid (mortar))) {
-          t8dg_mortar_fill (mortar, problem->dof_values, problem->time_data,
-                            problem->global_values, problem->local_values,
-                            problem->description.flux, problem->description.numerical_flux_fn);
-        }
-      }
-    }
-  }
-}
-
-static void
-t8dg_advect_problem_mortars_new (t8dg_linear_advection_problem_t * problem)
-{
-  int                 iface;
-  t8_locidx_t         num_elements, num_trees, num_elems_in_tree;
-  t8_locidx_t         itree, ielement, idata;
-  num_elements = t8_forest_get_num_element (problem->forest);
-
-  for (iface = 0; iface < t8dg_global_precomputed_values_get_num_faces (problem->global_values); iface++) {
-    problem->face_mortar[iface] = sc_array_new_count (sizeof (t8dg_mortar_t *), num_elements);
-    num_trees = t8_forest_get_num_local_trees (problem->forest);
-
-    for (itree = 0, idata = 0; itree < num_trees; itree++) {
-      num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-      for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-        t8dg_advect_element_set_face_mortar (problem, idata, iface, NULL);
-      }
-    }
-  }
-}
-
-static void
-t8dg_advect_problem_mortars_invalidate (t8dg_linear_advection_problem_t * problem)
-{
-  t8_locidx_t         itree, ielement, idata;
-  t8_locidx_t         num_trees, num_elems_in_tree;
-  int                 iface, num_faces;
-  num_trees = t8_forest_get_num_local_trees (problem->forest);
-
-  t8dg_mortar_t      *mortar;
-
-  for (itree = 0, idata = 0; itree < num_trees; itree++) {
-
-    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-
-    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-      num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
-      for (iface = 0; iface < num_faces; iface++) {
-        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
-        if (mortar != NULL) {
-          t8dg_mortar_invalidate (mortar);
-        }
-      }
-    }
-  }
-}
-
-static void
-t8dg_advect_problem_mortars_destroy (t8dg_linear_advection_problem_t * problem)
-{
-
-  t8_locidx_t         itree, ielement, idata, iface;
-  t8_locidx_t         num_trees, num_elems_in_tree, num_faces;
-
-  t8dg_mortar_t      *mortar;
-
-  num_trees = t8_forest_get_num_local_trees (problem->forest);
-
-  for (itree = 0, idata = 0; itree < num_trees; itree++) {
-
-    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-
-    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-      num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
-      for (iface = 0; iface < num_faces; iface++) {
-        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
-        if (mortar != NULL) {
-          t8dg_advect_element_set_face_mortar_both_to_NULL (problem, mortar);
-          t8dg_mortar_destroy (&mortar);
-        }
-      }
-
-    }
-  }
-  for (iface = 0; iface < t8dg_global_precomputed_values_get_num_faces (problem->global_values); iface++) {
-    sc_array_destroy (problem->face_mortar[iface]);
-  }
 }
 
 static t8dg_linear_advection_problem_t *
@@ -475,8 +310,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   double              tangential_vector[3] = { 1, 0, 0 };       /*TODO: make dependent on cmesh! */
   problem->description.initial_condition_fn = u_initial;
-  problem->description.flux = t8dg_linear_flux_new_1D_linear_geometry (tangential_vector, flow_speed);
-  problem->description.numerical_flux_fn = t8dg_linear_numerical_flux_upwind_1D;
+  problem->description.flux = t8dg_flux_new_linear_constant_flux (tangential_vector, flow_speed);
 
   problem->time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
 //  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -uniform_level));
@@ -507,8 +341,8 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   problem->dof_values_adapt = NULL;
 
-  t8dg_advect_problem_mortars_new (problem);
-  /*for each element and face a pointer to a mortar */
+  problem->face_mortars =
+    t8dg_mortar_array_new_empty (problem->forest, t8dg_global_precomputed_values_get_num_faces (problem->global_values));
 
   t8_debugf ("start elementinit\n");
 
@@ -562,34 +396,32 @@ t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem)
 {
   t8_locidx_t         itree = 0, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
-  t8_element_t       *element = NULL;
   sc_array_t         *element_dof_view;
-  t8_eclass_scheme_c *scheme = NULL;
 
   t8dg_quadrature_t  *quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
 
-  t8dg_precomputed_values_fn_evaluation_data_t data = { scheme, element, problem->coarse_geometry,
-    problem->forest, itree, problem->description.initial_condition_fn, t8dg_timestepping_data_get_current_time (problem->time_data)
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
+
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
+    t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
   t8_debugf ("Start element init \n");
   num_trees = t8_forest_get_num_local_trees (problem->forest);
 
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    scheme = t8_forest_get_eclass_scheme (problem->forest, t8_forest_get_tree_class (problem->forest, itree));
-    data.scheme = scheme;
-    data.itree = itree;
+    geometry_data.itree = itree;
 
     num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-      element = t8_forest_get_element_in_tree (problem->forest, itree, ielement);
-      data.element = element;
-      t8dg_local_precomputed_values_set_element (problem->local_values, problem->forest, itree, scheme, ielement, quadrature);
+      geometry_data.ielement = ielement;
+      t8dg_local_precomputed_values_set_element (problem->local_values, &geometry_data, quadrature);
 
       element_dof_view = t8dg_sc_array_block_double_new_view (problem->dof_values, idata);
 
       t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_precomputed_values_get_functionbasis (problem->global_values),
-                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &data, element_dof_view);
+                                                t8dg_precomputed_values_transform_reference_vertex_and_evaluate, &evaluation_data,
+                                                element_dof_view);
       sc_array_destroy (element_dof_view);
     }
   }
@@ -607,11 +439,11 @@ t8dg_advect_problem_destroy (t8dg_linear_advection_problem_t ** pproblem)
     return;
   }
 
-  t8dg_linear_flux_destroy (&(problem->description.flux));
+  t8dg_flux_destroy (&(problem->description.flux));
   t8dg_timestepping_data_destroy (&(problem->time_data));
 
   t8dg_local_precomputed_values_destroy (&(problem->local_values));
-  t8dg_advect_problem_mortars_destroy (problem);
+  t8dg_mortar_array_destroy (&problem->face_mortars);
   sc_array_destroy (problem->dof_values);
   t8dg_global_precomputed_values_destroy (&problem->global_values);
   t8dg_coarse_geometry_destroy (&(problem->coarse_geometry));
@@ -635,15 +467,18 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
   sc_array_t         *element_dof_derivative_values;
   sc_array_t         *element_res_dof_values;
 
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
+
   num_quad_vertices = t8dg_global_precomputed_values_get_num_elem_quad (problem->global_values);
   num_dof = t8dg_global_precomputed_values_get_num_dof (problem->global_values);
 
   num_trees = t8_forest_get_num_local_trees (problem->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    geometry_data.itree = itree;
 
     num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      geometry_data.ielement = ielement;
       element_dof_values = t8dg_sc_array_block_double_new_view (src_dof, idata);
       element_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_dof_derivative_values = sc_array_new_count (sizeof (double), num_dof);
@@ -657,11 +492,11 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
       t8dg_local_precomputed_values_element_multiply_trafo_quad_weight (problem->local_values, element_quad_values, idata);
       t8_debugf ("element_quad_values*qtw\n");
       t8dg_sc_array_block_double_debug_print (element_quad_values);
-      t8dg_flux_element_multiply_flux_value (problem->description.flux, element_quad_values,
-                                             t8dg_timestepping_data_get_current_time (problem->time_data), problem->local_values,
-                                             problem->forest, itree, ielement,
-                                             t8dg_global_precomputed_values_get_quadrature (problem->global_values),
-                                             problem->coarse_geometry);
+
+      t8dg_local_precomputed_values_element_multiply_flux_value (problem->local_values, problem->description.flux, &geometry_data,
+                                                                 t8dg_global_precomputed_values_get_quadrature (problem->global_values),
+                                                                 t8dg_timestepping_data_get_current_time (problem->time_data),
+                                                                 element_quad_values);
       t8_debugf ("element_quad_values*qtw*flux_value\n");
       t8dg_sc_array_block_double_debug_print (element_quad_values);
       t8dg_global_precomputed_values_transform_element_quad_to_element_dof (problem->global_values, element_quad_values,
@@ -713,12 +548,9 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
   t8_locidx_t         num_trees, num_elems_in_tree;
   t8dg_quad_idx_t     num_elem_quad;
   int                 iface, num_faces;
-  t8dg_mortar_t      *mortar;
 
   sc_array_t         *element_quad_flux;
   sc_array_t         *element_dest;
-
-  double              alpha;
 
   num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
   num_elem_quad = t8dg_global_precomputed_values_get_num_elem_quad (problem->global_values);
@@ -734,18 +566,13 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
       element_dest = t8dg_sc_array_block_double_new_view (dest, idata);
 
       element_quad_flux = sc_array_new_count (sizeof (double), num_elem_quad);
+      t8dg_sc_array_block_double_set_zero (element_dest);
 
       for (iface = 0; iface < num_faces; iface++) {
-        mortar = t8dg_advect_element_get_face_mortar (problem, idata, iface);
+        /*includes element and face orientation */
         t8dg_global_precomputed_values_transform_face_quad_to_element_dof
-          (problem->global_values, iface, t8dg_mortar_get_flux (mortar), element_quad_flux);
-
-        t8_debugf ("test face_quad_element,id:%i,if:%i\n", idata, iface);
-        t8dg_sc_array_block_double_debug_print (element_quad_flux);
-        /*decide wether to subtract or add the calculated fluxes! TODO:check */
-        alpha = -t8dg_mortar_get_side (mortar, idata);
-
-        t8dg_sc_array_block_double_axpy (alpha, element_quad_flux, element_dest);
+          (problem->global_values, iface, t8dg_mortar_array_get_oriented_flux (problem->face_mortars, idata, iface), element_quad_flux);
+        t8dg_sc_array_block_double_axpy (1, element_quad_flux, element_dest);
       }
       t8_debugf ("test element_dest\n");
       t8dg_sc_array_block_double_debug_print (element_dest);
@@ -769,6 +596,10 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   sc_array_t         *dof_flux;
   dof_flux = t8dg_sc_array_duplicate (dof_change);
   double              ghost_exchange_time, ghost_waittime;
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
+  t8dg_mortar_fill_data_t mortar_fill_data = { problem->global_values, problem->local_values, &geometry_data, problem->description.flux,
+    problem->dof_values, t
+  };
 
   t8dg_advect_problem_apply_stiffness_matrix (problem, problem->dof_values, dof_change);
 
@@ -785,10 +616,10 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_AMR, ghost_exchange_time + ghost_waittime);
 
   t8_debugf ("fill mortars\n");
-  t8dg_advect_problem_mortars_fill (problem);
+  t8dg_mortar_array_fill (problem->face_mortars, &mortar_fill_data);
   t8_debugf ("mortars filled\n");
   t8dg_advect_problem_apply_boundary_integrals (problem, dof_flux);
-  t8dg_advect_problem_mortars_invalidate (problem);
+  t8dg_mortar_array_invalidate_all (problem->face_mortars);
 
   t8dg_sc_array_block_double_axpy (-1, dof_flux, dof_change);
   sc_array_destroy (dof_flux);
@@ -973,6 +804,8 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
   T8DG_ASSERT (forest_old == problem->forest);
   T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_dim (problem->global_values) == 1, "Not yet implemented");
 
+  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, forest_new, which_tree, 0 };
+
   quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
 
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, which_tree, first_ielem_old);
@@ -991,15 +824,16 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
       element_dof_child[ichild] = t8dg_sc_array_block_double_new_view (problem->dof_values_adapt, first_idata_new + ichild);
       t8dg_global_precomputed_values_transform_element_dof_to_child_dof (problem->global_values, element_dof_parent,
                                                                          element_dof_child[ichild], ichild);
-      t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new + ichild,
-                                                 quadrature);
+      geometry_data.ielement = first_ielem_new + ichild;
+      t8dg_local_precomputed_values_set_element (problem->local_values_adapt, &geometry_data, quadrature);
       sc_array_destroy (element_dof_child[ichild]);
     }
     sc_array_destroy (element_dof_parent);
   }
   else {
     /* Needed before! we calculate the dof_values */
-    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, forest_new, which_tree, ts, first_ielem_new, quadrature);
+    geometry_data.ielement = first_ielem_new;
+    t8dg_local_precomputed_values_set_element (problem->local_values_adapt, &geometry_data, quadrature);
     element_dof_parent = t8dg_sc_array_block_double_new_view (problem->dof_values_adapt, first_idata_new);
     t8dg_sc_array_block_double_set_zero (element_dof_parent);
     for (ichild = 0; ichild < num_children; ichild++) {
@@ -1090,7 +924,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   }
 
   /* clean the old element data */
-  t8dg_advect_problem_mortars_destroy (problem);
+  t8dg_mortar_array_destroy (&problem->face_mortars);
   t8dg_local_precomputed_values_destroy (&problem->local_values);
   sc_array_destroy (problem->dof_values);
   /* Free memory for the forest */
@@ -1105,7 +939,8 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   problem->dof_values = problem->dof_values_adapt;
   problem->dof_values_adapt = NULL;
   /*Create new mortar arrays */
-  t8dg_advect_problem_mortars_new (problem);
+  problem->face_mortars =
+    t8dg_mortar_array_new_empty (problem->forest, t8dg_global_precomputed_values_get_num_faces (problem->global_values));
 }
 
 void
@@ -1184,9 +1019,10 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem, int me
   problem->dof_values = dof_values_partition;
 
   t8_debugf (" [ADVECT] begin mortars destroy\n");
-  t8dg_advect_problem_mortars_destroy (problem);
+  t8dg_mortar_array_destroy (&problem->face_mortars);
   t8_forest_unref (&problem->forest);
   problem->forest = forest_partition;
-  t8dg_advect_problem_mortars_new (problem);
+  problem->face_mortars =
+    t8dg_mortar_array_new_empty (problem->forest, t8dg_global_precomputed_values_get_num_faces (problem->global_values));
   t8_debugf (" [ADVECT] Done partition\n");
 }
