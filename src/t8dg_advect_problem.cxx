@@ -66,6 +66,7 @@ struct t8dg_linear_advection_problem
     t8dg_scalar_function_3d_time_fn initial_condition_fn;           /**< Initial condition function */
     t8dg_flux_t        *flux;
     t8dg_scalar_function_3d_time_fn source_sink_fn;
+    t8dg_scalar_function_3d_time_fn analytical_sol_fn;           /**< Analytical solution function */
   } description;
 
   t8dg_timestepping_data_t *time_data;
@@ -184,7 +185,7 @@ t8dg_advect_problem_set_time_step (t8dg_linear_advection_problem_t * problem)
 }
 
 double
-t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol)
+t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem)
 {
   t8_locidx_t         num_elements, num_trees;
   t8_locidx_t         ielement, itree, idata;
@@ -196,7 +197,7 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
 
   t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
 
-  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.analytical_sol_fn,
     t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
@@ -232,7 +233,7 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
 }
 
 double
-t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol)
+t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem)
 {
   t8_locidx_t         num_elements, num_trees;
   t8_locidx_t         ielement, itree, idata;
@@ -244,7 +245,7 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
 
   t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
 
-  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
+  t8dg_precomputed_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.analytical_sol_fn,
     t8dg_timestepping_data_get_current_time (problem->time_data)
   };
 
@@ -282,14 +283,13 @@ t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8d
   return global_error / global_ana_norm;
 }
 
-static t8dg_linear_advection_problem_t *
+t8dg_linear_advection_problem_t *
 t8dg_advect_problem_init (t8_cmesh_t cmesh,
                           t8dg_coarse_geometry_t * coarse_geometry,
                           int dim,
                           t8dg_scalar_function_3d_time_fn u_initial,
-                          double flow_speed,
-                          int uniform_level, int max_level,
-                          int number_LGL_points, double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+                          t8dg_flux_t * flux,
+                          int uniform_level, int max_level, int number_LGL_points, t8dg_timestepping_data_t * time_data, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
@@ -308,12 +308,11 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   problem->coarse_geometry = coarse_geometry;
 
-  double              tangential_vector[3] = { 1, 0, 0 };       /*TODO: make dependent on cmesh! */
   problem->description.initial_condition_fn = u_initial;
-  problem->description.flux = t8dg_flux_new_linear_constant_flux (tangential_vector, flow_speed);
+  problem->description.analytical_sol_fn = u_initial;   /*Assumes that the solution is a whole number of revolutions around the periodic domain */
+  problem->description.flux = flux;
 
-  problem->time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
-//  t8dg_timestepping_data_set_time_step (problem->time_data, cfl * pow (2, -uniform_level));
+  problem->time_data = time_data;
 
   problem->vtk_count = 0;
   problem->comm = comm;
@@ -344,7 +343,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->face_mortars =
     t8dg_mortar_array_new_empty (problem->forest, t8dg_global_precomputed_values_get_num_faces (problem->global_values));
 
-  t8_debugf ("start elementinit\n");
+  t8_debugf ("start element init\n");
 
   t8dg_advect_problem_init_elements (problem);
 
@@ -362,33 +361,6 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   }
 
   return problem;
-}
-
-/*TODO: which init function creates what, outsource problem description*/
-t8dg_linear_advection_problem_t *
-t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
-                                             t8dg_scalar_function_3d_time_fn u_initial,
-                                             double flow_speed,
-                                             int uniform_level, int max_level,
-                                             int number_LGL_points,
-                                             double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
-{
-
-  t8_cmesh_t          cmesh;
-  switch (icmesh) {
-  case 0:
-    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
-    break;
-  case 1:
-    cmesh = t8_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD);
-    break;
-  default:
-    T8DG_ABORT ("Not yet implemented");
-  }
-
-  t8dg_coarse_geometry_t *coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
-  return t8dg_advect_problem_init (cmesh, coarse_geometry, 1, u_initial, flow_speed, uniform_level, max_level,
-                                   number_LGL_points, start_time, end_time, cfl, time_order, comm);
 }
 
 void
@@ -693,38 +665,6 @@ t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
   T8_FREE (dof_array);
   problem->vtk_count++;
 }
-
-#if 0
-static int
-t8dg_advect_test_adapt (t8_forest_t forest,
-                        t8_forest_t forest_from,
-                        t8_locidx_t which_tree,
-                        t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
-{
-  t8dg_linear_advection_problem_t *problem;
-  t8_locidx_t         first_idata;
-  double             *dof_values;
-  int                 level;
-
-  first_idata = t8dg_itree_ielement_to_idata (forest_from, which_tree, lelement_id);
-  problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest);
-
-  level = ts->t8_element_level (elements[0]);
-  if (level == problem->maximum_refinement_level && num_elements == 1) {
-    /* It is not possible to refine this level */
-    return 0;
-  }
-
-  dof_values = t8dg_advect_problem_get_element_dof_values (problem, first_idata);
-  if (dof_values[0] < 0.2) {
-    return -(num_elements > 1 && level > problem->uniform_refinement_level);    //could discard second check
-  }
-  else if (dof_values[0] > 0.8) {
-    return level < problem->maximum_refinement_level;
-  }
-  return 0;
-}
-#endif
 
 static int
 t8dg_advect_gradient_adapt (t8_forest_t forest,

@@ -5,19 +5,29 @@
  *      Author: lukas
  */
 #include <t8.h>
+#include <t8_cmesh.h>
+#include <t8_vec.h>
 
 #include "t8dg.h"
 #include "t8dg_advect_problem.h"
+#include "t8dg_coarse_geometry.h"
+#include "t8dg_flux.h"
 
 #include <sc_options.h>
 #include <sc.h>
 
 #include <example/common/t8_example_common.h>
 
-double
+static double
 t8dg_scalar3d_hat_function (const double x[3], const double t)
 {
   return 0.5 - (fabs (0.5 - x[0]));
+}
+
+static double
+t8dg_scalar3d_norm_function (const double x[3], const double t)
+{
+  return t8_vec_norm (x);
 }
 
 static              t8dg_scalar_function_3d_time_fn
@@ -32,9 +42,62 @@ t8dg_choose_initial_cond_fn (int initial_cond_arg)
     return t8_scalar3d_step_function;
   case (3):
     return t8_scalar3d_sinx;
+  case (4):
+    return t8dg_scalar3d_norm_function;
   default:
     return t8_scalar3d_constant_zero;
   }
+}
+
+static              t8_cmesh_t
+t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
+{
+  t8_cmesh_t          cmesh;
+  switch (icmesh) {
+  case 0:
+    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, comm, 0, 0, 1);
+    break;
+  case 1:
+    cmesh = t8_cmesh_new_periodic_line_more_trees (comm);
+    break;
+  case 2:
+    cmesh = t8_cmesh_new_periodic_diagonal_line_more_trees (comm);
+    break;
+  default:
+    T8DG_ABORT ("Not yet implemented");
+  }
+  return cmesh;
+}
+
+/*TODO: which init function creates what, outsource problem description*/
+static t8dg_linear_advection_problem_t *
+t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
+                                             int initial_cond_arg,
+                                             double flow_speed,
+                                             int uniform_level, int max_level,
+                                             int number_LGL_points,
+                                             double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+{
+  t8dg_scalar_function_3d_time_fn u_initial;
+  t8_cmesh_t          cmesh;
+  t8dg_coarse_geometry_t *coarse_geometry;
+  t8dg_flux_t        *flux;
+  t8dg_timestepping_data_t *time_data;
+  double             *first_tree_vertices;
+  double              tangential_vector[3];
+
+  coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
+  u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
+  cmesh = t8dg_choose_cmesh (icmesh, comm);
+
+  first_tree_vertices = t8_cmesh_get_tree_vertices (cmesh, 0);
+  t8_vec_axpyz (first_tree_vertices, first_tree_vertices + 3, tangential_vector, -1);
+  flux = t8dg_flux_new_linear_constant_flux (tangential_vector, flow_speed);
+
+  time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
+
+  return t8dg_advect_problem_init (cmesh, coarse_geometry, 1, u_initial, flux,
+                                   uniform_level, max_level, number_LGL_points, time_data, comm);
 }
 
 /** Solves the (linear) 1D advection problem on a linear geometry on a uniform grid
@@ -61,15 +124,12 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
   int                 step_number;
   double              total_time, io_time, solve_time;
   double              l2_error, l_inf_error;
-  t8dg_scalar_function_3d_time_fn u_initial;
-
-  u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
   t8dg_debugf ("Start Advection Solve\n");
 
   total_time = -sc_MPI_Wtime ();
 
-  problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, u_initial, flow_velocity,
+  problem = t8dg_advect_problem_init_linear_geometry_1D (icmesh, initial_cond_arg, flow_velocity,
                                                          uniform_level, uniform_level + refinement_levels,
                                                          number_LGL_points, start_time, end_time, cfl, time_order, comm);
 
@@ -104,8 +164,8 @@ t8dg_advect_solve_1D (int icmesh, int initial_cond_arg,
   total_time += sc_MPI_Wtime ();
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_TOTAL, total_time);
 
-  l2_error = t8dg_advect_problem_l2_rel (problem, u_initial);
-  l_inf_error = t8dg_advect_problem_l_infty_rel (problem, u_initial);
+  l2_error = t8dg_advect_problem_l2_rel (problem);
+  l_inf_error = t8dg_advect_problem_l_infty_rel (problem);
 
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_2, l2_error);
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_INF, l_inf_error);
@@ -125,9 +185,9 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int refinement_levels,
                     int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq)
 {
-  if (!(icmesh >= 0 && icmesh <= 1))
+  if (!(icmesh >= 0 && icmesh <= 2))
     return 0;
-  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 3))
+  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 4))
     return 0;
   if (!(uniform_level >= 0 && uniform_level <= 30))
     return 0;

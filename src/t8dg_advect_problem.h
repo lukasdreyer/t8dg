@@ -12,6 +12,10 @@
 #include <t8_cmesh.h>
 #include <sc.h>
 
+#include "t8dg_flux.h"
+#include "t8dg_timestepping.h"
+#include "t8dg_coarse_geometry.h"
+
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
 /* Enum for statistics. */
@@ -43,12 +47,13 @@ typedef enum
   ADVECT_NUM_TIME_STATS = ADVECT_TOTAL + 1      /* The number of time statistics that we only want to have counted once */
 } advect_stats_t;
 
-t8dg_linear_advection_problem_t *t8dg_advect_problem_init_linear_geometry_1D (int icmesh,
-                                                                              t8dg_scalar_function_3d_time_fn u_0,
-                                                                              double flow_velocity, int uniform_level, int max_level,
-                                                                              int number_LGL_points, double start_time,
-                                                                              double end_time, double cfl, int time_order,
-                                                                              sc_MPI_Comm comm);
+t8dg_linear_advection_problem_t *t8dg_advect_problem_init (t8_cmesh_t cmesh,
+                                                           t8dg_coarse_geometry_t * coarse_geometry,
+                                                           int dim,
+                                                           t8dg_scalar_function_3d_time_fn u_initial,
+                                                           t8dg_flux_t * flux,
+                                                           int uniform_level, int max_level,
+                                                           int number_LGL_points, t8dg_timestepping_data_t * time_data, sc_MPI_Comm comm);
 
 void                t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem);
 
@@ -74,12 +79,8 @@ void                t8dg_advect_problem_compute_and_print_stats (t8dg_linear_adv
 
 void                t8dg_advect_problem_accumulate_stat (t8dg_linear_advection_problem_t * problem, advect_stats_t stat, double value);
 
-double
- 
- 
-         t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol);
+double              t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem);
 
-double
-             t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol);
+double              t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem);
 
 #endif /* SRC_T8DG_ADVECT_H_ */
