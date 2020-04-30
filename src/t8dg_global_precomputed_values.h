@@ -36,7 +36,7 @@ void                t8dg_global_precomputed_values_transform_element_quad_to_ele
                                                                                           sc_array_t * element_dof_array);
 
 void                t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose
-  (const t8dg_global_precomputed_values_t * global_values, sc_array_t * derivative_dof_values, sc_array_t * dof_values);
+  (const t8dg_global_precomputed_values_t * global_values, int idim, sc_array_t * derivative_dof_values, sc_array_t * dof_values);
 
 void                t8dg_global_precomputed_values_transform_element_dof_to_child_dof (const t8dg_global_precomputed_values_t *
                                                                                        global_values, const sc_array_t * element_dof,

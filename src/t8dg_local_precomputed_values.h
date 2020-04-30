@@ -55,7 +55,7 @@ void                t8dg_local_precomputed_values_element_divide_trafo_quad_weig
 void                t8dg_local_precomputed_values_element_multiply_flux_value
   (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
    const t8dg_geometry_transformation_data_t * geometry_data,
-   t8dg_quadrature_t * quadrature, double current_time, sc_array_t * element_quad_values);
+   t8dg_quadrature_t * quadrature, double current_time, int idim, sc_array_t * element_quad_values, sc_array_t * element_flux_quad_values);
 
 void                t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t forest_partition,
                                                              t8dg_local_precomputed_values_t * local_values_old,

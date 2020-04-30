@@ -433,11 +433,14 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
   t8_locidx_t         itree, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree, num_dof;
   t8dg_quad_idx_t     num_quad_vertices;
+  int                 idim;
 
   sc_array_t         *element_quad_values;
+  sc_array_t         *element_flux_quad_values;
   sc_array_t         *element_dof_values;
   sc_array_t         *element_dof_derivative_values;
   sc_array_t         *element_res_dof_values;
+  sc_array_t         *element_res_summand_dof_values;
 
   t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
 
@@ -453,33 +456,47 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
       geometry_data.ielement = ielement;
       element_dof_values = t8dg_sc_array_block_double_new_view (src_dof, idata);
       element_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
+      element_flux_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_dof_derivative_values = sc_array_new_count (sizeof (double), num_dof);
+      element_res_summand_dof_values = sc_array_new_count (sizeof (double), num_dof);
       element_res_dof_values = t8dg_sc_array_block_double_new_view (dest_dof, idata);
 
       t8dg_global_precomputed_values_transform_element_dof_to_element_quad (problem->global_values, element_dof_values,
                                                                             element_quad_values);
-      t8_debugf ("element_quad_values\n");
-      t8dg_sc_array_block_double_debug_print (element_quad_values);
+//      t8_debugf ("element_quad_values\n");
+//      t8dg_sc_array_block_double_debug_print (element_quad_values);
 
       t8dg_local_precomputed_values_element_multiply_trafo_quad_weight (problem->local_values, element_quad_values, idata);
-      t8_debugf ("element_quad_values*qtw\n");
-      t8dg_sc_array_block_double_debug_print (element_quad_values);
+//      t8_debugf ("element_quad_values*qtw\n");
+//      t8dg_sc_array_block_double_debug_print (element_quad_values);
 
-      t8dg_local_precomputed_values_element_multiply_flux_value (problem->local_values, problem->description.flux, &geometry_data,
-                                                                 t8dg_global_precomputed_values_get_quadrature (problem->global_values),
-                                                                 t8dg_timestepping_data_get_current_time (problem->time_data),
-                                                                 element_quad_values);
-      t8_debugf ("element_quad_values*qtw*flux_value\n");
-      t8dg_sc_array_block_double_debug_print (element_quad_values);
-      t8dg_global_precomputed_values_transform_element_quad_to_element_dof (problem->global_values, element_quad_values,
-                                                                            element_dof_derivative_values);
-      t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (problem->global_values, element_dof_derivative_values,
-                                                                                element_res_dof_values);
+      t8dg_sc_array_block_double_set_zero (element_res_dof_values);
+      for (idim = 0; idim < t8dg_global_precomputed_values_get_dim (problem->global_values); idim++) {
+
+        t8dg_local_precomputed_values_element_multiply_flux_value (problem->local_values, problem->description.flux, &geometry_data,
+                                                                   t8dg_global_precomputed_values_get_quadrature (problem->global_values),
+                                                                   t8dg_timestepping_data_get_current_time (problem->time_data),
+                                                                   idim, element_quad_values, element_flux_quad_values);
+//        t8_debugf ("element_quad_values*qtw*flux_value\n");
+//        t8dg_sc_array_block_double_debug_print (element_flux_quad_values);
+        t8dg_global_precomputed_values_transform_element_quad_to_element_dof (problem->global_values, element_flux_quad_values,
+                                                                              element_dof_derivative_values);
+//        t8_debugf ("element_dof_derivative_values\n");
+//        t8dg_sc_array_block_double_debug_print (element_dof_derivative_values);
+        t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (problem->global_values, idim,
+                                                                                  element_dof_derivative_values,
+                                                                                  element_res_summand_dof_values);
+//        t8_debugf ("element_res_summand_dof_values\n");
+//        t8dg_sc_array_block_double_debug_print (element_res_summand_dof_values);
+        t8dg_sc_array_block_double_axpy (1, element_res_summand_dof_values, element_res_dof_values);
+      }
 
       sc_array_destroy (element_dof_values);
       sc_array_destroy (element_quad_values);
+      sc_array_destroy (element_flux_quad_values);
       sc_array_destroy (element_dof_derivative_values);
       sc_array_destroy (element_res_dof_values);
+      sc_array_destroy (element_res_summand_dof_values);
     }
   }
 }

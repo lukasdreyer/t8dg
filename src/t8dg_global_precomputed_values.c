@@ -187,11 +187,10 @@ t8dg_global_precomputed_values_transform_face_quad_to_element_dof (t8dg_global_p
 
 /*derivative_dof_values could be const aswell if not for sc_array*/
 void
-t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (const t8dg_global_precomputed_values_t * global_values,
+t8dg_global_precomputed_values_element_apply_derivative_matrix_transpose (const t8dg_global_precomputed_values_t * global_values, int idim,
                                                                           sc_array_t * derivative_dof_values, sc_array_t * dof_values)
 {
-  int                 direction_idx = 0;        /*TODO: as Input */
-  t8dg_functionbasis_apply_derivative_matrix_transpose (global_values->functionbasis, direction_idx, derivative_dof_values, dof_values);
+  t8dg_functionbasis_apply_derivative_matrix_transpose (global_values->functionbasis, idim, derivative_dof_values, dof_values);
 }
 
 void

@@ -235,7 +235,8 @@ void
 t8dg_local_precomputed_values_element_multiply_flux_value (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
                                                            const t8dg_geometry_transformation_data_t * geometry_data,
                                                            t8dg_quadrature_t * quadrature, double current_time,
-                                                           sc_array_t * element_quad_values)
+                                                           int idim, sc_array_t * element_quad_values,
+                                                           sc_array_t * element_flux_quad_values)
 {
   t8dg_quad_idx_t     iquad, num_quad_vertices;
   double             *transformed_gradient_tangential_vector;
@@ -244,7 +245,6 @@ t8dg_local_precomputed_values_element_multiply_flux_value (const t8dg_local_prec
   double              flux_vec[3];
   double              flux_value;
   t8_locidx_t         idata;
-  int                 idim = 0;
   num_quad_vertices = t8dg_quadrature_get_num_element_vertices (quadrature);
 
   idata = t8dg_itree_ielement_to_idata (geometry_data->forest, geometry_data->itree, geometry_data->ielement);
@@ -255,14 +255,12 @@ t8dg_local_precomputed_values_element_multiply_flux_value (const t8dg_local_prec
 
     t8dg_flux_calulate_flux (flux, image_vertex, flux_vec, current_time);
 
-    flux_value = 0;
-    for (idim = 0; idim < t8dg_quadrature_get_dim (quadrature); idim++) {
-      transformed_gradient_tangential_vector =
-        t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (local_values, idata, iquad, idim);
+    transformed_gradient_tangential_vector =
+      t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (local_values, idata, iquad, idim);
 
-      flux_value += t8_vec_dot (flux_vec, transformed_gradient_tangential_vector);
-    }
+    flux_value = t8_vec_dot (flux_vec, transformed_gradient_tangential_vector);
 
-    *(double *) t8dg_sc_array_index_quadidx (element_quad_values, iquad) *= flux_value;
+    *(double *) t8dg_sc_array_index_quadidx (element_flux_quad_values, iquad) = flux_value *
+      *(double *) t8dg_sc_array_index_quadidx (element_quad_values, iquad);
   }
 }
