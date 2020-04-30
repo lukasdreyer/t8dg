@@ -58,6 +58,7 @@ t8dg_geometry_calculate_gram_determinant (const t8dg_geometry_transformation_dat
   t8_eclass_scheme_c *scheme;
   t8_element_t       *element;
 
+  int                 dim;
   int                 level;
   double              scaling_factor;
   double              coarse_vertex[3];
@@ -68,11 +69,12 @@ t8dg_geometry_calculate_gram_determinant (const t8dg_geometry_transformation_dat
 
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (geometry_data, reference_vertex, coarse_vertex);
 
+  dim = t8_eclass_to_dimension[t8_forest_get_eclass (geometry_data->forest, geometry_data->itree)];
   level = scheme->t8_element_level (element);
-  scaling_factor = pow (2, -level);     /*TODO: dimension dependency ? */
+  scaling_factor = pow (2, -dim * level);
 
-  return scaling_factor * t8dg_coarse_geometry_calculate_gram_determinant (geometry_data->coarse_geometry, geometry_data->forest,
-                                                                           geometry_data->itree, coarse_vertex);
+  return scaling_factor * t8dg_coarse_geometry_calculate_sqrt_gram_determinant (geometry_data->coarse_geometry, geometry_data->forest,
+                                                                                geometry_data->itree, coarse_vertex);
 }
 
 void
@@ -97,7 +99,7 @@ t8dg_geometry_calculate_transformed_gradient_tangential_vector (const t8dg_geome
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (geometry_data, reference_vertex, coarse_vertex);
 
   level = scheme->t8_element_level (element);
-  scaling_factor = pow (2, -level);     /*TODO: dimension dependency ? */
+  scaling_factor = pow (2, -level);
 
   t8_vec_axb (reference_tangential_vector, coarse_tangential_vector, 1. / scaling_factor, 0);
 

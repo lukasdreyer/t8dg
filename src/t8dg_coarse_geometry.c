@@ -13,8 +13,8 @@
 
 #include "t8dg.h"
 
-typedef double      (*t8dg_coarse_geometry_gram_determinant_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
-                                                                 const double coarse_vertex[3]);
+typedef double      (*t8dg_coarse_geometry_sqrt_gram_determinant_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+                                                                      const double coarse_vertex[3]);
 
 typedef void        (*t8dg_coarse_geometry_differential_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
                                                              const double coarse_vertex[3], const double coarse_tangential_vector[3],
@@ -29,24 +29,22 @@ typedef enum t8dg_coarse_geometry_data
   T8DG_TREE_VERTICES
 } t8dg_coarse_geometry_data_t;
 
-/** F_CE and DF_CE for the coarse geometry
- * TODO: How to chose unused dimensions so that DF_CE can be used to calculate the differential on the submanifold*/
 struct t8dg_coarse_geometry
 {
-  t8dg_coarse_geometry_gram_determinant_fn gram_det; /**< Jacobian function*/
-  t8dg_coarse_geometry_differential_fn differential_invers_transpose;
+  t8dg_coarse_geometry_sqrt_gram_determinant_fn sqrt_gram_det; /**< Weighting factor for integrals*/
+  t8dg_coarse_geometry_differential_fn differential_invers_transpose; /**< Transformation for gradient and normal vector*/
   t8dg_coarse_geometry_fn geometry; /**< Geometry function*/
-  t8dg_coarse_geometry_data_t attribute_data_type;
-  void               *data;
+  t8dg_coarse_geometry_data_t attribute_data_type;  /**< Determines which attribute from the cmesh should be taken*/
+  void               *data; /**< Additional data provided to the coarse geometry*/
 };
 
 /*TODO: Document In and Output*/
 
 double
-t8dg_coarse_geometry_calculate_gram_determinant (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
-                                                 const t8_locidx_t itree, const double coarse_vertex[3])
+t8dg_coarse_geometry_calculate_sqrt_gram_determinant (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
+                                                      const t8_locidx_t itree, const double coarse_vertex[3])
 {
-  return coarse_geometry->gram_det (forest, itree, coarse_geometry->data, coarse_vertex);
+  return coarse_geometry->sqrt_gram_det (forest, itree, coarse_geometry->data, coarse_vertex);
 }
 
 void
@@ -77,9 +75,9 @@ t8dg_coarse_geometry_transform_normal_vector (const t8dg_coarse_geometry_t * coa
 }
 
 static void
-t8dg_linear_1D_gram_differential_invers_transpose_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data,
-                                                      const double coarse_vertex[3], const double coarse_tangential_vector[3],
-                                                      double transformed_gradient_tangential_vector[3])
+t8dg_linear_1D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+                                                 const double coarse_vertex[3], const double coarse_tangential_vector[3],
+                                                 double transformed_gradient_tangential_vector[3])
 {
   double             *tree_vertices;
   double              image_coarse_element_length_vector[3];
@@ -90,14 +88,14 @@ t8dg_linear_1D_gram_differential_invers_transpose_fn (const t8_forest_t forest, 
   /*tangential vector of the coarse element */
   t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector, -1);
 
-  image_coarse_element_length_squared = t8_vec_norm (image_coarse_element_length_vector);
+  image_coarse_element_length_squared = t8_vec_dot (image_coarse_element_length_vector, image_coarse_element_length_vector);
 
-  t8_vec_axb (coarse_tangential_vector, transformed_gradient_tangential_vector, 1. / image_coarse_element_length_squared, 0);
-
+  t8_vec_axb (image_coarse_element_length_vector, transformed_gradient_tangential_vector,
+              coarse_tangential_vector[0] / image_coarse_element_length_squared, 0);
 }
 
 static double
-t8dg_linear_1D_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double coarse_vertex[3])
+t8dg_linear_1D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double coarse_vertex[3])
 {
   double             *tree_vertices;
   double              image_coarse_element_length_vector[3];
@@ -131,8 +129,8 @@ t8dg_coarse_geometry_new_1D_linear ()
 {
   t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);
   geometry->geometry = t8dg_linear_1D_geometry_fn;
-  geometry->gram_det = t8dg_linear_1D_gram_determinant_fn;
-  geometry->differential_invers_transpose = t8dg_linear_1D_gram_differential_invers_transpose_fn;
+  geometry->sqrt_gram_det = t8dg_linear_1D_sqrt_gram_determinant_fn;
+  geometry->differential_invers_transpose = t8dg_linear_1D_differential_invers_transpose_fn;
   geometry->attribute_data_type = T8DG_TREE_VERTICES;
   geometry->data = NULL;
   return geometry;

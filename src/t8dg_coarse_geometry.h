@@ -23,7 +23,7 @@ t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
 
-double              t8dg_coarse_geometry_calculate_gram_determinant
+double              t8dg_coarse_geometry_calculate_sqrt_gram_determinant
   (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest, const t8_locidx_t itree, const double coarse_vertex[3]);
 
 void                t8dg_coarse_geometry_apply (const t8dg_coarse_geometry_t * coarse_geometry,
