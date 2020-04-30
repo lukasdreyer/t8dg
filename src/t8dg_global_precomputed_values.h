@@ -15,6 +15,8 @@ typedef struct t8dg_global_precomputed_values t8dg_global_precomputed_values_t;
 
 t8dg_global_precomputed_values_t *t8dg_global_precomputed_values_new_1D_LGL (const int number_of_LGL_vertices);
 
+t8dg_global_precomputed_values_t *t8dg_global_precomputed_values_new_hypercube_LGL (const int dim, const int number_of_1D_LGL_vertices);
+
 void                t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pvalues);
 
 void                t8dg_global_precomputed_values_transform_element_dof_to_face_quad (const t8dg_global_precomputed_values_t * values,

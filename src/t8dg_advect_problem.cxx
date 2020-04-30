@@ -323,7 +323,8 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 
   t8_debugf ("precompute global values\n");
   /* these allocate memory: */
-  problem->global_values = t8dg_global_precomputed_values_new_1D_LGL (number_LGL_points);
+  problem->global_values = t8dg_global_precomputed_values_new_hypercube_LGL (dim, number_LGL_points);
+//  problem->global_values = t8dg_global_precomputed_values_new_1D_LGL (number_LGL_points);
 
   t8dg_quadrature_t  *quadrature = t8dg_global_precomputed_values_get_quadrature (problem->global_values);
 
