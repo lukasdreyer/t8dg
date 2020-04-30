@@ -52,7 +52,7 @@ t8dg_geometry_transform_reference_vertex_to_image_vertex (const t8dg_geometry_tr
 }
 
 double
-t8dg_geometry_calculate_gram_determinant (const t8dg_geometry_transformation_data_t * geometry_data, const double reference_vertex[3])
+t8dg_geometry_calculate_sqrt_gram_determinant (const t8dg_geometry_transformation_data_t * geometry_data, const double reference_vertex[3])
 {
   t8_eclass_t         eclass;
   t8_eclass_scheme_c *scheme;
@@ -134,9 +134,10 @@ t8dg_geometry_calculate_normal_vector (const t8dg_geometry_transformation_data_t
 }
 
 double
-t8dg_geometry_calculate_face_gram_determinant (const t8dg_geometry_transformation_data_t * geometry_data,
-                                               const int iface, const double reference_vertex[3])
+t8dg_geometry_calculate_face_sqrt_gram_determinant (const t8dg_geometry_transformation_data_t * geometry_data,
+                                                    const int iface, const double reference_vertex[3])
 {
+
   /*TODO: call coarse function for higher dimension */
   return 1;
 }

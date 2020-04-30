@@ -88,7 +88,7 @@ void
 t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
                                            const t8dg_geometry_transformation_data_t * geometry_data, const t8dg_quadrature_t * quadrature)
 {
-  double              gram_det, face_gram_det;
+  double              sqrt_gram_det, face_sqrt_gram_det;
   int                 iquad, iface, idim;
   t8_locidx_t         idata;
 
@@ -106,8 +106,8 @@ t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * val
   element_quad_trafo = t8dg_local_precomputed_values_get_element_quad_trafo_weights (values, idata);
   for (iquad = 0; iquad < values->num_elem_quad; iquad++) {
     t8dg_quadrature_get_element_vertex (quadrature, iquad, reference_vertex);
-    gram_det = t8dg_geometry_calculate_gram_determinant (geometry_data, reference_vertex);
-    element_quad_trafo[iquad] = gram_det * t8dg_quadrature_get_element_weight (quadrature, iquad);
+    sqrt_gram_det = t8dg_geometry_calculate_sqrt_gram_determinant (geometry_data, reference_vertex);
+    element_quad_trafo[iquad] = sqrt_gram_det * t8dg_quadrature_get_element_weight (quadrature, iquad);
     for (idim = 0; idim < t8dg_quadrature_get_dim (quadrature); idim++) {
       transformed_gradient_tangential_vector =
         t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (values, idata, iquad, idim);
@@ -125,8 +125,8 @@ t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * val
     for (iquad = 0; iquad < values->num_face_quad[iface]; iquad++) {
       /*for 1D elements the faceintegrals are just the value at the facequadrature point */
       t8dg_quadrature_get_face_vertex (quadrature, iface, iquad, reference_vertex);
-      face_gram_det = t8dg_geometry_calculate_face_gram_determinant (geometry_data, iface, reference_vertex);
-      face_quad_trafo[iquad] = face_gram_det * t8dg_quadrature_get_face_weight (quadrature, iface, iquad);
+      face_sqrt_gram_det = t8dg_geometry_calculate_face_sqrt_gram_determinant (geometry_data, iface, reference_vertex);
+      face_quad_trafo[iquad] = face_sqrt_gram_det * t8dg_quadrature_get_face_weight (quadrature, iface, iquad);
       image_normal_vector = t8dg_local_precomputed_values_get_face_normal_vector (values, idata, iface, iquad);
       t8dg_geometry_calculate_normal_vector (geometry_data, iface, reference_vertex, image_normal_vector);
     }
