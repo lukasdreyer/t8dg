@@ -20,6 +20,8 @@ typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 
 /**Create a new coarse geometry for the linear 1D case*/
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
+/**Create a new coarse geometry for the linear 2D case*/
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
 

@@ -136,6 +136,40 @@ t8dg_coarse_geometry_new_1D_linear ()
   return geometry;
 }
 
+static void
+t8dg_linear_2D_geometry_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double vertex[DIM3],
+                            double image_vertex[DIM3])
+{
+  T8DG_ABORT ("Not yet implemented!");
+}
+
+static void
+t8dg_linear_2D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+                                                 const double coarse_vertex[3], const double coarse_tangential_vector[3],
+                                                 double transformed_gradient_tangential_vector[3])
+{
+  T8DG_ABORT ("Not yet implemented!");
+}
+
+static double
+t8dg_linear_2D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double coarse_vertex[3])
+{
+  T8DG_ABORT ("Not yet implemented!");
+  return -1;
+}
+
+t8dg_coarse_geometry_t *
+t8dg_coarse_geometry_new_2D_linear ()
+{
+  t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);
+  geometry->geometry = t8dg_linear_2D_geometry_fn;
+  geometry->sqrt_gram_det = t8dg_linear_2D_sqrt_gram_determinant_fn;
+  geometry->differential_invers_transpose = t8dg_linear_2D_differential_invers_transpose_fn;
+  geometry->attribute_data_type = T8DG_TREE_VERTICES;
+  geometry->data = NULL;
+  return geometry;
+}
+
 void
 t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry)
 {
