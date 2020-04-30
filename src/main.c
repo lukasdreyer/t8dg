@@ -7,6 +7,7 @@
 #include <t8.h>
 #include <t8_cmesh.h>
 #include <t8_vec.h>
+#include <t8_cmesh_vtk.h>
 
 #include "t8dg.h"
 #include "t8dg_advect_problem.h"
@@ -50,6 +51,32 @@ t8dg_choose_initial_cond_fn (int initial_cond_arg)
 }
 
 static              t8_cmesh_t
+t8dg_cmesh_new_periodic_diagonal_line_more_trees (sc_MPI_Comm comm)
+{
+  t8_cmesh_t          cmesh;
+
+  double              vertices[12] = {
+    0, 0, 0,
+    0.2, 0.2, 0.2,
+    0.6, 0.6, 0.6,
+    1, 1, 1
+  };
+
+  t8_cmesh_init (&cmesh);
+  t8_cmesh_set_tree_class (cmesh, 0, T8_ECLASS_LINE);
+  t8_cmesh_set_tree_class (cmesh, 1, T8_ECLASS_LINE);
+  t8_cmesh_set_tree_class (cmesh, 2, T8_ECLASS_LINE);
+  t8_cmesh_set_tree_vertices (cmesh, 0, t8_get_package_id (), 0, vertices, 2);
+  t8_cmesh_set_tree_vertices (cmesh, 1, t8_get_package_id (), 0, vertices + 3, 2);
+  t8_cmesh_set_tree_vertices (cmesh, 2, t8_get_package_id (), 0, vertices + 6, 2);
+  t8_cmesh_set_join (cmesh, 0, 1, 1, 0, 0);
+  t8_cmesh_set_join (cmesh, 1, 2, 1, 0, 0);
+  t8_cmesh_set_join (cmesh, 2, 0, 1, 0, 0);
+  t8_cmesh_commit (cmesh, comm);
+  return cmesh;
+}
+
+static              t8_cmesh_t
 t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
 {
   t8_cmesh_t          cmesh;
@@ -61,7 +88,7 @@ t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
     cmesh = t8_cmesh_new_periodic_line_more_trees (comm);
     break;
   case 2:
-    cmesh = t8_cmesh_new_periodic_diagonal_line_more_trees (comm);
+    cmesh = t8dg_cmesh_new_periodic_diagonal_line_more_trees (comm);
     break;
   default:
     T8DG_ABORT ("Not yet implemented");
