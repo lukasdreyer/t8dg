@@ -33,9 +33,9 @@ T8_EXTERN_C_BEGIN ();
 #define T8DG_ABORT SC_ABORT
 
 #define DIM3 3
-#define MAX_FACES 2
-#define MAX_SUBFACES 1
-#define MAX_SUBELEMENTS 2
+#define MAX_FACES 6
+#define MAX_SUBFACES 4
+#define MAX_SUBELEMENTS 8
 #define MAX_LGL_NUMBER 7
 
 typedef t8_locidx_t t8dg_locidx_t;
