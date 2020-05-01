@@ -25,6 +25,8 @@ struct t8dg_mortar
   int                 iface_plus;
   int                 num_subfaces;
 
+  t8_eclass_t         eclass;
+  int                 orientation;
   /*one value for each quadrature point, orientation of u_ */
   sc_array_t         *u_minus;                          /**< value of u on elem_minus at face quadrature points */
   sc_array_t         *u_plus;                           /**< value of u on elem_plus at face quadrature points */
@@ -57,7 +59,7 @@ t8dg_mortar_destroy (t8dg_mortar_t ** pmortar)
 }
 
 t8dg_mortar_t      *
-t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface)
+t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface, t8dg_quadrature_t * quadrature)
 {
   t8dg_mortar_t      *mortar = T8_ALLOC (t8dg_mortar_t, 1);
   t8_locidx_t         idata;
@@ -81,7 +83,10 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
   mortar->elem_idata_plus = elem_indices[0];    /*could be greater than number of local elements -> ghost */
   mortar->iface_minus = iface;
   mortar->iface_plus = neigh_ifaces[0]; /* get neighbouring face index */
-  mortar->number_face_quadrature_points = 1;    /* Only viable for 1D case, getter function on problem? */
+  mortar->number_face_quadrature_points = t8dg_quadrature_get_num_face_vertices (quadrature, iface);
+
+  mortar->eclass = t8dg_quadrature_get_face_eclass (quadrature, iface);
+  mortar->orientation = 0;      //t8dg_mortar_calculate_orientation(mortar);
 
   /* allocate memory for sc_arrays */
   mortar->u_minus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
@@ -94,6 +99,17 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
   T8_FREE (elem_indices);
   T8_FREE (neigh_ifaces);
   return mortar;
+}
+
+void
+t8dg_mortar_sc_array_orient (sc_array_t * array, t8_eclass_t eclass, int orientation)
+{
+  switch (orientation) {
+  case 0:
+    return;
+  default:
+    T8DG_ABORT ("Not yet implemented");
+  }
 }
 
 void
@@ -118,6 +134,8 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
                                                                      elem_dof_values_minus, mortar->u_minus);
   t8dg_global_precomputed_values_transform_element_dof_to_face_quad (mortar_fill_data->global_values, mortar->iface_plus,
                                                                      elem_dof_values_plus, mortar->u_plus);
+  /*Orient u_plus */
+  t8dg_mortar_sc_array_orient (mortar->u_plus, mortar->eclass, mortar->orientation);
 
   /*normal vector from element_minus to element_plus */
   for (iquad = 0; iquad < mortar->number_face_quadrature_points; iquad++) {
@@ -125,14 +143,12 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
       t8dg_local_precomputed_values_get_face_normal_vector (mortar_fill_data->local_values, mortar->elem_idata_minus, mortar->iface_minus,
                                                             iquad);
 
-    /*TODO: t8dg_geometry, current Flux is independent of x and time */
     t8dg_quadrature_get_face_vertex (t8dg_global_precomputed_values_get_quadrature (mortar_fill_data->global_values),
                                      mortar->iface_minus, iquad, reference_vertex);
-//    t8dg_geometry_transform_reference_vertex_to_image_vertex(geometry_data,)
+    t8dg_geometry_transform_reference_vertex_to_image_vertex (mortar_fill_data->geometry_data, reference_vertex, image_vertex);
 
     t8dg_flux_calulate_flux (mortar_fill_data->flux, image_vertex, flux_vec, mortar_fill_data->time);
 
-    /*TODO: Orientation!! */
     u_minus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_minus, iquad);
     u_plus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_plus, iquad);
 
@@ -140,6 +156,9 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
     *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_minus, iquad) = fluxvalue;
     *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_plus, iquad) = -fluxvalue;
   }
+  /*Orient fluxvalue_plus */
+  t8dg_mortar_sc_array_orient (mortar->fluxvalue_plus, mortar->eclass, mortar->orientation);    /*TODO: different orientation for higher dimension */
+
   sc_array_destroy (elem_dof_values_minus);
   sc_array_destroy (elem_dof_values_plus);
   mortar->valid = 1;
@@ -178,7 +197,6 @@ t8dg_mortar_array_set_all_pointers_to_NULL (t8dg_mortar_array_t * mortar_array, 
 sc_array_t         *
 t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_locidx_t idata, int iface)
 {
-  /*TODO!!!! */
   t8dg_mortar_t      *mortar;
   mortar = *(t8dg_mortar_t **) t8_sc_array_index_locidx (mortar_array->mortars[iface], idata);
   if (idata == mortar->elem_idata_minus) {
@@ -210,7 +228,8 @@ t8dg_mortar_array_fill (t8dg_mortar_array_t * mortar_array, t8dg_mortar_fill_dat
 
         /*for all faces check wether mortar is already allocated/computed */
         if (mortar == NULL) {
-          mortar = t8dg_mortar_new (mortar_array->forest, itree, ielement, iface);
+          mortar = t8dg_mortar_new (mortar_array->forest, itree, ielement, iface,
+                                    t8dg_global_precomputed_values_get_quadrature (mortar_fill_data->global_values));
           t8dg_mortar_array_set_all_pointers (mortar_array, mortar);
         }
         if (!mortar->valid) {
