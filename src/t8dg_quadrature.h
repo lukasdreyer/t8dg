@@ -99,6 +99,8 @@ double              t8dg_quadrature_get_element_weight (const t8dg_quadrature_t 
  */
 double              t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t iquad);
 
+t8_eclass_t         t8dg_quadrature_get_face_eclass (const t8dg_quadrature_t * quadrature, const int iface);
+
 t8dg_quadrature_type_t t8dg_quadrature_get_type (const t8dg_quadrature_t * quadrature);
 
 t8_eclass_t         t8dg_quadrature_get_eclass (const t8dg_quadrature_t * quadrature);
