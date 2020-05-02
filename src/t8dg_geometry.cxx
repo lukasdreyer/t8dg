@@ -137,7 +137,25 @@ double
 t8dg_geometry_calculate_face_sqrt_gram_determinant (const t8dg_geometry_transformation_data_t * geometry_data,
                                                     const int iface, const double reference_vertex[3])
 {
+  t8_eclass_t         eclass;
+  t8_eclass_scheme_c *scheme;
+  t8_element_t       *element;
 
-  /*TODO: call coarse function for higher dimension */
-  return 1;
+  int                 dim;
+  int                 level;
+  double              scaling_factor;
+  double              coarse_vertex[3];
+
+  eclass = t8_forest_get_eclass (geometry_data->forest, geometry_data->itree);
+  scheme = t8_forest_get_eclass_scheme (geometry_data->forest, eclass);
+  element = t8_forest_get_element_in_tree (geometry_data->forest, geometry_data->itree, geometry_data->ielement);
+
+  t8dg_geometry_transform_reference_vertex_to_coarse_vertex (geometry_data, reference_vertex, coarse_vertex);
+
+  dim = t8_eclass_to_dimension[t8_forest_get_eclass (geometry_data->forest, geometry_data->itree)];
+  level = scheme->t8_element_level (element);
+  scaling_factor = pow (2, -(dim - 1) * level);
+
+  return scaling_factor * t8dg_coarse_geometry_calculate_sqrt_face_gram_determinant (geometry_data->coarse_geometry, geometry_data->forest,
+                                                                                     geometry_data->itree, iface, coarse_vertex);
 }
