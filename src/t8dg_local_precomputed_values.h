@@ -52,6 +52,10 @@ void                t8dg_local_precomputed_values_element_multiply_trafo_quad_we
 void                t8dg_local_precomputed_values_element_divide_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
                                                                                     sc_array_t * array, t8_locidx_t idata);
 
+void                t8dg_local_precomputed_values_face_multiply_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
+                                                                                   t8_locidx_t idata, const int iface, sc_array_t * src,
+                                                                                   sc_array_t * dest);
+
 void                t8dg_local_precomputed_values_element_multiply_flux_value
   (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
    const t8dg_geometry_transformation_data_t * geometry_data,
