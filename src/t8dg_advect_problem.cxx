@@ -541,6 +541,8 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
 
   sc_array_t         *element_quad_flux;
   sc_array_t         *element_dest;
+  sc_array_t         *element_face_quad_flux;
+  sc_array_t         *element_face_quad_flux_trafo;
 
   num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
   num_elem_quad = t8dg_global_precomputed_values_get_num_elem_quad (problem->global_values);
@@ -560,9 +562,18 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
 
       for (iface = 0; iface < num_faces; iface++) {
         /*includes element and face orientation */
+
+        element_face_quad_flux = t8dg_mortar_array_get_oriented_flux (problem->face_mortars, idata, iface);
+        element_face_quad_flux_trafo = t8dg_sc_array_duplicate (element_face_quad_flux);
+
+        t8dg_local_precomputed_values_face_multiply_trafo_quad_weight (problem->local_values, idata, iface, element_face_quad_flux,
+                                                                       element_face_quad_flux_trafo);
+
         t8dg_global_precomputed_values_transform_face_quad_to_element_dof
-          (problem->global_values, iface, t8dg_mortar_array_get_oriented_flux (problem->face_mortars, idata, iface), element_quad_flux);
+          (problem->global_values, iface, element_face_quad_flux_trafo, element_quad_flux);
         t8dg_sc_array_block_double_axpy (1, element_quad_flux, element_dest);
+
+        sc_array_destroy (element_face_quad_flux_trafo);
       }
       t8_debugf ("test element_dest\n");
       t8dg_sc_array_block_double_debug_print (element_dest);
