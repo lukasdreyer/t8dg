@@ -21,12 +21,16 @@ typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 /**Create a new coarse geometry for the linear 1D case*/
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Create a new coarse geometry for the linear 2D case*/
-t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_linear ();
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
 
 double              t8dg_coarse_geometry_calculate_sqrt_gram_determinant
   (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest, const t8_locidx_t itree, const double coarse_vertex[3]);
+
+double              t8dg_coarse_geometry_calculate_sqrt_face_gram_determinant
+  (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
+   const t8_locidx_t itree, const int iface, const double coarse_vertex[3]);
 
 void                t8dg_coarse_geometry_apply (const t8dg_coarse_geometry_t * coarse_geometry,
                                                 const t8_forest_t forest,
