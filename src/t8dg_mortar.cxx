@@ -7,6 +7,7 @@
 
 #include <t8_forest.h>
 #include <sc_containers.h>
+#include <t8_element_cxx.hxx>
 
 #include "t8dg_mortar.h"
 #include "t8dg.h"
@@ -58,6 +59,23 @@ t8dg_mortar_destroy (t8dg_mortar_t ** pmortar)
   *pmortar = NULL;
 }
 
+static int
+t8dg_mortar_calculate_face_orientation (const t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface)
+{
+  t8_element_t       *element;
+  t8_eclass_scheme_c *scheme;
+  int                 orientation;
+  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  scheme = t8_forest_get_eclass_scheme (forest, t8_forest_get_tree_class (forest, itree));
+  if (scheme->t8_element_is_root_boundary (element, iface)) {
+    t8_cmesh_get_face_neighbor (t8_forest_get_cmesh (forest), itree, scheme->t8_element_tree_face (element, iface), NULL, &orientation);
+    return orientation;
+  }
+  else {
+    return 0;
+  }
+}
+
 t8dg_mortar_t      *
 t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface, t8dg_quadrature_t * quadrature)
 {
@@ -86,7 +104,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
   mortar->number_face_quadrature_points = t8dg_quadrature_get_num_face_vertices (quadrature, iface);
 
   mortar->eclass = t8dg_quadrature_get_face_eclass (quadrature, iface);
-  mortar->orientation = 0;      //t8dg_mortar_calculate_orientation(mortar);
+  mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);
 
   /* allocate memory for sc_arrays */
   mortar->u_minus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
@@ -104,8 +122,18 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
 void
 t8dg_mortar_sc_array_orient (sc_array_t * array, t8_eclass_t eclass, int orientation)
 {
+  T8DG_CHECK_ABORT (eclass == T8_ECLASS_LINE || eclass == T8_ECLASS_VERTEX, "Currently only implemented for line faces");
   switch (orientation) {
   case 0:
+    return;
+  case 1:
+    size_t idx;
+    double              tmp;
+    for (idx = 0; idx < array->elem_count / 2; idx++) {
+      tmp = *(double *) sc_array_index (array, idx);
+      *(double *) sc_array_index (array, idx) = *(double *) sc_array_index (array, array->elem_count - idx - 1);
+      *(double *) sc_array_index (array, array->elem_count - idx) = tmp;
+    }
     return;
   default:
     T8DG_ABORT ("Not yet implemented");
