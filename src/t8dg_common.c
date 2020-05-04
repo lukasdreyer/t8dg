@@ -1,5 +1,7 @@
 #include <t8_cmesh.h>
-#include <t8dg_common.h>
+#include <t8_vec.h>
+#include <t8_cmesh_vtk.h>
+#include "t8dg_common.h"
 
 double
 t8dg_scalar1d_hat_function (const double x[3], const double t)
