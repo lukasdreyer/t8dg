@@ -31,6 +31,31 @@ struct t8dg_local_precomputed_values
 
 };
 
+void
+t8dg_local_precomputed_values_print_debug (const t8dg_local_precomputed_values_t * values, const t8_locidx_t idata)
+{
+  int                 iface;
+  sc_array_t         *tmp;
+  t8dg_debugf ("Element trafo quad weight: \n");
+  tmp = t8dg_sc_array_block_double_new_view (values->element_trafo_quad_weight, idata);
+  t8dg_sc_array_block_double_print (tmp);
+  sc_array_destroy (tmp);
+  t8dg_debugf ("element_transformed_gradient_tangential_vectors: \n");
+  tmp = t8dg_sc_array_block_double_new_view (values->element_transformed_gradient_tangential_vectors, idata);
+  t8dg_sc_array_block_double_print (tmp);
+  sc_array_destroy (tmp);
+  for (iface = 0; iface < values->num_faces; iface++) {
+    t8dg_debugf ("face trafo quad weight: \n");
+    tmp = t8dg_sc_array_block_double_new_view (values->face_trafo_quad_weight[iface], idata);
+    t8dg_sc_array_block_double_print (tmp);
+    sc_array_destroy (tmp);
+    t8dg_debugf ("face_normal_vector: \n");
+    tmp = t8dg_sc_array_block_double_new_view (values->face_normal_vectors[iface], idata);
+    t8dg_sc_array_block_double_print (tmp);
+    sc_array_destroy (tmp);
+  }
+}
+
 static double      *
 t8dg_local_precomputed_values_get_face_quad_trafo_weights (const t8dg_local_precomputed_values_t * values, const t8_locidx_t idata,
                                                            const int faceindex)
