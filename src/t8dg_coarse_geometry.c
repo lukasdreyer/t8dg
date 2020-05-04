@@ -191,7 +191,7 @@ t8dg_linear_2D_differential_invers_transpose_fn (const t8_forest_t forest, const
   t8_vec_axb (image_coarse_element_length_vector_x, transformed_gradient_tangential_vector,
               (g22 * coarse_tangential_vector[0] - g12 * coarse_tangential_vector[1]) / det, 0);
   t8_vec_axpy (image_coarse_element_length_vector_y, transformed_gradient_tangential_vector,
-               (-g12 * coarse_tangential_vector[0] + g22 * coarse_tangential_vector[1]) / det);
+               (-g12 * coarse_tangential_vector[0] + g11 * coarse_tangential_vector[1]) / det);
 }
 
 static double
@@ -226,11 +226,11 @@ t8dg_linear_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8
 
   switch (iface / 2) {
   case 0:
-    return sqrt (t8_vec_dot (image_coarse_element_length_vector_x, image_coarse_element_length_vector_x));
+    return sqrt (t8_vec_dot (image_coarse_element_length_vector_y, image_coarse_element_length_vector_y));
     break;
 
   case 1:
-    return sqrt (t8_vec_dot (image_coarse_element_length_vector_y, image_coarse_element_length_vector_y));
+    return sqrt (t8_vec_dot (image_coarse_element_length_vector_x, image_coarse_element_length_vector_x));
     break;
 
   default:
