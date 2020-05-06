@@ -5,41 +5,41 @@
 libt8dg_generated_headers = src/t8dg_config.h
 libt8dg_installed_headers = \
   src/t8dg.h \
-  t8dg_functionbasis.h \
-  t8dg_refcount.h \
-  t8dg_global_precomputed_values.h \
-  t8dg_local_precomputed_values.h \
-  t8dg_coarse_geometry.h \
-  t8dg_precomputed_values.h \
-  t8dg_vertexset.h \
-  t8dg_flux.h \	 
-  t8dg_mortar.h	\ 
-  t8dg_timestepping.h \
-  t8dg_dmatrix.h \		 
-  t8dg_quadrature.h \
-  t8dg_advect_problem.h	\
-  t8dg.h \
-  t8dg_sc_array.h \
-  t8dg_tensor.h
+  src/t8dg_functionbasis.h \
+  src/t8dg_refcount.h \
+  src/t8dg_global_precomputed_values.h \
+  src/t8dg_local_precomputed_values.h \
+  src/t8dg_coarse_geometry.h \
+  src/t8dg_precomputed_values.h \
+  src/t8dg_vertexset.h \
+  src/t8dg_flux.h \
+  src/t8dg_mortar.h	\
+  src/t8dg_timestepping.h \
+  src/t8dg_dmatrix.h \
+  src/t8dg_quadrature.h \
+  src/t8dg_advect_problem.h	\
+  src/t8dg.h \
+  src/t8dg_sc_array.h \
+  src/t8dg_tensor.h
 
 libt8dg_internal_headers = \
 libt8dg_compiled_sources = \
-  t8dg_functionbasis.c \
-  t8dg_refcount.c \
-  t8dg_global_precomputed_values.c \
-  t8dg_advect_problem.cxx \
-  t8dg_sc_array.c \
-  t8dg.c \		 
-  t8dg_local_precomputed_values.cxx \
-  t8dg_tensor.c \
-  t8dg_coarse_geometry.c \
-  t8dg_mortar.c	\	    
-  t8dg_timestepping.c \
-  t8dg_dmatrix.c \		 
-  t8dg_precomputed_values.c \
-  t8dg_vertexset.c \
-  t8dg_flux.c \	 
-  t8dg_quadrature.c
+  src/t8dg_functionbasis.c \
+  src/t8dg_refcount.c \
+  src/t8dg_global_precomputed_values.c \
+  src/t8dg_advect_problem.cxx \
+  src/t8dg_sc_array.c \
+  src/t8dg.c \
+  src/t8dg_local_precomputed_values.cxx \
+  src/t8dg_tensor.c \
+  src/t8dg_coarse_geometry.c \
+  src/t8dg_mortar.c	\
+  src/t8dg_timestepping.c \
+  src/t8dg_dmatrix.c \
+  src/t8dg_precomputed_values.c \
+  src/t8dg_vertexset.c \
+  src/t8dg_flux.c \
+  src/t8dg_quadrature.c
 
 
 # this variable is used for headers that are not publicly installed
