@@ -62,13 +62,13 @@ t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_QUAD, comm, 0, 0, 1);
     break;
   case 4:
-    cmesh = t8dg_cmesh_new_half_moebius_more_trees (comm);
-    break;
-  case 5:
     cmesh = t8dg_cmesh_new_square_more_trees_different_size (comm);
     break;
-  case 6:
+  case 5:
     cmesh = t8dg_cmesh_new_square_moebius (comm);
+    break;
+  case 6:
+    cmesh = t8dg_cmesh_new_half_moebius_more_trees (comm);
     break;
   case 7:
     cmesh = t8dg_cmesh_new_square_tilted (comm);
@@ -278,11 +278,14 @@ main (int argc, char *argv[])
   sc_options_add_double (opt, 't', "start_time", &start_time, 0.0, "The start time of the solve. Default: 0.0");
   sc_options_add_double (opt, 'T', "end_time", &end_time, 1.0, "The end time of the solve. Default: 1.0");
   sc_options_add_int (opt, 'i', "initial_cond", &initial_cond_arg, 0, "Choose initial condition function. Default: 0\n"
-                      "\t\t0: constant function\n" "\t\t1: hat function\n" "\t\t2: step function\n" "\t\t3: sine function");
-  sc_options_add_int (opt, 'r', "ref_levels", &refinement_levels, 0, "The number of refinement levels(>=0). Default: 0\n");
-  sc_options_add_int (opt, 'v', "vkt_freq", &vtk_freq, 1, "The number of steps until new vtk output. Default: 1\n" "0 means no vtk");
-  sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\n" "0 means no adapt");
-  sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees");
+                      "\t\t0: constant function\n" "\t\t1: 1D hat function\n" "\t\t2: 1D step function\n" "\t\t3: 1D sine function\n"
+                      "\t\t4: norm\n" "\t\t5: 2D hat\n" "\t\t6: 2D circle step function\n" "\t\t7: 2D triangle step function\n");
+  sc_options_add_int (opt, 'r', "ref_levels", &refinement_levels, 0, "The number of refinement levels(>=0). Default: 0");
+  sc_options_add_int (opt, 'v', "vkt_freq", &vtk_freq, 1, "The number of steps until new vtk output. Default: 1\t (0 means no vtk)");
+  sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\t (0 means no adapt)");
+  sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n"
+                      "\t\t2: diagonal line more trees\n" "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n"
+                      "\t\t6: moebius more tree\n" "\t\t7: parallelogram");
 
   parsed = sc_options_parse (t8dg_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
