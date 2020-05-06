@@ -7,7 +7,6 @@
 #include <t8.h>
 #include <t8_cmesh.h>
 #include <t8_vec.h>
-#include <t8_cmesh_vtk.h>
 
 #include "t8dg.h"
 #include "t8dg_advect_problem.h"
@@ -65,6 +64,15 @@ t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
   case 4:
     cmesh = t8dg_cmesh_new_half_moebius_more_trees (comm);
     break;
+  case 5:
+    cmesh = t8dg_cmesh_new_square_more_trees_different_size (comm);
+    break;
+  case 6:
+    cmesh = t8dg_cmesh_new_square_moebius (comm);
+    break;
+  case 7:
+    cmesh = t8dg_cmesh_new_square_tilted (comm);
+    break;
 
   default:
     T8DG_ABORT ("Not yet implemented");
@@ -77,7 +85,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int refinement_levels,
                     int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq)
 {
-  if (!(icmesh >= 0 && icmesh <= 4))
+  if (!(icmesh >= 0 && icmesh <= 7))
     return 0;
   if (!(initial_cond_arg >= 0 && initial_cond_arg <= 7))
     return 0;
@@ -129,7 +137,6 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   else {
     coarse_geometry = t8dg_coarse_geometry_new_2D_linear ();
     cmesh = t8dg_choose_cmesh (icmesh, comm);
-    t8_cmesh_vtk_write_file (cmesh, "test_cmesh", 1);
     dim = 2;
     double              diagonal[3] = { 1, 0, 0 };
     flux = t8dg_flux_new_linear_constant_flux (diagonal, flow_speed);

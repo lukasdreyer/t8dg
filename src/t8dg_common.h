@@ -13,3 +13,9 @@ double              t8dg_scalar2d_triangle_step_function (const double x[3], con
 t8_cmesh_t          t8dg_cmesh_new_periodic_diagonal_line_more_trees (sc_MPI_Comm comm);
 
 t8_cmesh_t          t8dg_cmesh_new_half_moebius_more_trees (sc_MPI_Comm comm);
+
+t8_cmesh_t          t8dg_cmesh_new_square_more_trees_different_size (sc_MPI_Comm comm);
+
+t8_cmesh_t          t8dg_cmesh_new_square_moebius (sc_MPI_Comm comm);
+
+t8_cmesh_t          t8dg_cmesh_new_square_tilted (sc_MPI_Comm comm);
