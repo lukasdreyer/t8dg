@@ -47,7 +47,9 @@ dnl link to T8DG to add appropriate options to LIBS.
 dnl
 AC_DEFUN([T8DG_CHECK_LIBRARIES],
 [
-T8DG_CHECK_CPPSTD([$1])
+dnl Currently this causes an error during configure:
+dnl syntax error near unexpected token `T8DG'
+dnl T8DG_CHECK_CPPSTD([$1])
 ])
 
 dnl T8DG_AS_SUBPACKAGE(PREFIX)
