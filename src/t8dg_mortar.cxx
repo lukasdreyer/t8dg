@@ -132,7 +132,7 @@ t8dg_mortar_sc_array_orient (sc_array_t * array, t8_eclass_t eclass, int orienta
     for (idx = 0; idx < array->elem_count / 2; idx++) {
       tmp = *(double *) sc_array_index (array, idx);
       *(double *) sc_array_index (array, idx) = *(double *) sc_array_index (array, array->elem_count - idx - 1);
-      *(double *) sc_array_index (array, array->elem_count - idx) = tmp;
+      *(double *) sc_array_index (array, array->elem_count - idx - 1) = tmp;
     }
     return;
   default:
