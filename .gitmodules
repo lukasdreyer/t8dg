@@ -1,11 +1,11 @@
 [submodule "p4est"]
 	path = p4est
 	url = https://github.com/cburstedde/p4est
-	branch = master
+	branch = prev3-develop
 [submodule "sc"]
 	path = sc
 	url = https://github.com/cburstedde/libsc
-	branch = master
+	branch = prev3-develop
 [submodule "t8code"]
 	path = t8code
 	url = https://github.com/holke/t8code
