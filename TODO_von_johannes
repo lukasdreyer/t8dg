@@ -35,6 +35,7 @@ Kommentare
 	- Bei jeder Funktion kurz erklaeren, was sie macht
 	- Idealerweise auch input/output parameter dokumentieren
 	- Leerzeichen. /* das ist lesbarer */ /*als das*/ (Wird vielleicht vom indent skript geloest)
+	- Includereihenfolge beachten. Erst externe Inlcudes (<header.h>), dann interne ("header.h")
 
 Build system
 	- What is the difference between Doxyfile and Doxyfile.in?
