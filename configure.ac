@@ -20,9 +20,7 @@ echo "o---------------------------------------"
 echo "| Checking options"
 echo "o---------------------------------------"
 
-P4EST_ARG_ENABLE([debug], [enable debug mode (assertions and extra checks)],
-                 [DEBUG])
-T8CODE_ARG_ENABLE([debug], [enable debug mode (assertions and extra checks)],
+T8DG_ARG_ENABLE([debug], [enable debug mode (assertions and extra checks)],
                  [DEBUG])
 
 echo "o---------------------------------------"
