@@ -10,8 +10,8 @@ endif
 if T8DG_P4EST_MK_USE
 @T8DG_P4EST_MK_INCLUDE@
 endif
-if T8DG_T8CODE_MK_USE
-@T8DG_T8CODE_MK_INCLUDE@
+if T8DG_T8_MK_USE
+@T8DG_T8_MK_INCLUDE@
 endif
 
 # initialize empty variables
@@ -54,7 +54,7 @@ AM_LOG_FLAGS = @T8DG_MPI_TEST_FLAGS@
 endif
 
 # recurse only into subpackages
-SUBDIRS = @T8DG_SC_SUBDIR@ @T8DG_P4EST_SUBDIR@
+SUBDIRS = @T8DG_SC_SUBDIR@ @T8DG_P4EST_SUBDIR@ @T8DG_T8_SUBDIR@
 DIST_SUBDIRS = $(SUBDIRS)
 
 # handle toplevel directory
