@@ -5,6 +5,93 @@
 #include "../src/t8dg_dmatrix.h"
 #include "../src/t8dg_sc_array.h"
 
+TEST (functionbasis, creation)
+{
+  t8dg_vertexset_t   *lgl_vertexset = t8dg_vertexset_new_1D_LGL (2);
+  t8dg_functionbasis_t *functionbasis = t8dg_functionbasis_new_1D_lagrange (lgl_vertexset, 0);
+  EXPECT_EQ (t8dg_functionbasis_get_num_dof (functionbasis), 2);
+  t8dg_functionbasis_destroy (&functionbasis);
+  t8dg_vertexset_destroy (&lgl_vertexset);
+}
+
+TEST (functionbasis, face_functionbasis_1D)
+{
+  int                 num_lgl;
+  double              vertex[3];
+  t8dg_vertexset_t   *lgl_vertexset;
+  t8dg_functionbasis_t *functionbasis;
+  t8dg_functionbasis_t *left_face_functionbasis;
+  t8dg_functionbasis_t *right_face_functionbasis;
+  for (num_lgl = 2; num_lgl <= MAX_LGL_NUMBER; num_lgl++) {
+    lgl_vertexset = t8dg_vertexset_new_1D_LGL (num_lgl);
+    functionbasis = t8dg_functionbasis_new_1D_lagrange (lgl_vertexset, 1);
+    left_face_functionbasis = t8dg_functionbasis_get_face_functionbasis (functionbasis, 0);
+    right_face_functionbasis = t8dg_functionbasis_get_face_functionbasis (functionbasis, 1);
+    EXPECT_EQ (t8dg_functionbasis_get_num_dof (functionbasis), num_lgl);
+    EXPECT_EQ (t8dg_functionbasis_get_num_dof (left_face_functionbasis), 1);
+    EXPECT_EQ (t8dg_functionbasis_get_num_dof (right_face_functionbasis), 1);
+    t8dg_functionbasis_get_lagrange_vertex (left_face_functionbasis, 0, vertex);
+    EXPECT_EQ (vertex[0], 0);
+    EXPECT_EQ (vertex[1], 0);
+    EXPECT_EQ (vertex[2], 0);
+    t8dg_functionbasis_get_lagrange_vertex (right_face_functionbasis, 0, vertex);
+    EXPECT_EQ (vertex[0], 1);
+    EXPECT_EQ (vertex[1], 0);
+    EXPECT_EQ (vertex[2], 0);
+    t8dg_functionbasis_destroy (&functionbasis);
+    t8dg_vertexset_destroy (&lgl_vertexset);
+  }
+}
+
+TEST (functionbasis, face_functionbasis_2D)
+{
+  int                 num_lgl = 2, iface, idof;
+  double              vertex[3];
+  t8dg_vertexset_t   *lgl_vertexset;
+  t8dg_functionbasis_t *functionbasis;
+  t8dg_functionbasis_t *face_functionbasis;
+  lgl_vertexset = t8dg_vertexset_new_1D_LGL (num_lgl);
+  functionbasis = t8dg_functionbasis_new_hypercube_lagrange (2, lgl_vertexset, 1);
+  EXPECT_EQ (t8dg_functionbasis_get_num_dof (functionbasis), pow (num_lgl, 2));
+  for (iface = 0; iface < 4; iface++) {
+    face_functionbasis = t8dg_functionbasis_get_face_functionbasis (functionbasis, iface);
+    EXPECT_EQ (t8dg_functionbasis_get_num_dof (face_functionbasis), num_lgl);
+    for (idof = 0; idof < 2; idof++) {
+      t8dg_functionbasis_get_lagrange_vertex (face_functionbasis, idof, vertex);
+      EXPECT_EQ (vertex[0], (iface == 1) || ((iface == 2 || iface == 3) && (idof == 1)));
+      EXPECT_EQ (vertex[1], (iface == 3) || ((iface == 0 || iface == 1) && (idof == 1)));
+      EXPECT_EQ (vertex[2], 0);
+    }
+  }
+  t8dg_functionbasis_destroy (&functionbasis);
+  t8dg_vertexset_destroy (&lgl_vertexset);
+}
+
+TEST (functionbasis, face_functionbasis_3D)
+{
+  int                 num_lgl = 2, iface, idof;
+  double              vertex[3];
+  t8dg_vertexset_t   *lgl_vertexset;
+  t8dg_functionbasis_t *functionbasis;
+  t8dg_functionbasis_t *face_functionbasis;
+  lgl_vertexset = t8dg_vertexset_new_1D_LGL (num_lgl);
+  functionbasis = t8dg_functionbasis_new_hypercube_lagrange (3, lgl_vertexset, 1);
+  EXPECT_EQ (t8dg_functionbasis_get_num_dof (functionbasis), pow (num_lgl, 3));
+  for (iface = 0; iface < 6; iface++) {
+    face_functionbasis = t8dg_functionbasis_get_face_functionbasis (functionbasis, iface);
+    EXPECT_EQ (t8dg_functionbasis_get_num_dof (face_functionbasis), pow (num_lgl, 2));
+    for (idof = 0; idof < 4; idof++) {
+      t8dg_functionbasis_get_lagrange_vertex (face_functionbasis, idof, vertex);
+      EXPECT_EQ (vertex[0], (iface == 1) || ((iface >= 2 && iface <= 5) && (idof == 1 || idof == 3)));
+      EXPECT_EQ (vertex[1], (iface == 3) || ((iface == 0 || iface == 1) && (idof == 1 || idof == 3))
+                 || ((iface == 4 || iface == 5) && (idof == 2 || idof == 3)));
+      EXPECT_EQ (vertex[2], (iface == 5) || ((iface >= 0 && iface <= 3) && (idof == 2 || idof == 3)));
+    }
+  }
+  t8dg_functionbasis_destroy (&functionbasis);
+  t8dg_vertexset_destroy (&lgl_vertexset);
+}
+
 TEST (functionbasis, interpolationMatrix_LGL2)
 {
   t8dg_vertexset_t   *lgl_vertexset = t8dg_vertexset_new_1D_LGL (2);
