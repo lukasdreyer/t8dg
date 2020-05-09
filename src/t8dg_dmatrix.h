@@ -26,6 +26,8 @@ t8dg_dmatrix_t     *t8dg_dmatrix_new (int nrows, int ncolumns);
 
 t8dg_dmatrix_t     *t8dg_dmatrix_new_zero (int nrows, int ncolumns);
 
+t8dg_dmatrix_t     *t8dg_dmatrix_new_data (int nrows, int ncolumns, double *data);
+
 void                t8dg_dmatrix_destroy (t8dg_dmatrix_t ** pmatrix);
 
 typedef double      t8dg_square_3D_matrix_t[DIM3][DIM3];

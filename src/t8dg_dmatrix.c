@@ -15,6 +15,7 @@ struct t8dg_dmatrix
   double             *values;
   int                 nrows;
   int                 ncolumns;
+  int                 owner;
 };
 
 double
@@ -67,6 +68,7 @@ t8dg_dmatrix_new (int nrows, int ncolumns)
   matrix->values = T8DG_ALLOC (double, nrows * ncolumns);
   matrix->nrows = nrows;
   matrix->ncolumns = ncolumns;
+  matrix->owner = 1;
   return matrix;
 }
 
@@ -78,6 +80,19 @@ t8dg_dmatrix_new_zero (int nrows, int ncolumns)
   matrix->values = T8DG_ALLOC_ZERO (double, nrows * ncolumns);
   matrix->nrows = nrows;
   matrix->ncolumns = ncolumns;
+  matrix->owner = 1;
+  return matrix;
+}
+
+t8dg_dmatrix_t     *
+t8dg_dmatrix_new_data (int nrows, int ncolumns, double *data)
+{
+  T8DG_ASSERT (nrows > 0 && ncolumns > 0);
+  t8dg_dmatrix_t     *matrix = T8DG_ALLOC (t8dg_dmatrix_t, 1);
+  matrix->values = data;
+  matrix->nrows = nrows;
+  matrix->ncolumns = ncolumns;
+  matrix->owner = 0;
   return matrix;
 }
 
@@ -88,7 +103,9 @@ t8dg_dmatrix_destroy (t8dg_dmatrix_t ** pmatrix)
   t8dg_dmatrix_t     *matrix = *pmatrix;
   T8DG_ASSERT (matrix != NULL);
 
-  T8DG_FREE (matrix->values);
+  if (matrix->owner) {
+    T8DG_FREE (matrix->values);
+  }
   matrix->values = NULL;
 
   matrix->ncolumns = -1;
