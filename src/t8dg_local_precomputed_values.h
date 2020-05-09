@@ -18,6 +18,8 @@
 
 typedef struct t8dg_local_precomputed_values t8dg_local_precomputed_values_t;
 
+/*TODO: normal vector on functionbasis!!*/
+
 void                t8dg_local_precomputed_values_copy_element_values
   (t8dg_local_precomputed_values_t * incoming_values, t8_locidx_t incoming_idata,
    t8dg_local_precomputed_values_t * outgoing_values, t8_locidx_t outgoing_idata);
