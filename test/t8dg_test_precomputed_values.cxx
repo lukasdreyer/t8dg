@@ -13,7 +13,6 @@
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <mpi.h>
 
-
 /* *INDENT-OFF* */
 class PrecomputedValuesProjectionTest1D : public ::testing::TestWithParam<int>
 /* *INDENT-ON* */
