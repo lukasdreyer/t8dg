@@ -52,7 +52,7 @@ t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz)
 static void
 t8dg_quadrature_fill_LGL_1D_weights (t8dg_quadrature_t * quadrature)
 {
-  T8DG_ASSERT (t8dg_vertexset_get_dim (quadrature->vertexset) == 1);
+  T8DG_ASSERT (t8dg_vertexset_get_eclass (quadrature->vertexset) == T8_ECLASS_LINE);
   T8DG_ASSERT (t8dg_vertexset_get_type (quadrature->vertexset) == T8DG_VERT_LGL);
   double             *weights;
   weights = (double *) t8_sc_array_index_locidx (quadrature->weights, 0);
