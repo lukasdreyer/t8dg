@@ -18,7 +18,6 @@
 /** struct used to save the calculated numerical fluxes at quadrature points*/
 struct t8dg_mortar
 {
-  int                 number_face_quadrature_points;      /**< The number of (sub-)face quadrature points*/
   t8_locidx_t         elem_idata_minus;                   /**< Local index of the element corresponding to u_minus */
   t8_locidx_t         elem_idata_plus;                    /**< Local index of the element corresponding to u_plus */
 
@@ -26,17 +25,20 @@ struct t8dg_mortar
   int                 iface_plus;
   int                 num_subfaces;
 
+  t8dg_functionbasis_t *functionbasis;
+  int                 number_face_dof;
+
   t8_eclass_t         eclass;
   int                 orientation;
   /*one value for each quadrature point, orientation of u_ */
-  sc_array_t         *u_minus;                          /**< value of u on elem_minus at face quadrature points */
-  sc_array_t         *u_plus;                           /**< value of u on elem_plus at face quadrature points */
-  sc_array_t         *fluxvalue_minus;                           /**< value of (cu)*.n at face quadrature points */
+  sc_array_t         *u_minus;                          /**< value of u on elem_minus at face dof */
+  sc_array_t         *u_plus;                           /**< value of u on elem_plus at face dof */
+  sc_array_t         *fluxvalue_minus;                           /**< value of (cu)*.n at face dof */
   /*orientation and sign of right side */
   sc_array_t         *fluxvalue_plus;
   int                 valid;                            /**< indicates wether the fluxes are already newly calculated this timestep*/
 
-};                              /*maybe change to opaque handle */
+};
 
 struct t8dg_mortar_array
 {
@@ -51,10 +53,12 @@ struct t8dg_mortar_array
 void
 t8dg_mortar_destroy (t8dg_mortar_t ** pmortar)
 {
+  t8dg_mortar        *mortar = *pmortar;
   sc_array_destroy ((*pmortar)->fluxvalue_plus);
   sc_array_destroy ((*pmortar)->fluxvalue_minus);
   sc_array_destroy ((*pmortar)->u_minus);
   sc_array_destroy ((*pmortar)->u_plus);
+  t8dg_functionbasis_unref (&mortar->functionbasis);
   T8DG_FREE (*pmortar);
   *pmortar = NULL;
 }
@@ -77,7 +81,7 @@ t8dg_mortar_calculate_face_orientation (const t8_forest_t forest, t8_locidx_t it
 }
 
 t8dg_mortar_t      *
-t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface, t8dg_quadrature_t * quadrature)
+t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, int iface, t8dg_functionbasis_t * element_functionbasis)
 {
   t8dg_mortar_t      *mortar = T8_ALLOC (t8dg_mortar_t, 1);
   t8_locidx_t         idata;
@@ -101,16 +105,18 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
   mortar->elem_idata_plus = elem_indices[0];    /*could be greater than number of local elements -> ghost */
   mortar->iface_minus = iface;
   mortar->iface_plus = neigh_ifaces[0]; /* get neighbouring face index */
-  mortar->number_face_quadrature_points = t8dg_quadrature_get_num_face_vertices (quadrature, iface);
+  mortar->functionbasis = t8dg_functionbasis_get_face_functionbasis (element_functionbasis, iface);
+  t8dg_functionbasis_ref (mortar->functionbasis);
+  mortar->number_face_dof = t8dg_functionbasis_get_num_dof (mortar->functionbasis);
 
-  mortar->eclass = t8dg_quadrature_get_face_eclass (quadrature, iface);
+  mortar->eclass = t8dg_functionbasis_get_eclass (mortar->functionbasis);
   mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);
 
   /* allocate memory for sc_arrays */
-  mortar->u_minus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
-  mortar->u_plus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
-  mortar->fluxvalue_plus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
-  mortar->fluxvalue_minus = sc_array_new_count (sizeof (double), mortar->number_face_quadrature_points);
+  mortar->u_minus = sc_array_new_count (sizeof (double), mortar->number_face_dof);
+  mortar->u_plus = sc_array_new_count (sizeof (double), mortar->number_face_dof);
+  mortar->fluxvalue_plus = sc_array_new_count (sizeof (double), mortar->number_face_dof);
+  mortar->fluxvalue_minus = sc_array_new_count (sizeof (double), mortar->number_face_dof);
   mortar->valid = 0;
 
   T8_FREE (neigh_elems);
@@ -146,10 +152,10 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
   sc_array_t         *elem_dof_values_minus;
   sc_array_t         *elem_dof_values_plus;
 
-  t8dg_quad_idx_t     iquad;
+  t8dg_quad_idx_t     idof;
   double              fluxvalue;
-  double              u_minus_quad;
-  double              u_plus_quad;
+  double              u_minus_val;
+  double              u_plus_val;
   double             *normal_vector;
   double              flux_vec[3];
   double              reference_vertex[3] = { 0, 0, 0 };
@@ -166,23 +172,28 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
   t8dg_mortar_sc_array_orient (mortar->u_plus, mortar->eclass, mortar->orientation);
 
   /*normal vector from element_minus to element_plus */
-  for (iquad = 0; iquad < mortar->number_face_quadrature_points; iquad++) {
-    normal_vector =
-      t8dg_local_precomputed_values_get_face_normal_vector (mortar_fill_data->local_values, mortar->elem_idata_minus, mortar->iface_minus,
-                                                            iquad);
+  for (idof = 0; idof < mortar->number_face_dof; idof++) {
+    if (t8dg_functionbasis_is_lagrange (mortar->functionbasis)) {
+      normal_vector =
+        t8dg_local_precomputed_values_get_face_normal_vector (mortar_fill_data->local_values, mortar->elem_idata_minus, mortar->iface_minus,
+                                                              idof);
 
-    t8dg_quadrature_get_face_vertex (t8dg_global_precomputed_values_get_quadrature (mortar_fill_data->global_values),
-                                     mortar->iface_minus, iquad, reference_vertex);
-    t8dg_geometry_transform_reference_vertex_to_image_vertex (mortar_fill_data->geometry_data, reference_vertex, image_vertex);
+      t8dg_functionbasis_get_lagrange_vertex (mortar->functionbasis, idof, reference_vertex);
 
-    t8dg_flux_calulate_flux (mortar_fill_data->flux, image_vertex, flux_vec, mortar_fill_data->time);
+      t8dg_geometry_transform_reference_vertex_to_image_vertex (mortar_fill_data->geometry_data, reference_vertex, image_vertex);
 
-    u_minus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_minus, iquad);
-    u_plus_quad = *(double *) t8dg_sc_array_index_quadidx (mortar->u_plus, iquad);
+      t8dg_flux_calulate_flux (mortar_fill_data->flux, image_vertex, flux_vec, mortar_fill_data->time);
 
-    fluxvalue = t8dg_flux_calculate_numerical_flux_value (mortar_fill_data->flux, u_minus_quad, u_plus_quad, flux_vec, normal_vector);
-    *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_minus, iquad) = fluxvalue;
-    *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_plus, iquad) = -fluxvalue;
+      u_minus_val = *(double *) t8dg_sc_array_index_quadidx (mortar->u_minus, idof);
+      u_plus_val = *(double *) t8dg_sc_array_index_quadidx (mortar->u_plus, idof);
+
+      fluxvalue = t8dg_flux_calculate_numerical_flux_value (mortar_fill_data->flux, u_minus_val, u_plus_val, flux_vec, normal_vector);
+      *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_minus, idof) = fluxvalue;
+      *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_plus, idof) = -fluxvalue;
+    }
+    else {
+      T8DG_ABORT ("Not yet implemented");
+    }
   }
   /*Orient fluxvalue_plus */
   t8dg_mortar_sc_array_orient (mortar->fluxvalue_plus, mortar->eclass, mortar->orientation);    /*TODO: different orientation for higher dimension */
@@ -257,7 +268,7 @@ t8dg_mortar_array_fill (t8dg_mortar_array_t * mortar_array, t8dg_mortar_fill_dat
         /*for all faces check wether mortar is already allocated/computed */
         if (mortar == NULL) {
           mortar = t8dg_mortar_new (mortar_array->forest, itree, ielement, iface,
-                                    t8dg_global_precomputed_values_get_quadrature (mortar_fill_data->global_values));
+                                    t8dg_global_precomputed_values_get_functionbasis (mortar_fill_data->global_values));
           t8dg_mortar_array_set_all_pointers (mortar_array, mortar);
         }
         if (!mortar->valid) {
