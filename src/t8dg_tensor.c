@@ -7,6 +7,30 @@
 
 #include "t8dg.h"
 #include <sc_containers.h>
+#include <t8_eclass.h>
+
+t8_eclass_t
+t8dg_tensor_eclass (t8_eclass_t eclass_tensor1, t8_eclass_t eclass_tensor2)
+{
+  if (eclass_tensor1 == T8_ECLASS_VERTEX) {
+    return eclass_tensor2;
+  }
+  if (eclass_tensor2 == T8_ECLASS_VERTEX) {
+    return eclass_tensor1;
+  }
+  if (eclass_tensor1 == T8_ECLASS_LINE && eclass_tensor2 == T8_ECLASS_LINE) {
+    return T8_ECLASS_QUAD;
+  }
+  if ((eclass_tensor1 == T8_ECLASS_LINE && eclass_tensor2 == T8_ECLASS_QUAD) ||
+      (eclass_tensor1 == T8_ECLASS_QUAD && eclass_tensor2 == T8_ECLASS_LINE)) {
+    return T8_ECLASS_HEX;
+  }
+  if ((eclass_tensor1 == T8_ECLASS_LINE && eclass_tensor2 == T8_ECLASS_TRIANGLE) ||
+      (eclass_tensor1 == T8_ECLASS_TRIANGLE && eclass_tensor2 == T8_ECLASS_LINE)) {
+    return T8_ECLASS_PRISM;
+  }
+  T8DG_ABORT ("Not possible in 3D");
+}
 
 void
 t8dg_tensor_array_extract_vector (sc_array_t * tensor_array, const int ivector, const int stride, sc_array_t * vector)

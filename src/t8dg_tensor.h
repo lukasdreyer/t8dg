@@ -15,8 +15,11 @@ void                t8dg_tensor_array_extract_vector (sc_array_t * tensor_array,
 
 void                t8dg_tensor_array_inject_vector (sc_array_t * vector, const int ivector, const int stride, sc_array_t * tensor_array);
 
+/*deprecated?*/
 int                 t8dg_tensor_mult_other_lengths (const int num_tensor, const int tensor_length[DIM3], const int itensor);
 
 void                t8dg_tensor_transform_tensoridx (const int idx, const int tensordims[DIM3], int itensor[DIM3]);     /*MACRO? */
+
+t8_eclass_t         t8dg_tensor_eclass (t8_eclass_t eclass_tensor1, t8_eclass_t eclass_tensor2);
 
 #endif /* SRC_T8DG_TENSOR_H_ */

@@ -10,20 +10,20 @@
 
 typedef enum t8dg_vertexset_type
 {
-  T8DG_VERT_LGL,
-  T8DG_VERT_GL,
-  T8DG_VERT_FACE
+  T8DG_VERT_LGL
 } t8dg_vertexset_type_t;
 
 typedef struct t8dg_vertexset t8dg_vertexset_t;
 
 t8dg_vertexset_type_t t8dg_vertexset_get_type (const t8dg_vertexset_t * vertexset);
 
-int                 t8dg_vertexset_get_dim (const t8dg_vertexset_t * vertexset);
+int                 t8dg_vertexset_get_eclass_dim (const t8dg_vertexset_t * vertexset);
 
 int                 t8dg_vertexset_get_num_vertices (const t8dg_vertexset_t * vertexset);
 
 t8_eclass_t         t8dg_vertexset_get_eclass (const t8dg_vertexset_t * vertexset);
+
+int                 t8dg_vertexset_get_embedded_dim (const t8dg_vertexset_t * vertexset);
 
 double              t8dg_vertexset_get_first_coordinate (const t8dg_vertexset_t * vertexset, const int ivertex);
 
@@ -32,7 +32,9 @@ void                t8dg_vertexset_fill_vertex3D (const t8dg_vertexset_t * verte
 
 t8dg_vertexset_t   *t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices);
 
-t8dg_vertexset_t   *t8dg_vertexset_new_childvertexset_1D (const t8dg_vertexset_t * vertexset, int ichild);
+t8dg_vertexset_t   *t8dg_vertexset_new_childvertexset (const t8dg_vertexset_t * vertexset, int ichild);
+
+t8dg_vertexset_t   *t8dg_vertexset_new_lgl_facevertexset (const t8dg_vertexset_t * vertexset, int iface);
 
 void                t8dg_vertexset_destroy (t8dg_vertexset_t ** pvertexset);
 

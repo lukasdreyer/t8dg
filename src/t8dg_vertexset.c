@@ -11,11 +11,13 @@ struct t8dg_vertexset
   t8dg_refcount_t     rc;
 
   t8dg_vertexset_type_t type;
-  t8_eclass_t         element_class;    /* TODO: replace dim and number_of_faces by element_class */
+  t8_eclass_t         element_class;
+
+  int                 embedded_dimensions;
+  int                 num_children;
 
   int                 number_of_vertices;       /**< Number of element vertices*/
   sc_array_t         *vertices; /**< size: dim * number_of_vertices, make access available via function and allocate only if not tensor? */
-
 };
 
 t8dg_vertexset_type_t
@@ -26,7 +28,14 @@ t8dg_vertexset_get_type (const t8dg_vertexset_t * vertexset)
 }
 
 int
-t8dg_vertexset_get_dim (const t8dg_vertexset_t * vertexset)
+t8dg_vertexset_get_embedded_dim (const t8dg_vertexset_t * vertexset)
+{
+  T8DG_ASSERT (vertexset != NULL);
+  return vertexset->embedded_dimensions;
+}
+
+int
+t8dg_vertexset_get_eclass_dim (const t8dg_vertexset_t * vertexset)
 {
   T8DG_ASSERT (vertexset != NULL);
   return t8_eclass_to_dimension[vertexset->element_class];
@@ -55,9 +64,11 @@ t8dg_vertexset_fill_vertex3D (const t8dg_vertexset_t * vertexset, const int iver
 
   T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (ivertex >= 0 && ivertex < vertexset->number_of_vertices);
+  T8DG_ASSERT (startdim >= 0);
+  T8DG_ASSERT (startdim + vertexset->embedded_dimensions <= 3);
 
   vertex = (double *) sc_array_index_int (vertexset->vertices, ivertex);
-  enddim = startdim + t8dg_vertexset_get_dim (vertexset);
+  enddim = startdim + vertexset->embedded_dimensions;
   for (idim = startdim; idim < enddim; idim++) {
     reference_vertex[idim] = vertex[idim - startdim];
   }
@@ -72,21 +83,23 @@ t8dg_vertexset_get_first_coordinate (const t8dg_vertexset_t * vertexset, const i
 t8dg_vertexset_t   *
 t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
 {
-  t8dg_vertexset_t   *vertices;
-  vertices = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
+  t8dg_vertexset_t   *vertexset;
+  vertexset = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
 
-  t8dg_refcount_init (&vertices->rc);
-  vertices->type = T8DG_VERT_LGL;
-  vertices->element_class = T8_ECLASS_LINE;
+  t8dg_refcount_init (&vertexset->rc);
+  vertexset->type = T8DG_VERT_LGL;
+  vertexset->element_class = T8_ECLASS_LINE;
+  vertexset->embedded_dimensions = 1;
+  vertexset->num_children = 2;
 
-  vertices->number_of_vertices = number_of_LGL_vertices;
-  vertices->vertices = sc_array_new_count (sizeof (double), vertices->number_of_vertices);
+  vertexset->number_of_vertices = number_of_LGL_vertices;
+  vertexset->vertices = sc_array_new_count (sizeof (double), vertexset->number_of_vertices);
 
   double             *vertex_array;
-  vertex_array = (double *) sc_array_index (vertices->vertices, 0);
+  vertex_array = (double *) sc_array_index (vertexset->vertices, 0);
 
   /*LGL vertices on [0,1] */
-  switch (vertices->number_of_vertices) {
+  switch (vertexset->number_of_vertices) {
   case (1):
     vertex_array[0] = .5;
     break;
@@ -134,14 +147,41 @@ t8dg_vertexset_new_1D_LGL (const int number_of_LGL_vertices)
     T8DG_ABORT ("Not yet implemented!");
   }
 
-  return vertices;
+  return vertexset;
 }
 
 t8dg_vertexset_t   *
-t8dg_vertexset_new_childvertexset_1D (const t8dg_vertexset_t * vertexset, int ichild)
+t8dg_vertexset_new_lgl_facevertexset (const t8dg_vertexset_t * vertexset, int iface)
 {
-  T8DG_ASSERT (t8dg_vertexset_get_dim (vertexset) == 1);
-  T8DG_ASSERT (ichild == 0 || ichild == 1);
+  T8DG_ASSERT (vertexset->type == T8DG_VERT_LGL);
+  t8dg_vertexset_t   *face_vertexset;
+  face_vertexset = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
+  face_vertexset->embedded_dimensions = vertexset->embedded_dimensions;
+  face_vertexset->type = T8DG_VERT_LGL;
+  t8dg_refcount_init (&face_vertexset->rc);
+  switch (vertexset->element_class) {
+  case T8_ECLASS_LINE:
+    face_vertexset->element_class = T8_ECLASS_VERTEX;
+    face_vertexset->num_children = 0;   /*or 1? */
+    face_vertexset->number_of_vertices = 1;
+    face_vertexset->vertices = sc_array_new_count (sizeof (double), 1);
+    *(double *) sc_array_index (face_vertexset->vertices, 0) =
+      *(double *) sc_array_index (vertexset->vertices, iface ? vertexset->number_of_vertices - 1 : 0);
+    break;
+  case T8_ECLASS_TRIANGLE:
+    T8DG_ABORT ("Not yet implemented!");
+    break;
+  default:
+    T8DG_ABORT ("Not yet implemented!");
+    break;
+  }
+  return face_vertexset;
+}
+
+t8dg_vertexset_t   *
+t8dg_vertexset_new_childvertexset (const t8dg_vertexset_t * vertexset, int ichild)
+{
+  T8DG_ASSERT (ichild >= 0 || ichild <= vertexset->num_children);
 
   int                 ivertex;
 
@@ -149,15 +189,28 @@ t8dg_vertexset_new_childvertexset_1D (const t8dg_vertexset_t * vertexset, int ic
   child_vertexset = T8DG_ALLOC_ZERO (t8dg_vertexset_t, 1);
 
   t8dg_refcount_init (&child_vertexset->rc);
-  child_vertexset->type = T8DG_VERT_LGL;
-  child_vertexset->element_class = T8_ECLASS_LINE;
-
+  child_vertexset->type = vertexset->type;
+  child_vertexset->element_class = vertexset->element_class;
   child_vertexset->number_of_vertices = t8dg_vertexset_get_num_vertices (vertexset);
+  child_vertexset->embedded_dimensions = vertexset->embedded_dimensions;
+  child_vertexset->num_children = vertexset->num_children;
+
   child_vertexset->vertices = sc_array_new_count (sizeof (double), child_vertexset->number_of_vertices);
 
-  for (ivertex = 0; ivertex < child_vertexset->number_of_vertices; ivertex++) {
-    *(double *) sc_array_index_int (child_vertexset->vertices, ivertex) =
-      ichild / 2.0 + t8dg_vertexset_get_first_coordinate (vertexset, ivertex) / 2.0;
+  switch (child_vertexset->element_class) {
+  case T8_ECLASS_LINE:
+    for (ivertex = 0; ivertex < child_vertexset->number_of_vertices; ivertex++) {
+      *(double *) sc_array_index_int (child_vertexset->vertices, ivertex) =
+        ichild / 2.0 + t8dg_vertexset_get_first_coordinate (vertexset, ivertex) / 2.0;
+    }
+    break;
+  case T8_ECLASS_TRIANGLE:
+    T8DG_ABORT ("Not yet implemented!");
+    break;
+
+  default:
+    T8DG_ABORT ("Not yet implemented!");
+    break;
   }
   return child_vertexset;
 }
