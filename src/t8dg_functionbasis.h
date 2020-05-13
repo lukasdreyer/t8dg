@@ -43,6 +43,17 @@ t8_eclass_t         t8dg_functionbasis_get_eclass (const t8dg_functionbasis_t * 
 
 t8dg_functionbasis_t *t8dg_functionbasis_get_face_functionbasis (t8dg_functionbasis_t * functionbasis, int iface);
 
+int                 t8dg_functionbasis_get_num_face_functionbasis (const t8dg_functionbasis_t * functionbasis);
+int                 t8dg_functionbasis_get_num_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface);
+void                t8dg_functionbasis_get_lagrange_face_vertex (const t8dg_functionbasis_t * functionbasis, const int iface,
+                                                                 const int idof, double vertex[3]);
+
+void                t8dg_functionbasis_transform_element_dof_to_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface,
+                                                                          sc_array_t * element_dof_array, sc_array_t * face_dof_array);
+
+void                t8dg_functionbasis_transform_face_dof_to_element_dof (const t8dg_functionbasis_t * functionbasis, const int iface,
+                                                                          sc_array_t * face_dof_array, sc_array_t * element_dof_array);
+
 void                t8dg_functionbasis_apply_derivative_matrix_transpose
   (const t8dg_functionbasis_t * functionbasis, int direction_idx, sc_array_t * derivative_dof_values, sc_array_t * dof_values);
 
@@ -50,27 +61,12 @@ void                t8dg_functionbasis_apply_derivative_matrix (const t8dg_funct
                                                                 int direction_idx,
                                                                 sc_array_t * dof_values, sc_array_t * derivative_dof_values);
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_functionbasis_apply_child_interpolation_matrix (const t8dg_functionbasis_t * functionbasis, const int ichild,
-                                                      const sc_array_t * element_dof, sc_array_t * child_dof);
+void                t8dg_functionbasis_apply_child_interpolation_matrix (const t8dg_functionbasis_t * functionbasis, const int ichild,
+                                                                         sc_array_t * element_dof, sc_array_t * child_dof);
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_functionbasis_apply_child_interpolation_matrix_transpose (const t8dg_functionbasis_t * functionbasis, const int ichild,
-                                                                const sc_array_t * child_dof, sc_array_t * element_dof);
+void                t8dg_functionbasis_apply_child_interpolation_matrix_transpose (const t8dg_functionbasis_t * functionbasis,
+                                                                                   const int ichild, sc_array_t * child_dof,
+                                                                                   sc_array_t * element_dof);
 
 t8dg_dmatrix_t     *t8dg_functionbasis_get_lagrange_child_interpolation_matrix (const t8dg_functionbasis_t * functionbasis,
                                                                                 const int ichild);

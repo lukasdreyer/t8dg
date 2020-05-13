@@ -3,44 +3,100 @@
 #include "t8dg_local_precomputed_values.h"
 #include "t8dg_precomputed_values.h"
 #include "t8dg_sc_array.h"
+#include "t8dg_mortar.h"
+
+void
+t8dg_precomputed_values_apply_element_boundary_integral (t8dg_global_precomputed_values_t * global_values,
+                                                         t8dg_local_precomputed_values_t * local_values, t8dg_mortar_array_t * mortar_array,
+                                                         t8_locidx_t idata, sc_array_t * element_result_dof)
+{
+  int                 iface, num_faces;
+
+  sc_array_t         *face_flux_dof;
+  sc_array_t         *face_dof;
+  sc_array_t         *summand;
+
+  num_faces = t8dg_global_precomputed_values_get_num_faces (global_values);
+  summand = t8dg_sc_array_duplicate (element_result_dof);
+  t8dg_sc_array_block_double_set_zero (element_result_dof);
+
+  for (iface = 0; iface < num_faces; iface++) {
+    face_flux_dof = t8dg_mortar_array_get_oriented_flux (mortar_array, idata, iface);
+    face_dof = t8dg_sc_array_duplicate (face_flux_dof);
+
+    t8dg_precomputed_values_apply_face_mass_matrix (global_values, local_values, idata, iface, face_flux_dof, face_dof);
+
+    t8dg_functionbasis_transform_face_dof_to_element_dof (t8dg_global_precomputed_values_get_functionbasis (global_values), iface, face_dof,
+                                                          summand);
+    t8dg_sc_array_block_double_axpy (1, summand, element_result_dof);
+    sc_array_destroy (face_dof);
+  }
+  sc_array_destroy (summand);
+}
+
+void
+t8dg_precomputed_values_apply_face_inverse_mass_matrix (const t8dg_global_precomputed_values_t * global_values,
+                                                        const t8dg_local_precomputed_values_t * local_values,
+                                                        const t8dg_locidx_t idata, const int iface, sc_array_t * dof_values,
+                                                        sc_array_t * result_dof_values)
+{
+  if (t8dg_global_precomputed_values_simplifies (global_values)) {
+    t8dg_local_precomputed_values_face_divide_trafo_quad_weight (local_values, idata, iface, dof_values, result_dof_values);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
+}
+
+void
+t8dg_precomputed_values_apply_face_mass_matrix (const t8dg_global_precomputed_values_t * global_values,
+                                                const t8dg_local_precomputed_values_t * local_values,
+                                                const t8dg_locidx_t idata, const int iface, sc_array_t * dof_values,
+                                                sc_array_t * result_dof_values)
+{
+  if (t8dg_global_precomputed_values_simplifies (global_values)) {
+    t8dg_local_precomputed_values_face_multiply_trafo_quad_weight (local_values, idata, iface, dof_values, result_dof_values);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
+}
 
 void
 t8dg_precomputed_values_apply_element_mass_matrix (const t8dg_global_precomputed_values_t * global_values,
                                                    const t8dg_local_precomputed_values_t * local_values,
-                                                   const t8dg_locidx_t idata, const sc_array_t * dof_values, sc_array_t * result_dof_values)
+                                                   const t8dg_locidx_t idata, sc_array_t * dof_values, sc_array_t * result_dof_values)
 {
-  sc_array_t         *quad_values;
-
-  quad_values = sc_array_new_count (sizeof (double), t8dg_global_precomputed_values_get_num_elem_quad (global_values));
-  t8dg_global_precomputed_values_transform_element_dof_to_element_quad (global_values, dof_values, quad_values);
-  t8dg_local_precomputed_values_element_multiply_trafo_quad_weight (local_values, quad_values, idata);
-  t8dg_global_precomputed_values_transform_element_quad_to_element_dof (global_values, quad_values, result_dof_values);
-  sc_array_destroy (quad_values);
+  if (t8dg_global_precomputed_values_simplifies (global_values)) {
+    t8dg_local_precomputed_values_element_multiply_trafo_quad_weight (local_values, idata, dof_values, result_dof_values);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
 }
 
 void
 t8dg_precomputed_values_apply_element_inverse_mass_matrix (const t8dg_global_precomputed_values_t * global_values,
                                                            const t8dg_local_precomputed_values_t * local_values,
-                                                           const t8dg_locidx_t idata, const sc_array_t * dof_values,
+                                                           const t8dg_locidx_t idata, sc_array_t * dof_values,
                                                            sc_array_t * result_dof_values)
 {
-  T8DG_CHECK_ABORT (t8dg_functionbasis_get_type (t8dg_global_precomputed_values_get_functionbasis (global_values)) == T8DG_FB_LAGRANGE_LGL
-                    && t8dg_quadrature_get_type (t8dg_global_precomputed_values_get_quadrature (global_values)) == T8DG_QUAD_LGL,
-                    "Not yet implemented");
-
-  T8DG_ASSERT (dof_values->elem_count == result_dof_values->elem_count);
-  T8DG_ASSERT (dof_values->elem_count == (size_t) t8dg_global_precomputed_values_get_num_dof (global_values));
-
-  t8dg_sc_array_copy (dof_values, result_dof_values);
-  t8dg_local_precomputed_values_element_divide_trafo_quad_weight (local_values, result_dof_values, idata);
+  if (t8dg_global_precomputed_values_simplifies (global_values)) {
+    t8dg_local_precomputed_values_element_divide_trafo_quad_weight (local_values, idata, dof_values, result_dof_values);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
 }
+
+/*TODO: Add face transform child dof to parent dof*/
 
 void
 t8dg_precomputed_values_transform_child_dof_to_parent_dof (const t8dg_global_precomputed_values_t * global_values,
-                                                           const sc_array_t * const child_dof[MAX_SUBELEMENTS],
+                                                           sc_array_t * child_dof[MAX_SUBELEMENTS],
                                                            sc_array_t * parent_dof, const int num_children,
-                                                           t8dg_local_precomputed_values_t * local_values_old,
-                                                           t8dg_local_precomputed_values_t * local_values_new,
+                                                           const t8dg_local_precomputed_values_t * local_values_old,
+                                                           const t8dg_local_precomputed_values_t * local_values_new,
                                                            t8_locidx_t idata_first_child, t8_locidx_t idata_parent)
 {
   sc_array_t         *summand;

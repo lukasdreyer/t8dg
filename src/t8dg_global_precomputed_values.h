@@ -13,21 +13,15 @@
 
 typedef struct t8dg_global_precomputed_values t8dg_global_precomputed_values_t;
 
+int                 t8dg_global_precomputed_values_simplifies (const t8dg_global_precomputed_values_t * global_values);
+
+int                 t8dg_global_precomputed_values_get_max_num_facevalues (const t8dg_global_precomputed_values_t * global_values);
+
 t8dg_global_precomputed_values_t *t8dg_global_precomputed_values_new_1D_LGL (const int number_of_LGL_vertices);
 
 t8dg_global_precomputed_values_t *t8dg_global_precomputed_values_new_hypercube_LGL (const int dim, const int number_of_1D_LGL_vertices);
 
 void                t8dg_global_precomputed_values_destroy (t8dg_global_precomputed_values_t ** pvalues);
-
-void                t8dg_global_precomputed_values_transform_element_dof_to_face_quad (const t8dg_global_precomputed_values_t * values,
-                                                                                       const int iface,
-                                                                                       const sc_array_t * element_dof_array,
-                                                                                       sc_array_t * face_quad_array);
-
-void                t8dg_global_precomputed_values_transform_face_quad_to_element_dof (t8dg_global_precomputed_values_t * values,
-                                                                                       const int iface,
-                                                                                       const sc_array_t * face_quad_array,
-                                                                                       sc_array_t * element_dof_array);
 
 void                t8dg_global_precomputed_values_transform_element_dof_to_element_quad (const t8dg_global_precomputed_values_t * values,
                                                                                           const sc_array_t * element_dof_array,
@@ -41,7 +35,7 @@ void                t8dg_global_precomputed_values_element_apply_derivative_matr
   (const t8dg_global_precomputed_values_t * global_values, int idim, sc_array_t * derivative_dof_values, sc_array_t * dof_values);
 
 void                t8dg_global_precomputed_values_transform_element_dof_to_child_dof (const t8dg_global_precomputed_values_t *
-                                                                                       global_values, const sc_array_t * element_dof,
+                                                                                       global_values, sc_array_t * element_dof,
                                                                                        sc_array_t * child_dof, const int ichild);
 
 void                t8dg_global_precomputed_values_transform_child_dof_to_parent_dof (const t8dg_global_precomputed_values_t *
@@ -53,7 +47,7 @@ int                 t8dg_global_precomputed_values_get_num_dof (const t8dg_globa
 
 int                 t8dg_global_precomputed_values_get_num_faces (const t8dg_global_precomputed_values_t * values);
 
-t8dg_quad_idx_t     t8dg_global_precomputed_values_get_num_elem_quad (const t8dg_global_precomputed_values_t * values);
+int                 t8dg_global_precomputed_values_get_num_elem_quad (const t8dg_global_precomputed_values_t * values);
 
 t8dg_functionbasis_t *t8dg_global_precomputed_values_get_functionbasis (const t8dg_global_precomputed_values_t * values);
 

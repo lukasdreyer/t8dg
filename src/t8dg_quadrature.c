@@ -12,41 +12,25 @@ struct t8dg_quadrature
   t8dg_refcount_t     rc;
   t8_eclass_t         element_class;
   t8dg_quadrature_type_t type;
+  int                 embedded_dimension;
 
-  sc_array_t         *face_weights[MAX_FACES];
-  t8dg_quad_idx_t     num_face_vertices[MAX_FACES];
+  t8dg_quadrature_t **face_quadrature;
+  int                 num_face_quads;
 
   /*Those are only allocated for line, tri and tet and pyramid */
   t8dg_vertexset_t   *vertexset;                       /**< quadrature vertices, for LGL also gives lookup table for face vertices*/
   sc_array_t         *weights;                          /**< quadrature weights*/
-//  t8dg_face_quadrature_t *face_quadrature[MAX_FACES];
 
   /*Otherwise, the element is in tensorform */
-  int                 num_tensor;
-  t8dg_quadrature_t  *tensor_quad[DIM3];
-  int                 tensor_num_vertices[DIM3];
-
-  /* Information for Lookuptable LGL element->face, only filled for LGL */
-  int                 beginning_index[MAX_FACES];
-  int                 stride[3];
+  int                 tensor;
+  t8dg_quadrature_t  *tensor_first_quad;
+  t8dg_quadrature_t  *tensor_second_quad;
 };
 
-#if 0
-struct t8dg_face_quadrature
+static void
+t8dg_quadrature_fill_0D_weights (t8dg_quadrature_t * quadrature)
 {
-  sc_array_t         *ifacequad_to_ielemquad;
-  t8dg_vertexset_t   *vertexset;
-  sc_array_t         *weights;
-};
-#endif
-
-void               *
-t8dg_sc_array_index_quadidx (const sc_array_t * array, t8dg_quad_idx_t iz)
-{
-  T8DG_ASSERT (array != NULL);
-  T8DG_ASSERT (iz >= 0 && iz < (t8dg_quad_idx_t) array->elem_count);
-
-  return (void *) (array->array + (array->elem_size * iz));
+  *(double *) sc_array_index (quadrature->weights, 0) = 1;
 }
 
 static void
@@ -55,7 +39,7 @@ t8dg_quadrature_fill_LGL_1D_weights (t8dg_quadrature_t * quadrature)
   T8DG_ASSERT (t8dg_vertexset_get_eclass (quadrature->vertexset) == T8_ECLASS_LINE);
   T8DG_ASSERT (t8dg_vertexset_get_type (quadrature->vertexset) == T8DG_VERT_LGL);
   double             *weights;
-  weights = (double *) t8_sc_array_index_locidx (quadrature->weights, 0);
+  weights = (double *) sc_array_index (quadrature->weights, 0);
 
   /* sum of element weights = 1 = Vol([0,1]) */
   switch (t8dg_vertexset_get_num_vertices (quadrature->vertexset)) {
@@ -107,11 +91,10 @@ t8dg_quadrature_fill_LGL_1D_weights (t8dg_quadrature_t * quadrature)
 }
 
 t8dg_quadrature_t  *
-t8dg_quadrature_new_vertexset (t8dg_vertexset_t * vertexset)
+t8dg_quadrature_new_vertexset (t8dg_vertexset_t * vertexset, int create_face_quadrature)
 {
   T8DG_ASSERT (vertexset != NULL);
   T8DG_ASSERT (t8dg_vertexset_get_type (vertexset) == T8DG_VERT_LGL);
-  int                 iface;
 
   t8dg_quadrature_t  *quadrature = T8DG_ALLOC_ZERO (t8dg_quadrature_t, 1);
 
@@ -119,198 +102,141 @@ t8dg_quadrature_new_vertexset (t8dg_vertexset_t * vertexset)
 
   quadrature->vertexset = vertexset;
   t8dg_vertexset_ref (vertexset);
+  quadrature->embedded_dimension = t8dg_vertexset_get_embedded_dim (vertexset);
 
   quadrature->element_class = t8dg_vertexset_get_eclass (vertexset);
-  quadrature->num_tensor = 1;
+  quadrature->tensor = 0;
 
   quadrature->weights = sc_array_new_count (sizeof (double), t8dg_vertexset_get_num_vertices (vertexset));
-  switch (t8dg_vertexset_get_type (vertexset)) {
-  case T8DG_VERT_LGL:
+
+  switch (quadrature->element_class) {
+  case T8_ECLASS_VERTEX:
+    t8dg_quadrature_fill_0D_weights (quadrature);
+    break;
+  case T8_ECLASS_LINE:
     t8dg_quadrature_fill_LGL_1D_weights (quadrature);
-    quadrature->beginning_index[0] = 0;
-    quadrature->beginning_index[1] = t8dg_vertexset_get_num_vertices (vertexset) - 1;
+    break;
+  case T8_ECLASS_TRIANGLE:
+    T8DG_ABORT ("Not yet implemented");
+//    t8dg_quadrature_fill_LGL_triangle_weights(quadrature);
     break;
   default:
     T8DG_ABORT ("Not yet implemented");
+    break;
   }
 
-  for (iface = 0; iface < t8_eclass_num_faces[quadrature->element_class]; iface++) {
-    switch (quadrature->element_class) {
-    case T8_ECLASS_LINE:
-      quadrature->face_weights[iface] = sc_array_new_count (sizeof (double), 1);
-      *(double *) sc_array_index (quadrature->face_weights[iface], 0) = 1;
-      quadrature->num_face_vertices[iface] = 1;
-      break;
-    default:
+  /*TODO: triangle */
+  if (create_face_quadrature) {
+    quadrature->num_face_quads = 2;
+    quadrature->face_quadrature = T8DG_ALLOC (t8dg_quadrature_t *, quadrature->num_face_quads);
+    if (t8dg_vertexset_get_type (vertexset) == T8DG_VERT_LGL) {
+      t8dg_vertexset_t   *left_face_vertexset;
+      t8dg_vertexset_t   *right_face_vertexset;
+      left_face_vertexset = t8dg_vertexset_new_lgl_facevertexset (vertexset, 0);
+      right_face_vertexset = t8dg_vertexset_new_lgl_facevertexset (vertexset, 1);
+      quadrature->face_quadrature[0] = t8dg_quadrature_new_vertexset (left_face_vertexset, 0);
+      quadrature->face_quadrature[1] = t8dg_quadrature_new_vertexset (right_face_vertexset, 0);
+      t8dg_vertexset_unref (&left_face_vertexset);
+      t8dg_vertexset_unref (&right_face_vertexset);
+    }
+    else {
       T8DG_ABORT ("Not yet implemented");
     }
   }
-  /* TODO: Facequadrature if not LGL */
-
+  else {
+    quadrature->num_face_quads = 0;
+    quadrature->face_quadrature = NULL;
+  }
   return quadrature;
 }
 
-static void
-t8dg_quadrature_face_get_other_directions (const t8dg_quadrature_t * quadrature, const int iface, int *ifirst_dir, int *isecond_dir)
-{
-  switch (iface / 2) {
-  case 0:
-    *ifirst_dir = 1;
-    *isecond_dir = 2;
-    break;
-  case 1:
-    *ifirst_dir = 0;
-    *isecond_dir = 2;
-    break;
-  case 2:
-    *ifirst_dir = 0;
-    *isecond_dir = 1;
-    break;
-  default:
-    T8DG_ABORT ("Facenumber too big");
-  }
-
-}
-
-static void
-t8dg_quadrature_new_lgl_tensor_facequad_weights (t8dg_quadrature_t * quadrature)
-{
-   /*ASSERTS*/ int    iface, ifirst, isecond;
-  t8dg_quad_idx_t     ifacequad, iquad_first, iquad_second;
-  switch (quadrature->num_tensor) {
-  case 2:
-    for (iface = 0; iface < t8dg_quadrature_get_num_faces (quadrature); iface++) {
-      t8dg_quadrature_face_get_other_directions (quadrature, iface, &ifirst, &isecond);
-      quadrature->num_face_vertices[iface] = quadrature->tensor_num_vertices[ifirst];
-      quadrature->face_weights[iface] = sc_array_new_count (sizeof (double), quadrature->num_face_vertices[iface]);
-      for (ifacequad = 0; ifacequad < quadrature->num_face_vertices[iface]; ifacequad++) {
-        *(double *) t8dg_sc_array_index_quadidx (quadrature->face_weights[iface], ifacequad) =
-          *(double *) t8dg_sc_array_index_quadidx (quadrature->tensor_quad[ifirst]->weights, ifacequad);
-      }
-    }
-    break;
-  case 3:
-    for (iface = 0; iface < t8dg_quadrature_get_num_faces (quadrature); iface++) {
-      t8dg_quadrature_face_get_other_directions (quadrature, iface, &ifirst, &isecond);
-      quadrature->num_face_vertices[iface] = quadrature->tensor_num_vertices[ifirst] * quadrature->tensor_num_vertices[isecond];
-      quadrature->face_weights[iface] = sc_array_new_count (sizeof (double), quadrature->num_face_vertices[iface]);
-      for (ifacequad = 0; ifacequad < quadrature->num_face_vertices[iface]; ifacequad++) {
-        iquad_first = ifacequad % quadrature->tensor_num_vertices[ifirst];
-        iquad_second = ifacequad / quadrature->tensor_num_vertices[ifirst];
-        *(double *) t8dg_sc_array_index_quadidx (quadrature->face_weights[iface], ifacequad) =
-          *(double *) t8dg_sc_array_index_quadidx (quadrature->tensor_quad[ifirst]->weights, iquad_first) *
-          *(double *) t8dg_sc_array_index_quadidx (quadrature->tensor_quad[isecond]->weights, iquad_second);
-      }
-    }
-    break;
-  default:
-    break;
-  }
-}
-
 t8dg_quadrature_t  *
-t8dg_quadrature_new_tensor (int num_tensor, t8dg_quadrature_t * quad_tensors[3])
+t8dg_quadrature_new_tensor (t8dg_quadrature_t * tensor_first_quad, t8dg_quadrature_t * tensor_second_quad, int create_face_quadrature)
 {
-  T8DG_ASSERT (num_tensor > 1);
-  int                 itensor;
   t8dg_quadrature_t  *quadrature = T8DG_ALLOC_ZERO (t8dg_quadrature_t, 1);
   t8dg_refcount_init (&quadrature->rc);
-  if (num_tensor == 2) {
-    quadrature->element_class = T8_ECLASS_QUAD;
-    //could also be prism
+
+  quadrature->element_class = t8dg_tensor_eclass (tensor_first_quad->element_class, tensor_second_quad->element_class);
+  quadrature->tensor = 1;
+
+  if (tensor_first_quad->type == T8DG_QUAD_LGL && tensor_second_quad->type == T8DG_QUAD_LGL) {
+    quadrature->type = T8DG_QUAD_LGL;
   }
   else {
-    quadrature->element_class = T8_ECLASS_HEX;
+    T8DG_ABORT ("Not yet implemented");
   }
-  quadrature->num_tensor = num_tensor;
-  quadrature->type = quad_tensors[0]->type;
-  for (itensor = 0; itensor < num_tensor; itensor++) {
-    quadrature->tensor_num_vertices[itensor] = t8dg_quadrature_get_num_element_vertices (quad_tensors[itensor]);
-    quadrature->tensor_quad[itensor] = quad_tensors[itensor];
-    t8dg_quadrature_ref (quad_tensors[itensor]);
-    if (quadrature->type != quad_tensors[itensor]->type) {
-      quadrature->type = T8_QUAD_UNKNOWN;
+
+  quadrature->tensor_first_quad = tensor_first_quad;
+  quadrature->tensor_second_quad = tensor_second_quad;
+  t8dg_quadrature_ref (tensor_first_quad);
+  t8dg_quadrature_ref (tensor_second_quad);
+  quadrature->embedded_dimension = tensor_first_quad->embedded_dimension + tensor_second_quad->embedded_dimension;
+
+  if (create_face_quadrature) {
+    int                 iface;
+    T8DG_ASSERT (tensor_first_quad->num_face_quads > 0 && tensor_second_quad->num_face_quads > 0);
+    quadrature->num_face_quads = tensor_first_quad->num_face_quads + tensor_second_quad->num_face_quads;
+    quadrature->face_quadrature = T8DG_ALLOC (t8dg_quadrature_t *, quadrature->num_face_quads);
+    for (iface = 0; iface < tensor_first_quad->num_face_quads; iface++) {
+      quadrature->face_quadrature[iface] = t8dg_quadrature_new_tensor (tensor_first_quad->face_quadrature[iface], tensor_second_quad, 0);
+    }
+    for (iface = 0; iface < tensor_second_quad->num_face_quads; iface++) {
+      quadrature->face_quadrature[iface + tensor_first_quad->num_face_quads] =
+        t8dg_quadrature_new_tensor (tensor_first_quad, tensor_second_quad->face_quadrature[iface], 0);
     }
   }
-  if (quadrature->type == T8DG_QUAD_LGL) {
-    int                 stride = 1;
-    for (itensor = 0; itensor < num_tensor; itensor++) {
-      quadrature->beginning_index[2 * itensor] = 0;
-      quadrature->beginning_index[2 * itensor + 1] = stride * (quadrature->tensor_num_vertices[itensor] - 1);
-      quadrature->stride[itensor] = stride;
-      stride *= quadrature->tensor_num_vertices[itensor];
-    }
-    t8dg_quadrature_new_lgl_tensor_facequad_weights (quadrature);
+  else {
+    quadrature->num_face_quads = 0;
+    quadrature->face_quadrature = NULL;
   }
+
   return quadrature;
 }
 
 t8dg_quadrature_t  *
-t8dg_quadrature_new_hypercube (int dim, t8dg_vertexset_t * vertexset1D)
+t8dg_quadrature_new_hypercube (int dim, t8dg_vertexset_t * vertexset1D, int create_face_quadrature)
 {
   T8DG_ASSERT (vertexset1D != NULL);
   T8DG_ASSERT (t8dg_vertexset_get_eclass (vertexset1D) == T8_ECLASS_LINE);
 
   t8dg_quadrature_t  *quadrature1D;
-  quadrature1D = t8dg_quadrature_new_vertexset (vertexset1D);
-  if (dim == 1)
+  quadrature1D = t8dg_quadrature_new_vertexset (vertexset1D, create_face_quadrature);
+  if (dim == 1) {
     return quadrature1D;
-
-  t8dg_quadrature_t  *quadrature_hypercube;
-  t8dg_quadrature_t  *quad_tensors[3] = { NULL, NULL, NULL };
-  int                 itensor;
-  for (itensor = 0; itensor < dim; itensor++) {
-    quad_tensors[itensor] = quadrature1D;
+  }
+  t8dg_quadrature_t  *quadrature2D;
+  quadrature2D = t8dg_quadrature_new_tensor (quadrature1D, quadrature1D, create_face_quadrature);
+  if (dim == 2) {
+    t8dg_quadrature_unref (&quadrature1D);
+    return quadrature2D;
   }
 
-  quadrature_hypercube = t8dg_quadrature_new_tensor (dim, quad_tensors);
+  t8dg_quadrature_t  *quadrature3D;
+  quadrature3D = t8dg_quadrature_new_tensor (quadrature2D, quadrature1D, create_face_quadrature);
+
+  t8dg_quadrature_unref (&quadrature2D);
   t8dg_quadrature_unref (&quadrature1D);
 
-  return quadrature_hypercube;
-}
-
-t8dg_quad_idx_t
-t8dg_quadrature_lgl_facequadix_lookup (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad)
-{
-  int                 ifirst, isecond;
-  t8dg_quadrature_face_get_other_directions (quadrature, iface, &ifirst, &isecond);
-
-  switch (quadrature->num_tensor) {
-  case 1:
-    return quadrature->beginning_index[iface];
-  case 2:
-    return quadrature->beginning_index[iface] + quadrature->stride[ifirst] * (ifacequad % quadrature->tensor_num_vertices[ifirst]);
-  case 3:
-    return quadrature->beginning_index[iface] + quadrature->stride[ifirst] * (ifacequad % quadrature->tensor_num_vertices[ifirst])
-      + quadrature->stride[isecond] * (ifacequad / quadrature->tensor_num_vertices[ifirst]);
-  default:
-    T8DG_ABORT ("Not supported");
-  }
+  return quadrature3D;
 }
 
 int
-t8dg_quadrature_get_num_faces (const t8dg_quadrature_t * quadrature)
+t8dg_quadrature_get_num_face_quadrature (const t8dg_quadrature_t * quadrature)
 {
   T8DG_ASSERT (quadrature != NULL);
-  return t8_eclass_num_faces[quadrature->element_class];
+  return quadrature->num_face_quads;
 }
 
-t8dg_quad_idx_t
+int
 t8dg_quadrature_get_num_element_vertices (const t8dg_quadrature_t * quadrature)
 {
-  int                 itensor;
-  int                 num_vertices;
   T8DG_ASSERT (quadrature != NULL);
-  if (quadrature->num_tensor == 1) {
-    return t8dg_vertexset_get_num_vertices (quadrature->vertexset);
+
+  if (quadrature->tensor) {
+    return t8dg_quadrature_get_num_element_vertices (quadrature->tensor_first_quad) *
+      t8dg_quadrature_get_num_element_vertices (quadrature->tensor_second_quad);
   }
-  else {
-    num_vertices = 1;
-    for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
-      num_vertices *= t8dg_quadrature_get_num_element_vertices (quadrature->tensor_quad[itensor]);
-    }
-    return num_vertices;
-  }
+  return t8dg_vertexset_get_num_vertices (quadrature->vertexset);
 }
 
 int
@@ -320,74 +246,69 @@ t8dg_quadrature_get_dim (const t8dg_quadrature_t * quadrature)
   return t8_eclass_to_dimension[quadrature->element_class];
 }
 
-void
-t8dg_quadrature_get_element_vertex (const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad, double vertex[3])
+static void
+t8dg_quadrature_fill_element_vertex (const t8dg_quadrature_t * quadrature, const int iquad, const int startdim, double vertex[3])
 {
-  vertex[0] = 0;
-  vertex[1] = 0;
-  vertex[2] = 0;
-  T8DG_ASSERT (quadrature != NULL);
-  int                 itensor;
-  int                 iquadtensor[DIM3];
-  int                 startdim = 0;
-  if (quadrature->num_tensor == 1) {
-    t8dg_vertexset_fill_vertex3D (quadrature->vertexset, iquad, 0, vertex);
+  T8DG_ASSERT (iquad >= 0 && iquad < t8dg_quadrature_get_num_element_vertices (quadrature));
+  if (quadrature->tensor) {
+    t8dg_quadrature_fill_element_vertex (quadrature->tensor_first_quad,
+                                         iquad % t8dg_quadrature_get_num_element_vertices (quadrature->tensor_first_quad), startdim,
+                                         vertex);
+    t8dg_quadrature_fill_element_vertex (quadrature->tensor_second_quad,
+                                         iquad / t8dg_quadrature_get_num_element_vertices (quadrature->tensor_first_quad),
+                                         startdim + quadrature->tensor_first_quad->embedded_dimension, vertex);
   }
   else {
-    t8dg_tensor_transform_tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
-    for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
-      t8dg_vertexset_fill_vertex3D (quadrature->tensor_quad[itensor]->vertexset, iquadtensor[itensor], startdim, vertex);
-      startdim += t8dg_quadrature_get_dim (quadrature->tensor_quad[itensor]);
-    }
+    t8dg_vertexset_fill_vertex3D (quadrature->vertexset, iquad, startdim, vertex);
   }
+}
+
+void
+t8dg_quadrature_get_element_vertex (const t8dg_quadrature_t * quadrature, const int iquad, double vertex[3])
+{
+  T8DG_ASSERT (iquad >= 0 && iquad < t8dg_quadrature_get_num_element_vertices (quadrature));
+  int                 startdim = 0;
+
+  vertex[0] = vertex[1] = vertex[2] = 0;
+
+  t8dg_quadrature_fill_element_vertex (quadrature, iquad, startdim, vertex);
 }
 
 double
-t8dg_quadrature_get_element_weight (const t8dg_quadrature_t * quadrature, const t8dg_quad_idx_t iquad)
+t8dg_quadrature_get_element_weight (const t8dg_quadrature_t * quadrature, const int iquad)
 {
-  double              weight = 1;
-  int                 itensor;
-  int                 iquadtensor[3];
-
   T8DG_ASSERT (quadrature != NULL);
-  if (quadrature->num_tensor == 1) {
-    weight = *(double *) t8dg_sc_array_index_quadidx (quadrature->weights, iquad);
+
+  if (quadrature->tensor) {
+    return t8dg_quadrature_get_element_weight (quadrature->tensor_first_quad,
+                                               iquad % t8dg_quadrature_get_num_element_vertices (quadrature->tensor_first_quad)) *
+      t8dg_quadrature_get_element_weight (quadrature->tensor_second_quad,
+                                          iquad / t8dg_quadrature_get_num_element_vertices (quadrature->tensor_first_quad));
   }
-  else {
-    t8dg_tensor_transform_tensoridx (iquad, quadrature->tensor_num_vertices, iquadtensor);
-    for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
-      weight *= t8dg_quadrature_get_element_weight (quadrature->tensor_quad[itensor], iquadtensor[itensor]);
-    }
-  }
-  return weight;
+  return *(double *) sc_array_index_int (quadrature->weights, iquad);
 }
 
-t8_eclass_t
-t8dg_quadrature_get_face_eclass (const t8dg_quadrature_t * quadrature, const int iface)
-{
-  return (t8_eclass_t) t8_eclass_face_types[quadrature->element_class][iface];
-}
-
-t8dg_quad_idx_t
+int
 t8dg_quadrature_get_num_face_vertices (const t8dg_quadrature_t * quadrature, const int iface)
 {
-  return quadrature->num_face_vertices[iface];
+  T8DG_ASSERT (quadrature != NULL);
+  T8DG_ASSERT (iface >= 0 && iface < quadrature->num_face_quads);
+  return t8dg_quadrature_get_num_element_vertices (quadrature->face_quadrature[iface]);
 }
 
 void
-t8dg_quadrature_get_face_vertex (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad, double vertex[3])
+t8dg_quadrature_get_face_vertex (const t8dg_quadrature_t * quadrature, const int iface, const int ifacequad, double vertex[3])
 {
   T8DG_ASSERT (quadrature != NULL);
-  T8DG_CHECK_ABORT (t8dg_quadrature_get_type (quadrature) == T8DG_QUAD_LGL, "Not yet implemented");
-  t8dg_quad_idx_t     iquad;
-  iquad = t8dg_quadrature_lgl_facequadix_lookup (quadrature, iface, ifacequad);
-  t8dg_quadrature_get_element_vertex (quadrature, iquad, vertex);
+  T8DG_ASSERT (iface >= 0 && iface < quadrature->num_face_quads);
+  t8dg_quadrature_get_element_vertex (quadrature->face_quadrature[iface], ifacequad, vertex);
 }
 
 double
-t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * quadrature, const int iface, const t8dg_quad_idx_t ifacequad)
+t8dg_quadrature_get_face_weight (const t8dg_quadrature_t * quadrature, const int iface, const int ifacequad)
 {
-  return *(double *) t8dg_sc_array_index_quadidx (quadrature->face_weights[iface], ifacequad);
+  T8DG_ASSERT (iface >= 0 && iface < quadrature->num_face_quads);
+  return t8dg_quadrature_get_element_weight (quadrature->face_quadrature[iface], ifacequad);
 }
 
 t8dg_quadrature_type_t
@@ -405,7 +326,7 @@ t8dg_quadrature_get_eclass (const t8dg_quadrature_t * quadrature)
 double
 t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn, void *integrand_data)
 {
-  t8dg_quad_idx_t     num_elem_quad, iquad;
+  int                 num_elem_quad, iquad;
   double              integral = 0;
   double              vertex[3];
   num_elem_quad = t8dg_quadrature_get_num_element_vertices (quadrature);
@@ -456,25 +377,25 @@ t8dg_quadrature_destroy (t8dg_quadrature_t ** pquadrature)
 void
 t8dg_quadrature_reset (t8dg_quadrature_t ** pquadrature)
 {
-  int                 itensor, iface;
+  int                 iface;
   T8DG_ASSERT (pquadrature != NULL);
   t8dg_quadrature_t  *quadrature = *pquadrature;
   T8DG_ASSERT (quadrature != NULL);
 
-  for (iface = 0; iface < t8dg_quadrature_get_num_faces (quadrature); iface++) {
-    sc_array_destroy (quadrature->face_weights[iface]);
+  for (iface = 0; iface < quadrature->num_face_quads; iface++) {
+    t8dg_quadrature_destroy (&quadrature->face_quadrature[iface]);
+  }
+  if (quadrature->num_face_quads > 0) {
+    T8DG_FREE (quadrature->face_quadrature);
   }
 
-  if (quadrature->num_tensor == 1) {
-    sc_array_destroy (quadrature->weights);
-    quadrature->weights = NULL;
-    t8dg_vertexset_unref (&quadrature->vertexset);
-    quadrature->vertexset = NULL;
+  if (quadrature->tensor) {
+    t8dg_quadrature_unref (&quadrature->tensor_first_quad);
+    t8dg_quadrature_unref (&quadrature->tensor_second_quad);
   }
   else {
-    for (itensor = 0; itensor < quadrature->num_tensor; itensor++) {
-      t8dg_quadrature_unref (quadrature->tensor_quad + itensor);
-    }
+    sc_array_destroy (quadrature->weights);
+    t8dg_vertexset_unref (&quadrature->vertexset);
   }
 
   T8_FREE (quadrature);

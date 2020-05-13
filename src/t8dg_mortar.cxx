@@ -152,7 +152,7 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
   sc_array_t         *elem_dof_values_minus;
   sc_array_t         *elem_dof_values_plus;
 
-  t8dg_quad_idx_t     idof;
+  int                 idof;
   double              fluxvalue;
   double              u_minus_val;
   double              u_plus_val;
@@ -164,10 +164,13 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
   elem_dof_values_minus = t8dg_sc_array_block_double_new_view (mortar_fill_data->dof_values, mortar->elem_idata_minus);
   elem_dof_values_plus = t8dg_sc_array_block_double_new_view (mortar_fill_data->dof_values, mortar->elem_idata_plus);
 
-  t8dg_global_precomputed_values_transform_element_dof_to_face_quad (mortar_fill_data->global_values, mortar->iface_minus,
-                                                                     elem_dof_values_minus, mortar->u_minus);
-  t8dg_global_precomputed_values_transform_element_dof_to_face_quad (mortar_fill_data->global_values, mortar->iface_plus,
-                                                                     elem_dof_values_plus, mortar->u_plus);
+  /*TODO: for hybrid meshes, functionbasis can differ, multiple global_values needed */
+  t8dg_functionbasis_t *functionbasis = t8dg_global_precomputed_values_get_functionbasis (mortar_fill_data->global_values);
+
+  t8dg_functionbasis_transform_element_dof_to_face_dof (functionbasis, mortar->iface_minus, elem_dof_values_minus, mortar->u_minus);
+
+  t8dg_functionbasis_transform_element_dof_to_face_dof (functionbasis, mortar->iface_plus, elem_dof_values_plus, mortar->u_plus);
+
   /*Orient u_plus */
   t8dg_mortar_sc_array_orient (mortar->u_plus, mortar->eclass, mortar->orientation);
 
@@ -184,12 +187,12 @@ t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_
 
       t8dg_flux_calulate_flux (mortar_fill_data->flux, image_vertex, flux_vec, mortar_fill_data->time);
 
-      u_minus_val = *(double *) t8dg_sc_array_index_quadidx (mortar->u_minus, idof);
-      u_plus_val = *(double *) t8dg_sc_array_index_quadidx (mortar->u_plus, idof);
+      u_minus_val = *(double *) sc_array_index_int (mortar->u_minus, idof);
+      u_plus_val = *(double *) sc_array_index_int (mortar->u_plus, idof);
 
       fluxvalue = t8dg_flux_calculate_numerical_flux_value (mortar_fill_data->flux, u_minus_val, u_plus_val, flux_vec, normal_vector);
-      *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_minus, idof) = fluxvalue;
-      *(double *) t8dg_sc_array_index_quadidx (mortar->fluxvalue_plus, idof) = -fluxvalue;
+      *(double *) sc_array_index_int (mortar->fluxvalue_minus, idof) = fluxvalue;
+      *(double *) sc_array_index_int (mortar->fluxvalue_plus, idof) = -fluxvalue;
     }
     else {
       T8DG_ABORT ("Not yet implemented");

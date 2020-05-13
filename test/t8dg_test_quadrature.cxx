@@ -35,7 +35,7 @@ TEST (quadrature1D, integrate_const_one)
   for (num_LGL = 1; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
-    quadrature = t8dg_quadrature_new_vertexset (vertexset);
+    quadrature = t8dg_quadrature_new_vertexset (vertexset, 0);
     EXPECT_EQ (t8dg_quadrature_get_num_element_vertices (quadrature), num_LGL);
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature, const_one, NULL), 1, 1e-10);
     t8dg_quadrature_destroy (&quadrature);
@@ -50,7 +50,7 @@ TEST (quadrature1D, integrate_max_order)
   t8dg_vertexset_t   *vertexset;
   for (num_LGL = 2; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
-    quadrature = t8dg_quadrature_new_vertexset (vertexset);
+    quadrature = t8dg_quadrature_new_vertexset (vertexset, 0);
     power = 2 * num_LGL - 3;
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature, x_pow, &power), 1.0 / (power + 1), 1e-10);
     t8dg_quadrature_destroy (&quadrature);
@@ -66,7 +66,7 @@ TEST (quadrature2D, integrate_const_one)
   for (num_LGL = 1; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
-    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset);
+    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset, 0);
     EXPECT_EQ (t8dg_quadrature_get_num_element_vertices (quadrature_square), num_LGL * num_LGL);
     EXPECT_NEAR (t8dg_quadrature_integrate_reference_element (quadrature_square, const_one, NULL), 1, 1e-10);
     t8dg_quadrature_destroy (&quadrature_square);
@@ -84,7 +84,7 @@ TEST (quadrature2D, integrate_max_order)
   for (num_LGL = 2; num_LGL <= MAX_LGL_NUMBER; num_LGL++) {
     vertexset = t8dg_vertexset_new_1D_LGL (num_LGL);
     EXPECT_EQ (t8dg_vertexset_get_num_vertices (vertexset), num_LGL);
-    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset);
+    quadrature_square = t8dg_quadrature_new_hypercube (2, vertexset, 0);
     EXPECT_EQ (t8dg_quadrature_get_num_element_vertices (quadrature_square), num_LGL * num_LGL);
     power = 2 * num_LGL - 3;
     result = 1. / ((power + 1) * (power + 1));

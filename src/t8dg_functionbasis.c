@@ -5,6 +5,7 @@
 #include "t8dg_dmatrix.h"
 #include "t8dg_refcount.h"
 #include "t8dg_tensor.h"
+#include "t8dg_sc_array.h"
 
 /** The functionbasis provides the the directional derivative_matrix and interpolation/projection */
 struct t8dg_functionbasis
@@ -20,6 +21,7 @@ struct t8dg_functionbasis
   void               *data;
   t8dg_functionbasis_t **face_functionbasis;
   int                 num_face_functionbasis;
+  sc_array_t        **lgl_faceidx_to_elemidx;
 
   int                 tensor;
 };
@@ -187,6 +189,9 @@ t8dg_functionbasis_new_0D (t8dg_vertexset_t * vertex)
 
   functionbasis->element_class = T8_ECLASS_VERTEX;
 
+  functionbasis->num_children = 1;
+  functionbasis->type = T8DG_FB_LAGRANGE_LGL;
+
   functionbasis->number_of_dof = 1;
   functionbasis->embedded_dimension = t8dg_vertexset_get_embedded_dim (vertex);
   return functionbasis;
@@ -241,6 +246,7 @@ t8dg_functionbasis_new_1D_lagrange (t8dg_vertexset_t * vertexset, int create_fac
   if (create_face_functionbasis) {
     functionbasis->num_face_functionbasis = 2;
     functionbasis->face_functionbasis = T8DG_ALLOC (t8dg_functionbasis_t *, functionbasis->num_face_functionbasis);
+    functionbasis->lgl_faceidx_to_elemidx = T8DG_ALLOC (sc_array_t *, functionbasis->num_face_functionbasis);
     if (t8dg_vertexset_get_type (vertexset) == T8DG_VERT_LGL) {
       t8dg_vertexset_t   *left_face_vertexset;
       t8dg_vertexset_t   *right_face_vertexset;
@@ -248,6 +254,11 @@ t8dg_functionbasis_new_1D_lagrange (t8dg_vertexset_t * vertexset, int create_fac
       right_face_vertexset = t8dg_vertexset_new_lgl_facevertexset (vertexset, 1);
       functionbasis->face_functionbasis[0] = t8dg_functionbasis_new_0D (left_face_vertexset);
       functionbasis->face_functionbasis[1] = t8dg_functionbasis_new_0D (right_face_vertexset);
+
+      functionbasis->lgl_faceidx_to_elemidx[0] = sc_array_new_count (sizeof (int), 1);
+      functionbasis->lgl_faceidx_to_elemidx[1] = sc_array_new_count (sizeof (int), 1);
+      *(int *) sc_array_index_int (functionbasis->lgl_faceidx_to_elemidx[0], 0) = 0;
+      *(int *) sc_array_index_int (functionbasis->lgl_faceidx_to_elemidx[1], 0) = functionbasis->number_of_dof - 1;
     }
     else {
       T8DG_ABORT ("Not yet implemented");
@@ -288,18 +299,51 @@ t8dg_functionbasis_new_tensor (t8dg_functionbasis_t * tensor_first_functionbasis
   t8dg_functionbasis_ref (tensor_second_functionbasis);
 
   if (create_face_functionbasis) {
-    int                 iface;
+    int                 iface, ifacedof, num_face_dof, tensor1_num_face_dof, tensor1_num_dof, tensor1_faceidx_lookup;
     T8DG_ASSERT (tensor_first_functionbasis->num_face_functionbasis > 0 && tensor_second_functionbasis->num_face_functionbasis > 0);
     functionbasis_tensor->num_face_functionbasis =
       tensor_first_functionbasis->num_face_functionbasis + tensor_second_functionbasis->num_face_functionbasis;
+
     functionbasis_tensor->face_functionbasis = T8DG_ALLOC (t8dg_functionbasis_t *, functionbasis_tensor->num_face_functionbasis);
+    functionbasis_tensor->lgl_faceidx_to_elemidx = T8DG_ALLOC (sc_array_t *, functionbasis_tensor->num_face_functionbasis);
+
+    tensor1_num_dof = tensor_first_functionbasis->number_of_dof;
+
+    /*Create faces corresponding to the first tensor fb */
     for (iface = 0; iface < tensor_first_functionbasis->num_face_functionbasis; iface++) {
       functionbasis_tensor->face_functionbasis[iface] =
         t8dg_functionbasis_new_tensor (tensor_first_functionbasis->face_functionbasis[iface], tensor_second_functionbasis, 0);
+
+      num_face_dof = functionbasis_tensor->face_functionbasis[iface]->number_of_dof;
+      functionbasis_tensor->lgl_faceidx_to_elemidx[iface] = sc_array_new_count (sizeof (int), num_face_dof);
+
+      tensor1_num_face_dof = tensor_first_functionbasis->face_functionbasis[iface]->number_of_dof;
+
+      for (ifacedof = 0; ifacedof < num_face_dof; ifacedof++) {
+        tensor1_faceidx_lookup =
+          *(int *) sc_array_index_int (tensor_first_functionbasis->lgl_faceidx_to_elemidx[iface], ifacedof % tensor1_num_face_dof);
+
+        *(int *) sc_array_index_int (functionbasis_tensor->lgl_faceidx_to_elemidx[iface], ifacedof) = (ifacedof / tensor1_num_face_dof) * tensor1_num_dof + tensor1_faceidx_lookup;     /*TODO: Check */
+      }
     }
+    /*Create faces corresponding to the second tensor fb */
     for (iface = 0; iface < tensor_second_functionbasis->num_face_functionbasis; iface++) {
       functionbasis_tensor->face_functionbasis[iface + tensor_first_functionbasis->num_face_functionbasis] =
         t8dg_functionbasis_new_tensor (tensor_first_functionbasis, tensor_second_functionbasis->face_functionbasis[iface], 0);
+
+      num_face_dof = functionbasis_tensor->face_functionbasis[iface + tensor_first_functionbasis->num_face_functionbasis]->number_of_dof;
+      functionbasis_tensor->lgl_faceidx_to_elemidx[iface + tensor_first_functionbasis->num_face_functionbasis] =
+        sc_array_new_count (sizeof (int), num_face_dof);
+
+      tensor1_num_face_dof = tensor_first_functionbasis->face_functionbasis[iface]->number_of_dof;
+
+      for (ifacedof = 0; ifacedof < num_face_dof; ifacedof++) {
+        tensor1_faceidx_lookup =
+          *(int *) sc_array_index_int (tensor_first_functionbasis->lgl_faceidx_to_elemidx[iface], ifacedof / tensor1_num_dof);
+
+        *(int *) sc_array_index_int (functionbasis_tensor->lgl_faceidx_to_elemidx[iface + tensor_first_functionbasis->num_face_functionbasis], ifacedof) = (ifacedof % tensor1_num_dof) + tensor1_num_dof * tensor1_faceidx_lookup;     /*TODO: Check */
+      }
+
     }
   }
   else {
@@ -578,14 +622,57 @@ t8dg_functionbasis_get_lagrange_child_interpolation_matrix (const t8dg_functionb
 
 void
 t8dg_functionbasis_apply_child_interpolation_matrix (const t8dg_functionbasis_t * functionbasis, const int ichild,
-                                                     const sc_array_t * element_dof, sc_array_t * child_dof)
+                                                     sc_array_t * element_dof, sc_array_t * child_dof)
 {
+  int                 ivector, num_vectors, vector_length, stride;
+  sc_array_t         *vector_element_dof;
+  sc_array_t         *vector_child_dof;
   if (functionbasis->tensor) {
+    t8dg_functionbasis_tensor_data_t *tensor_data;
+    tensor_data = (t8dg_functionbasis_tensor_data_t *) functionbasis->data;
 
+    /*Interpolate first tensor */
+    num_vectors = t8dg_functionbasis_get_num_dof (tensor_data->tensor_second_functionbasis);
+    vector_length = t8dg_functionbasis_get_num_dof (tensor_data->tensor_first_functionbasis);
+    stride = 1;
+
+    vector_element_dof = sc_array_new_count (sizeof (double), vector_length);
+    vector_child_dof = sc_array_new_count (sizeof (double), vector_length);
+
+    for (ivector = 0; ivector < num_vectors; ivector++) {
+      t8dg_tensor_array_extract_vector (element_dof, ivector, stride, vector_element_dof);
+
+      t8dg_functionbasis_apply_child_interpolation_matrix (tensor_data->tensor_first_functionbasis,
+                                                           ichild % tensor_data->tensor_first_functionbasis->num_children,
+                                                           vector_element_dof, vector_child_dof);
+
+      t8dg_tensor_array_inject_vector (vector_child_dof, ivector, stride, child_dof);
+    }
+    sc_array_destroy (vector_element_dof);
+    sc_array_destroy (vector_child_dof);
+
+    num_vectors = t8dg_functionbasis_get_num_dof (tensor_data->tensor_first_functionbasis);
+    vector_length = t8dg_functionbasis_get_num_dof (tensor_data->tensor_second_functionbasis);
+    stride = num_vectors;
+
+    vector_element_dof = sc_array_new_count (sizeof (double), vector_length);
+    vector_child_dof = sc_array_new_count (sizeof (double), vector_length);
+
+    for (ivector = 0; ivector < num_vectors; ivector++) {
+      /*Extract from the interpolation in first direction */
+      t8dg_tensor_array_extract_vector (child_dof, ivector, stride, vector_element_dof);
+
+      t8dg_functionbasis_apply_child_interpolation_matrix (tensor_data->tensor_second_functionbasis,
+                                                           ichild / tensor_data->tensor_first_functionbasis->num_children,
+                                                           vector_element_dof, vector_child_dof);
+
+      t8dg_tensor_array_inject_vector (vector_child_dof, ivector, stride, child_dof);
+    }
+    sc_array_destroy (vector_element_dof);
+    sc_array_destroy (vector_child_dof);
   }
   else {
     t8dg_dmatrix_t     *interpolation_matrix;
-    /*TODO: move to functionbasis and implement for tensorstructures! */
     interpolation_matrix = t8dg_functionbasis_get_lagrange_child_interpolation_matrix (functionbasis, ichild);
     t8dg_dmatrix_mult_sc_array (interpolation_matrix, element_dof, child_dof);
   }
@@ -593,16 +680,111 @@ t8dg_functionbasis_apply_child_interpolation_matrix (const t8dg_functionbasis_t 
 
 void
 t8dg_functionbasis_apply_child_interpolation_matrix_transpose (const t8dg_functionbasis_t * functionbasis, const int ichild,
-                                                               const sc_array_t * child_dof, sc_array_t * element_dof)
+                                                               sc_array_t * child_dof, sc_array_t * element_dof)
 {
+  int                 ivector, num_vectors, vector_length, stride;
+  sc_array_t         *vector_element_dof;
+  sc_array_t         *vector_child_dof;
   if (functionbasis->tensor) {
+    t8dg_functionbasis_tensor_data_t *tensor_data;
+    tensor_data = (t8dg_functionbasis_tensor_data_t *) functionbasis->data;
 
+    /*Interpolate first tensor */
+    num_vectors = t8dg_functionbasis_get_num_dof (tensor_data->tensor_second_functionbasis);
+    vector_length = t8dg_functionbasis_get_num_dof (tensor_data->tensor_first_functionbasis);
+    stride = 1;
+
+    vector_element_dof = sc_array_new_count (sizeof (double), vector_length);
+    vector_child_dof = sc_array_new_count (sizeof (double), vector_length);
+
+    for (ivector = 0; ivector < num_vectors; ivector++) {
+      t8dg_tensor_array_extract_vector (child_dof, ivector, stride, vector_child_dof);
+
+      t8dg_functionbasis_apply_child_interpolation_matrix_transpose (tensor_data->tensor_first_functionbasis,
+                                                                     ichild % tensor_data->tensor_first_functionbasis->num_children,
+                                                                     vector_child_dof, vector_element_dof);
+
+      t8dg_tensor_array_inject_vector (vector_element_dof, ivector, stride, element_dof);
+    }
+    sc_array_destroy (vector_element_dof);
+    sc_array_destroy (vector_child_dof);
+
+    num_vectors = t8dg_functionbasis_get_num_dof (tensor_data->tensor_first_functionbasis);
+    vector_length = t8dg_functionbasis_get_num_dof (tensor_data->tensor_second_functionbasis);
+    stride = num_vectors;
+
+    vector_element_dof = sc_array_new_count (sizeof (double), vector_length);
+    vector_child_dof = sc_array_new_count (sizeof (double), vector_length);
+
+    for (ivector = 0; ivector < num_vectors; ivector++) {
+      /*Extract from the interpolation in first direction */
+      t8dg_tensor_array_extract_vector (element_dof, ivector, stride, vector_child_dof);
+
+      t8dg_functionbasis_apply_child_interpolation_matrix_transpose (tensor_data->tensor_second_functionbasis,
+                                                                     ichild / tensor_data->tensor_first_functionbasis->num_children,
+                                                                     vector_child_dof, vector_element_dof);
+
+      t8dg_tensor_array_inject_vector (vector_element_dof, ivector, stride, element_dof);
+    }
+    sc_array_destroy (vector_element_dof);
+    sc_array_destroy (vector_child_dof);
   }
   else {
     t8dg_dmatrix_t     *interpolation_matrix;
-    /*TODO: move to functionbasis and implement for tensorstructures! */
     interpolation_matrix = t8dg_functionbasis_get_lagrange_child_interpolation_matrix (functionbasis, ichild);
     t8dg_dmatrix_transpose_mult_sc_array (interpolation_matrix, child_dof, element_dof);
+  }
+}
+
+static int
+t8dg_functionbasis_lgl_facedof_idx_lookup (const t8dg_functionbasis_t * functionbasis, const int iface, const int ifacedof)
+{
+  T8DG_ASSERT (functionbasis->type == T8DG_FB_LAGRANGE_LGL);
+  T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
+  T8DG_ASSERT (ifacedof >= 0 && ifacedof < functionbasis->face_functionbasis[iface]->number_of_dof);
+
+  return *(int *) sc_array_index_int (functionbasis->lgl_faceidx_to_elemidx[iface], ifacedof);
+}
+
+void
+t8dg_functionbasis_transform_element_dof_to_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface,
+                                                      sc_array_t * element_dof_array, sc_array_t * face_dof_array)
+{
+  T8DG_CHECK_ABORT (functionbasis->type == T8DG_FB_LAGRANGE_LGL, "Not implemented");
+  T8DG_ASSERT (element_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (face_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (element_dof_array->elem_count == (size_t) t8dg_functionbasis_get_num_dof (functionbasis));
+  T8DG_ASSERT (face_dof_array->elem_count == (size_t) t8dg_functionbasis_get_num_face_dof (functionbasis, iface));
+
+  int                 idof, ifacedof, num_face_dof;
+
+  num_face_dof = t8dg_functionbasis_get_num_face_dof (functionbasis, iface);
+
+  for (ifacedof = 0; ifacedof < num_face_dof; ifacedof++) {
+    idof = t8dg_functionbasis_lgl_facedof_idx_lookup (functionbasis, iface, ifacedof);
+    *(double *) sc_array_index_int (face_dof_array, ifacedof) = *(double *) sc_array_index_int (element_dof_array, idof);
+  }
+}
+
+void
+t8dg_functionbasis_transform_face_dof_to_element_dof (const t8dg_functionbasis_t * functionbasis, const int iface,
+                                                      sc_array_t * face_dof_array, sc_array_t * element_dof_array)
+{
+  T8DG_CHECK_ABORT (functionbasis->type == T8DG_FB_LAGRANGE_LGL, "Not implemented");
+  T8DG_ASSERT (element_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (face_dof_array->elem_size == sizeof (double));
+  T8DG_ASSERT (element_dof_array->elem_count == (size_t) t8dg_functionbasis_get_num_dof (functionbasis));
+  T8DG_ASSERT (face_dof_array->elem_count == (size_t) t8dg_functionbasis_get_num_face_dof (functionbasis, iface));
+
+  int                 idof, ifacedof, num_face_dof;
+
+  t8dg_sc_array_block_double_set_zero (element_dof_array);
+
+  num_face_dof = t8dg_functionbasis_get_num_face_dof (functionbasis, iface);
+
+  for (ifacedof = 0; ifacedof < num_face_dof; ifacedof++) {
+    idof = t8dg_functionbasis_lgl_facedof_idx_lookup (functionbasis, iface, ifacedof);
+    *(double *) sc_array_index_int (element_dof_array, idof) = *(double *) sc_array_index_int (face_dof_array, ifacedof);
   }
 }
 
@@ -659,7 +841,6 @@ int
 t8dg_functionbasis_get_num_children (t8dg_functionbasis_t * functionbasis)
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
-  T8DG_ASSERT (!t8dg_functionbasis_is_tensor (functionbasis));
   return 1 << t8dg_functionbasis_get_dim (functionbasis);
 }
 
@@ -669,6 +850,29 @@ t8dg_functionbasis_get_face_functionbasis (t8dg_functionbasis_t * functionbasis,
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
   T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
   return functionbasis->face_functionbasis[iface];
+}
+
+int
+t8dg_functionbasis_get_num_face_functionbasis (const t8dg_functionbasis_t * functionbasis)
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  return functionbasis->num_face_functionbasis;
+}
+
+int
+t8dg_functionbasis_get_num_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface)
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
+  return t8dg_functionbasis_get_num_dof (functionbasis->face_functionbasis[iface]);
+}
+
+void
+t8dg_functionbasis_get_lagrange_face_vertex (const t8dg_functionbasis_t * functionbasis, const int iface, const int idof, double vertex[3])
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
+  return t8dg_functionbasis_get_lagrange_vertex (functionbasis->face_functionbasis[iface], idof, vertex);
 }
 
 void
@@ -685,9 +889,11 @@ t8dg_functionbasis_reset (t8dg_functionbasis_t * functionbasis)
   int                 iface;
   for (iface = 0; iface < functionbasis->num_face_functionbasis; iface++) {
     t8dg_functionbasis_destroy (&functionbasis->face_functionbasis[iface]);
+    sc_array_destroy (functionbasis->lgl_faceidx_to_elemidx[iface]);
   }
   if (functionbasis->num_face_functionbasis > 0) {
     T8DG_FREE (functionbasis->face_functionbasis);
+    T8DG_FREE (functionbasis->lgl_faceidx_to_elemidx);
   }
 
   if (t8dg_functionbasis_is_tensor (functionbasis)) {

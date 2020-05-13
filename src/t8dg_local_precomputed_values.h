@@ -15,6 +15,7 @@
 #include "t8dg_quadrature.h"
 #include "t8dg_geometry.h"
 #include "t8dg_flux.h"
+#include "t8dg_global_precomputed_values.h"
 
 typedef struct t8dg_local_precomputed_values t8dg_local_precomputed_values_t;
 
@@ -24,39 +25,37 @@ void                t8dg_local_precomputed_values_copy_element_values
   (t8dg_local_precomputed_values_t * incoming_values, t8_locidx_t incoming_idata,
    t8dg_local_precomputed_values_t * outgoing_values, t8_locidx_t outgoing_idata);
 
-void                t8dg_local_precomputed_values_set_element
-  (t8dg_local_precomputed_values_t * values,
-   const t8dg_geometry_transformation_data_t * geometry_data, const t8dg_quadrature_t * quadrature);
+void                t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * values,
+                                                               const t8dg_geometry_transformation_data_t * geometry_data,
+                                                               const t8dg_global_precomputed_values_t * global_values);
 
-t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (const t8dg_quadrature_t * quadrature,
-                                                                    const t8_locidx_t num_local_elems);
+t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (const t8_locidx_t num_local_elems, const int dim,
+                                                                    const int max_num_element_values, const int max_num_faces,
+                                                                    const int max_num_face_values);
 
 void                t8dg_local_precomputed_values_destroy (t8dg_local_precomputed_values_t ** pvalues);
 
-/** Apply the transformation from fine reference element to the subset of the coarse reference element to a vertex*/
-void                t8dg_local_precomputed_values_fine_to_coarse_geometry (const double refined_element_vertex[DIM3],
-                                                                           double coarse_element_vertex[DIM3],
-                                                                           t8_eclass_scheme_c * scheme, const t8_element_t * element);
-/*TODO: eclass scheme as const not possible since 'passing as ‘this’ argument discards qualifiers' */
-
 double             *t8dg_local_precomputed_values_get_transformed_gradient_tangential_vector (const t8dg_local_precomputed_values_t *
                                                                                               values, const t8_locidx_t idata,
-                                                                                              const t8dg_quad_idx_t iquad, const int idim);
+                                                                                              const int iquad, const int idim);
 
+/*TODO: Change to idof*/
 double             *t8dg_local_precomputed_values_get_face_normal_vector (const t8dg_local_precomputed_values_t * values,
-                                                                          const t8_locidx_t idata, const int iface,
-                                                                          const t8dg_quad_idx_t iquad);
+                                                                          const t8_locidx_t idata, const int iface, const int iquad);
 
-/*TODO: change order*/
-void                t8dg_local_precomputed_values_element_multiply_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
-                                                                                      sc_array_t * array, t8_locidx_t idata);
+void                t8dg_local_precomputed_values_element_multiply_trafo_quad_weight
+  (const t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata, sc_array_t * element_quad, sc_array_t * result_element_quad);
 
-void                t8dg_local_precomputed_values_element_divide_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
-                                                                                    sc_array_t * array, t8_locidx_t idata);
+void                t8dg_local_precomputed_values_element_divide_trafo_quad_weight
+  (const t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata, sc_array_t * element_quad, sc_array_t * result_element_quad);
 
-void                t8dg_local_precomputed_values_face_multiply_trafo_quad_weight (const t8dg_local_precomputed_values_t * local_values,
-                                                                                   t8_locidx_t idata, const int iface, sc_array_t * src,
-                                                                                   sc_array_t * dest);
+void                t8dg_local_precomputed_values_face_multiply_trafo_quad_weight
+  (const t8dg_local_precomputed_values_t * local_values,
+   t8_locidx_t idata, const int iface, sc_array_t * face_quad, sc_array_t * result_face_quad);
+
+void                t8dg_local_precomputed_values_face_divide_trafo_quad_weight
+  (const t8dg_local_precomputed_values_t * local_values,
+   t8_locidx_t idata, const int iface, sc_array_t * face_quad, sc_array_t * result_face_quad);
 
 void                t8dg_local_precomputed_values_element_multiply_flux_value
   (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
