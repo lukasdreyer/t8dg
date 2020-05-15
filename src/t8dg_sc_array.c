@@ -29,6 +29,7 @@ t8dg_sc_array_duplicate (const sc_array_t * src)
 sc_array_t         *
 t8dg_sc_array_block_double_new_view (sc_array_t * src, t8_locidx_t idata)
 {
+  T8DG_ASSERT (idata >= 0 && (size_t) idata < src->elem_count);
   T8DG_ASSERT (src->elem_size > 0 && src->elem_size % 8 == 0);
   return sc_array_new_data (t8_sc_array_index_locidx (src, idata), sizeof (double), src->elem_size / sizeof (double));
 }
