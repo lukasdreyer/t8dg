@@ -69,6 +69,8 @@ struct t8dg_linear_advection_problem
     t8dg_scalar_function_3d_time_fn analytical_sol_fn;           /**< Analytical solution function */
   } description;
 
+  t8_forest_adapt_t   adapt_fn;
+
   t8dg_timestepping_data_t *time_data;
   t8dg_global_precomputed_values_t *global_values;
   t8dg_coarse_geometry_t *coarse_geometry;   /**< coarse geometry, that gives the geometry and Jacobian of the geometry from the coarse
@@ -290,7 +292,8 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
                           int dim,
                           t8dg_scalar_function_3d_time_fn u_initial,
                           t8dg_flux_t * flux,
-                          int uniform_level, int max_level, int number_LGL_points, t8dg_timestepping_data_t * time_data, sc_MPI_Comm comm)
+                          int uniform_level, int max_level, int number_LGL_points, t8dg_timestepping_data_t * time_data,
+                          t8_forest_adapt_t adapt_fn, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
@@ -312,6 +315,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->description.initial_condition_fn = u_initial;
   problem->description.analytical_sol_fn = u_initial;   /*Assumes that the solution is a whole number of revolutions around the periodic domain */
   problem->description.flux = flux;
+  problem->adapt_fn = adapt_fn;
 
   problem->time_data = time_data;
 
@@ -650,7 +654,67 @@ t8dg_advect_write_vtk (t8dg_linear_advection_problem_t * problem)
   problem->vtk_count++;
 }
 
-static int
+int
+t8dg_advect_mass_adapt (t8_forest_t forest,
+                        t8_forest_t forest_from,
+                        t8_locidx_t which_tree,
+                        t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+{
+  t8dg_linear_advection_problem_t *problem;
+  sc_array_t         *element_dof;
+  sc_array_t         *one_array;
+  t8_locidx_t         first_idata;
+  int                 level, idof;
+  double              norm, area;
+  int                 ielement;
+
+  problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest);
+  level = ts->t8_element_level (elements[0]);
+
+  if (level == problem->maximum_refinement_level && num_elements == 1) {
+    /* It is not possible to refine this level */
+    return 0;
+  }
+
+  first_idata = t8dg_itree_ielement_to_idata (forest_from, which_tree, lelement_id);
+
+  element_dof = t8dg_sc_array_block_double_new_view (problem->dof_values, first_idata);
+  one_array = t8dg_sc_array_duplicate (element_dof);
+  for (idof = 0; (size_t) idof < element_dof->elem_count; idof++) {
+    *(double *) sc_array_index_int (one_array, idof) = 1;
+  }
+
+  norm = t8dg_precomputed_values_element_norm_l2_squared (element_dof, problem->global_values, problem->local_values, first_idata);
+  area = t8dg_precomputed_values_element_norm_l2_squared (one_array, problem->global_values, problem->local_values, first_idata);
+  sc_array_destroy (element_dof);
+  if (norm / area > 0.2) {
+    sc_array_destroy (one_array);
+    return level < problem->maximum_refinement_level;
+  }
+  if (num_elements > 1) {
+    for (ielement = 0; ielement < num_elements; ielement++) {
+      element_dof = t8dg_sc_array_block_double_new_view (problem->dof_values, first_idata + ielement);
+      norm =
+        t8dg_precomputed_values_element_norm_l2_squared (element_dof, problem->global_values, problem->local_values,
+                                                         first_idata + ielement);
+      area =
+        t8dg_precomputed_values_element_norm_l2_squared (one_array, problem->global_values, problem->local_values, first_idata + ielement);
+      sc_array_destroy (element_dof);
+      if (norm / area > 0.1) {
+        sc_array_destroy (one_array);
+        return 0;
+      }
+
+    }
+    sc_array_destroy (one_array);
+    return -1;
+  }
+  sc_array_destroy (one_array);
+  return 0;
+
+}
+
+int
 t8dg_advect_gradient_adapt (t8_forest_t forest,
                             t8_forest_t forest_from,
                             t8_locidx_t which_tree,
@@ -724,14 +788,13 @@ t8dg_advect_test_replace (t8_forest_t forest_old,
 
   problem = (t8dg_linear_advection_problem_t *) t8_forest_get_user_data (forest_new);
   T8DG_ASSERT (forest_old == problem->forest);
-  T8DG_CHECK_ABORT (t8dg_global_precomputed_values_get_dim (problem->global_values) == 1, "Not yet implemented");
 
   t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, forest_new, which_tree, 0 };
 
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, which_tree, first_ielem_old);
   first_idata_new = t8dg_itree_ielement_to_idata (forest_new, which_tree, first_ielem_new);
 
-  num_children = 2;             /*TODO: scheme dependent */
+  num_children = t8dg_functionbasis_get_num_children (t8dg_global_precomputed_values_get_functionbasis (problem->global_values));       /*TODO: scheme dependent */
 
   if (num_elems_old == num_elems_new && num_elems_old == 1) {
     t8dg_local_precomputed_values_copy_element_values (problem->local_values, first_idata_old,
@@ -795,7 +858,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   /* Set the user data pointer of the new forest */
   t8_forest_set_user_data (forest_adapt, problem);
   /* Set the adapt function */
-  t8_forest_set_adapt (forest_adapt, problem->forest, t8dg_advect_gradient_adapt, 0);
+  t8_forest_set_adapt (forest_adapt, problem->forest, problem->adapt_fn, 0);
   if (problem->maximum_refinement_level - problem->uniform_refinement_level > 1) {
     /* We also want to balance the forest if there is a possibility of elements
      * with difference in refinement levels greater 1 */

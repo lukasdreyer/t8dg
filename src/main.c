@@ -83,7 +83,8 @@ t8dg_choose_cmesh (int icmesh, sc_MPI_Comm comm)
 static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int refinement_levels,
-                    int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq)
+                    int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq,
+                    int adapt_arg)
 {
   if (!(icmesh >= 0 && icmesh <= 7))
     return 0;
@@ -105,7 +106,26 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(adapt_freq >= 0))
     return 0;
+  if (!(adapt_arg >= 0 && adapt_arg <= 1))
+    return 0;
   return 1;
+}
+
+t8_forest_adapt_t
+t8dg_choose_adapt_fn (int adapt_arg)
+{
+  switch (adapt_arg) {
+  case 0:
+    return t8dg_advect_mass_adapt;
+    break;
+  case 1:
+    return t8dg_advect_gradient_adapt;
+    break;
+
+  default:
+    T8DG_ABORT ("Wrong adapt fn arg");
+    break;
+  }
 }
 
 /*TODO: which init function creates what, outsource problem description*/
@@ -115,7 +135,7 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
                                           double flow_speed,
                                           int uniform_level, int max_level,
                                           int number_LGL_points,
-                                          double start_time, double end_time, double cfl, int time_order, sc_MPI_Comm comm)
+                                          double start_time, double end_time, double cfl, int time_order, int adapt_arg, sc_MPI_Comm comm)
 {
   t8dg_scalar_function_3d_time_fn u_initial;
   t8_cmesh_t          cmesh;
@@ -125,6 +145,9 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   double             *first_tree_vertices;
   double              tangential_vector[3];
   int                 dim;
+  t8_forest_adapt_t   adapt_fn;
+
+  adapt_fn = t8dg_choose_adapt_fn (adapt_arg);
 
   if (icmesh <= 2) {
     coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
@@ -146,7 +169,7 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
 
   return t8dg_advect_problem_init (cmesh, coarse_geometry, dim, u_initial, flux,
-                                   uniform_level, max_level, number_LGL_points, time_data, comm);
+                                   uniform_level, max_level, number_LGL_points, time_data, adapt_fn, comm);
 }
 
 /** Solves the linear advection problem on a linear geometry on a uniform grid
@@ -167,7 +190,7 @@ void
 t8dg_advect_solve (int icmesh, int initial_cond_arg,
                    double flow_velocity, int uniform_level, int refinement_levels,
                    int number_LGL_points, double start_time,
-                   double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq, sc_MPI_Comm comm)
+                   double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq, int adapt_arg, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_problem_t *problem;
   int                 step_number;
@@ -180,7 +203,7 @@ t8dg_advect_solve (int icmesh, int initial_cond_arg,
 
   problem = t8dg_advect_problem_init_linear_geometry (icmesh, initial_cond_arg, flow_velocity,
                                                       uniform_level, uniform_level + refinement_levels,
-                                                      number_LGL_points, start_time, end_time, cfl, time_order, comm);
+                                                      number_LGL_points, start_time, end_time, cfl, time_order, adapt_arg, comm);
 
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_INIT, total_time + sc_MPI_Wtime ());
 
@@ -243,6 +266,7 @@ main (int argc, char *argv[])
   int                 number_LGL_points;
   int                 vtk_freq;
   int                 adapt_freq;
+  int                 adapt_arg;
   int                 icmesh;
   double              flow_velocity;
   double              cfl;
@@ -286,6 +310,8 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n"
                       "\t\t2: diagonal line more trees\n" "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n"
                       "\t\t6: moebius more tree\n" "\t\t7: parallelogram");
+  sc_options_add_int (opt, 'A', "adapt_fn", &adapt_arg, 0,
+                      "Choose Adapt Function. Default: 0\n" "\t\t0: mass-crit\n" "\t\t1: gradient-crit\n");
 
   parsed = sc_options_parse (t8dg_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (helpme) {
@@ -294,12 +320,12 @@ main (int argc, char *argv[])
     sc_options_print_usage (t8dg_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, refinement_levels, number_LGL_points,
-                                              start_time, end_time, cfl, time_order, vtk_freq, adapt_freq)) {
+                                              start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, adapt_arg)) {
 
     /* Computation */
     t8dg_advect_solve (icmesh, initial_cond_arg, flow_velocity,
                        uniform_level, refinement_levels, number_LGL_points,
-                       start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, sc_MPI_COMM_WORLD);
+                       start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, adapt_arg, sc_MPI_COMM_WORLD);
   }
   else {
     /* wrong usage */

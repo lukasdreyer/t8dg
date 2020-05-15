@@ -53,7 +53,8 @@ t8dg_linear_advection_problem_t *t8dg_advect_problem_init (t8_cmesh_t cmesh,
                                                            t8dg_scalar_function_3d_time_fn u_initial,
                                                            t8dg_flux_t * flux,
                                                            int uniform_level, int max_level,
-                                                           int number_LGL_points, t8dg_timestepping_data_t * time_data, sc_MPI_Comm comm);
+                                                           int number_LGL_points, t8dg_timestepping_data_t * time_data,
+                                                           t8_forest_adapt_t adapt_fn, sc_MPI_Comm comm);
 
 void                t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem);
 
@@ -82,5 +83,16 @@ void                t8dg_advect_problem_accumulate_stat (t8dg_linear_advection_p
 double              t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem);
 
 double              t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem);
+
+int                 t8dg_advect_gradient_adapt (t8_forest_t forest,
+                                                t8_forest_t forest_from,
+                                                t8_locidx_t which_tree,
+                                                t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
+                                                t8_element_t * elements[]);
+
+int                 t8dg_advect_mass_adapt (t8_forest_t forest,
+                                            t8_forest_t forest_from,
+                                            t8_locidx_t which_tree,
+                                            t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
 #endif /* SRC_T8DG_ADVECT_H_ */
