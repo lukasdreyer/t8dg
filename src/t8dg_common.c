@@ -26,7 +26,7 @@ double
 t8dg_scalar2d_step_function (const double x[3], const double t)
 {
   double              center[3] = { 0.5, 0.5, 0 };
-  return t8_vec_dist (x, center) < 0.3;
+  return t8_vec_dist (x, center) < 0.15;
 }
 
 double
