@@ -42,8 +42,8 @@ protected:
     t8dg_geometry_transformation_data_t geometry_data_adapt = { coarse_geometry, forest_adapt, 0, 0 };
 
     global_values = t8dg_global_precomputed_values_new_hypercube_LGL (2, 2);
-    local_values = t8dg_local_precomputed_values_new (1, 2, 4, 4, 2);
-    local_values_adapt = t8dg_local_precomputed_values_new (4, 2, 4, 4, 2);
+    local_values = t8dg_local_precomputed_values_new (forest, global_values);
+    local_values_adapt = t8dg_local_precomputed_values_new (forest_adapt, global_values);
 
     t8dg_local_precomputed_values_set_element (local_values, &geometry_data, global_values);
     for (ichild = 0; ichild < 4; ichild++) {
@@ -141,8 +141,8 @@ protected:
     num_lgl = GetParam ();
 
     global_values = t8dg_global_precomputed_values_new_1D_LGL (num_lgl);
-    local_values = t8dg_local_precomputed_values_new (1, 1, num_lgl, 2, 1);
-    local_values_adapt = t8dg_local_precomputed_values_new (2, 1, num_lgl, 2, 1);
+    local_values = t8dg_local_precomputed_values_new (forest, global_values);
+    local_values_adapt = t8dg_local_precomputed_values_new (forest_adapt, global_values);
     t8dg_local_precomputed_values_set_element (local_values, &geometry_data, global_values);
     t8dg_local_precomputed_values_set_element (local_values_adapt, &geometry_data_adapt, global_values);
     geometry_data_adapt.ielement = 1;
@@ -236,7 +236,7 @@ protected:
     num_lgl = std::get < 0 > (GetParam ());
 
     global_values = t8dg_global_precomputed_values_new_1D_LGL (num_lgl);
-    local_values = t8dg_local_precomputed_values_new (t8_forest_get_num_element (forest), 1, num_lgl, 2, 1);
+    local_values = t8dg_local_precomputed_values_new (forest, global_values);
     for (itree = 0; itree < t8_forest_get_num_local_trees (forest); itree++) {
       geometry_data.itree = itree;
       for (ielement = 0; ielement < t8_forest_get_tree_num_elements (forest, itree); ielement++) {

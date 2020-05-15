@@ -182,17 +182,19 @@ t8dg_local_precomputed_values_set_element (t8dg_local_precomputed_values_t * val
 
 /*TODO: Change Interface*/
 t8dg_local_precomputed_values_t *
-t8dg_local_precomputed_values_new (const t8_locidx_t num_local_elems, const int dim, const int max_num_element_values,
-                                   const int max_num_faces, const int max_num_face_values)
+t8dg_local_precomputed_values_new (t8_forest_t forest, t8dg_global_precomputed_values_t * global_values)
 {
   int                 iface;
   t8dg_local_precomputed_values_t *values = T8DG_ALLOC (t8dg_local_precomputed_values_t, 1);
+  int                 num_local_elems;
 
-  values->max_num_faces = max_num_faces;
-  values->max_num_elem_values = max_num_element_values;
-  values->max_num_face_values = max_num_face_values;
+  num_local_elems = t8_forest_get_num_element (forest);
+  /*TODO: generalize! */
+  values->max_num_faces = t8dg_global_precomputed_values_get_num_faces (global_values);
+  values->max_num_elem_values = t8dg_global_precomputed_values_get_num_elem_quad (global_values);
+  values->max_num_face_values = t8dg_global_precomputed_values_get_max_num_facevalues (global_values);
 
-  values->dim = dim;
+  values->dim = t8dg_global_precomputed_values_get_dim (global_values);
 
   /*for each element an array of double values */
   values->element_trafo_quad_weight = sc_array_new_count (sizeof (double) * values->max_num_elem_values, num_local_elems);
@@ -200,7 +202,8 @@ t8dg_local_precomputed_values_new (const t8_locidx_t num_local_elems, const int 
   for (iface = 0; iface < values->max_num_faces; iface++) {
     values->face_trafo_quad_weight[iface] = sc_array_new_count (sizeof (double) * values->max_num_face_values, num_local_elems);
 
-    values->face_normal_vectors[iface] = sc_array_new_count (sizeof (double) * DIM3 * values->max_num_face_values, num_local_elems);
+    values->face_normal_vectors[iface] =
+      sc_array_new_count (sizeof (double) * DIM3 * values->max_num_face_values, num_local_elems + t8_forest_get_num_ghosts (forest));
   }
 
   values->element_transformed_gradient_tangential_vectors =
@@ -312,6 +315,9 @@ t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t for
                                          t8dg_local_precomputed_values_t * local_values_partition)
 {
   int                 iface;
+  sc_array_t         *local_view_normal_old;
+  sc_array_t         *local_view_normal_new;
+
   t8_forest_partition_data (forest_old, forest_partition,
                             local_values_old->element_trafo_quad_weight, local_values_partition->element_trafo_quad_weight);
 
@@ -320,11 +326,24 @@ t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t for
                             local_values_partition->element_transformed_gradient_tangential_vectors);
 
   for (iface = 0; iface < local_values_old->max_num_faces; iface++) {
-    t8_forest_partition_data (forest_old, forest_partition,
-                              local_values_old->face_normal_vectors[iface], local_values_partition->face_normal_vectors[iface]);
+    local_view_normal_old = sc_array_new_view (local_values_old->face_normal_vectors[iface], 0, t8_forest_get_num_element (forest_old));
+    local_view_normal_new =
+      sc_array_new_view (local_values_partition->face_normal_vectors[iface], 0, t8_forest_get_num_element (forest_partition));
+    t8_forest_partition_data (forest_old, forest_partition, local_view_normal_old, local_view_normal_new);
+    sc_array_destroy (local_view_normal_new);
+    sc_array_destroy (local_view_normal_old);
 
     t8_forest_partition_data (forest_old, forest_partition,
                               local_values_old->face_trafo_quad_weight[iface], local_values_partition->face_trafo_quad_weight[iface]);
+  }
+}
+
+void
+t8dg_local_precomputed_values_ghost_exchange (t8_forest_t forest, t8dg_local_precomputed_values_t * local_values)
+{
+  int                 iface;
+  for (iface = 0; iface < local_values->max_num_faces; iface++) {
+    t8_forest_ghost_exchange_data (forest, local_values->face_normal_vectors[iface]);
   }
 }
 

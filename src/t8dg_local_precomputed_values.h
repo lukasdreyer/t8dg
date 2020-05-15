@@ -29,9 +29,7 @@ void                t8dg_local_precomputed_values_set_element (t8dg_local_precom
                                                                const t8dg_geometry_transformation_data_t * geometry_data,
                                                                const t8dg_global_precomputed_values_t * global_values);
 
-t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (const t8_locidx_t num_local_elems, const int dim,
-                                                                    const int max_num_element_values, const int max_num_faces,
-                                                                    const int max_num_face_values);
+t8dg_local_precomputed_values_t *t8dg_local_precomputed_values_new (t8_forest_t forest, t8dg_global_precomputed_values_t * global_values);
 
 void                t8dg_local_precomputed_values_destroy (t8dg_local_precomputed_values_t ** pvalues);
 
@@ -61,6 +59,8 @@ void                t8dg_local_precomputed_values_element_multiply_flux_value
   (const t8dg_local_precomputed_values_t * local_values, const t8dg_flux_t * flux,
    const t8dg_geometry_transformation_data_t * geometry_data,
    t8dg_quadrature_t * quadrature, double current_time, int idim, sc_array_t * element_quad_values, sc_array_t * element_flux_quad_values);
+
+void                t8dg_local_precomputed_values_ghost_exchange (t8_forest_t forest, t8dg_local_precomputed_values_t * local_values);
 
 void                t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t forest_partition,
                                                              t8dg_local_precomputed_values_t * local_values_old,

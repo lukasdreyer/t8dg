@@ -332,9 +332,7 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
   problem->max_num_element_values = t8dg_global_precomputed_values_get_num_dof (problem->global_values);
   problem->max_num_faces = t8dg_global_precomputed_values_get_num_faces (problem->global_values);
   problem->max_num_face_values = t8dg_global_precomputed_values_get_max_num_facevalues (problem->global_values);
-  problem->local_values =
-    t8dg_local_precomputed_values_new (num_elements, problem->dim, problem->max_num_element_values, problem->max_num_faces,
-                                       problem->max_num_face_values);
+  problem->local_values = t8dg_local_precomputed_values_new (problem->forest, problem->global_values);
   problem->local_values_adapt = NULL;
 
   /* the dof_values need to be ghosted. */
@@ -566,6 +564,7 @@ t8dg_advect_time_derivative (const sc_array_t * dof_values, sc_array_t * dof_cha
   /*Ghost exchange */
   ghost_exchange_time = -sc_MPI_Wtime ();
   t8_forest_ghost_exchange_data (problem->forest, problem->dof_values);
+  t8dg_local_precomputed_values_ghost_exchange (problem->forest, problem->local_values);
   ghost_exchange_time += sc_MPI_Wtime ();
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_GHOST_EXCHANGE, ghost_exchange_time);
   ghost_waittime = t8_forest_profile_get_ghostexchange_waittime (problem->forest);
@@ -827,9 +826,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   num_elems = t8_forest_get_num_element (forest_adapt);
   num_elems_p_ghosts = num_elems + t8_forest_get_num_ghosts (forest_adapt);
 
-  problem->local_values_adapt =
-    t8dg_local_precomputed_values_new (num_elems, problem->dim, problem->max_num_element_values, problem->max_num_faces,
-                                       problem->max_num_face_values);
+  problem->local_values_adapt = t8dg_local_precomputed_values_new (forest_adapt, problem->global_values);
   problem->dof_values_adapt =
     sc_array_new_count (t8dg_global_precomputed_values_get_num_dof (problem->global_values) * sizeof (double), num_elems_p_ghosts);
 
@@ -905,9 +902,7 @@ t8dg_advect_problem_partition (t8dg_linear_advection_problem_t * problem, int me
   t8_debugf ("[ADVECT] partition with: num_old:%i, num_new:%i, ghost_new:%i\n", num_local_elems_old, num_local_elems_new, num_ghosts_new);
 
   /* Partition local precomputed values */
-  local_values_partition =
-    t8dg_local_precomputed_values_new (num_local_elems_new, problem->dim, problem->max_num_element_values, problem->max_num_faces,
-                                       problem->max_num_face_values);
+  local_values_partition = t8dg_local_precomputed_values_new (forest_partition, problem->global_values);
   t8dg_local_precomputed_values_partition (problem->forest, forest_partition, problem->local_values, local_values_partition);
 
   t8dg_local_precomputed_values_destroy (&problem->local_values);
