@@ -52,6 +52,12 @@ void                t8dg_precomputed_values_transform_child_dof_to_parent_dof (c
                                                                                const t8dg_local_precomputed_values_t * local_values_new,
                                                                                t8_locidx_t idata_first_child, t8_locidx_t idata_parent);
 
+void                t8dg_precomputed_values_transform_face_child_dof_to_parent_dof
+  (const t8dg_global_precomputed_values_t * global_values,
+   sc_array_t * child_face_dof[MAX_SUBFACES],
+   sc_array_t * parent_face_dof, const int num_face_children,
+   const t8dg_local_precomputed_values_t * local_values, t8_locidx_t idata_child[MAX_SUBFACES], t8_locidx_t idata_parent, int iface_parent);
+
 double              t8dg_precomputed_values_element_norm_infty (sc_array_t * element_dof_values);
 
 double              t8dg_precomputed_values_element_norm_l2_squared

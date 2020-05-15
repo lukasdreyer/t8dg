@@ -90,6 +90,39 @@ t8dg_precomputed_values_apply_element_inverse_mass_matrix (const t8dg_global_pre
 }
 
 /*TODO: Add face transform child dof to parent dof*/
+void
+t8dg_precomputed_values_transform_face_child_dof_to_parent_dof (const t8dg_global_precomputed_values_t * global_values,
+                                                                sc_array_t * child_face_dof[MAX_SUBFACES],
+                                                                sc_array_t * parent_face_dof, const int num_face_children,
+                                                                const t8dg_local_precomputed_values_t * local_values,
+                                                                t8_locidx_t idata_child[MAX_SUBFACES], t8_locidx_t idata_parent,
+                                                                int iface_parent)
+{
+  sc_array_t         *summand;
+  sc_array_t         *mass_times_child_dof;
+  int                 ichild;
+  t8dg_functionbasis_t *face_functionbasis;
+
+  summand = t8dg_sc_array_duplicate (parent_face_dof);
+  mass_times_child_dof = t8dg_sc_array_duplicate (child_face_dof[0]);
+
+  t8dg_sc_array_block_double_set_zero (parent_face_dof);
+
+  face_functionbasis =
+    t8dg_functionbasis_get_face_functionbasis (t8dg_global_precomputed_values_get_functionbasis (global_values), iface_parent);
+  for (ichild = 0; ichild < num_face_children; ichild++) {
+    t8dg_precomputed_values_apply_face_mass_matrix (global_values, local_values, idata_child[ichild], iface_parent,
+                                                    child_face_dof[ichild], mass_times_child_dof);
+
+    t8dg_functionbasis_apply_child_interpolation_matrix_transpose (face_functionbasis, ichild, mass_times_child_dof, summand);
+
+    t8dg_sc_array_block_double_axpy (1, summand, parent_face_dof);
+  }
+  t8dg_precomputed_values_apply_face_inverse_mass_matrix (global_values, local_values, idata_parent, iface_parent, parent_face_dof,
+                                                          parent_face_dof);
+  sc_array_destroy (mass_times_child_dof);
+  sc_array_destroy (summand);
+}
 
 void
 t8dg_precomputed_values_transform_child_dof_to_parent_dof (const t8dg_global_precomputed_values_t * global_values,
