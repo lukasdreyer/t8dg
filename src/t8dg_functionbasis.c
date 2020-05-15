@@ -860,6 +860,14 @@ t8dg_functionbasis_get_num_face_functionbasis (const t8dg_functionbasis_t * func
 }
 
 int
+t8dg_functionbasis_get_num_face_children (const t8dg_functionbasis_t * functionbasis, int iface)
+{
+  T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
+  T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
+  return t8dg_functionbasis_get_num_children (functionbasis->face_functionbasis[iface]);
+}
+
+int
 t8dg_functionbasis_get_num_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface)
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));

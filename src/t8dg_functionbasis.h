@@ -42,6 +42,7 @@ void                t8dg_functionbasis_get_lagrange_vertex (const t8dg_functionb
 t8_eclass_t         t8dg_functionbasis_get_eclass (const t8dg_functionbasis_t * functionbasis);
 
 t8dg_functionbasis_t *t8dg_functionbasis_get_face_functionbasis (t8dg_functionbasis_t * functionbasis, int iface);
+int                 t8dg_functionbasis_get_num_face_children (const t8dg_functionbasis_t * functionbasis, int iface);
 
 int                 t8dg_functionbasis_get_num_face_functionbasis (const t8dg_functionbasis_t * functionbasis);
 int                 t8dg_functionbasis_get_num_face_dof (const t8dg_functionbasis_t * functionbasis, const int iface);
