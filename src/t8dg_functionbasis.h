@@ -12,6 +12,8 @@
 #include <sc_containers.h>
 #include "t8dg_dmatrix.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef enum t8dg_functionbasis_type
 {
   T8DG_LAGRANGE_LGL,
@@ -105,5 +107,7 @@ void                t8dg_functionbasis_ref (t8dg_functionbasis_t * functionbasis
 /** An estimate on the max value of the derivative on the reference element given dof_values
 double                        t8dg_functionbasis_max_derivative(t8dg_functionbasis_t *functionbasis, sc_array_t *dof_values);
 */
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_FUNCTIONBASIS_H_ */

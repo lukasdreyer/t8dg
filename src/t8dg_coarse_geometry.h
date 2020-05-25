@@ -17,6 +17,8 @@
 #include "t8dg.h"
 #include "t8dg_dmatrix.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 /** returns the 3x3 jacobian of the geometry function*/
 typedef void        (*t8dg_jacobian_fn_3D) (const double vertex[DIM3], t8dg_square_3D_matrix_t jacobian, t8_forest_t forest,
                                             t8_locidx_t itree);
@@ -43,5 +45,7 @@ typedef struct t8dg_coarse_geometry
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_COARSE_GEOMETRY_H_ */

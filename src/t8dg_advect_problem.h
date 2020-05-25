@@ -12,6 +12,8 @@
 #include <t8_cmesh.h>
 #include <sc.h>
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
 /* Enum for statistics. */
@@ -81,5 +83,8 @@ double
 
 double
              t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem, t8dg_scalar_function_3d_time_fn analytical_sol);
+
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_ADVECT_H_ */

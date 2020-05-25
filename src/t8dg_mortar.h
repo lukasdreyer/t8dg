@@ -17,6 +17,8 @@
 #include "t8dg_flux.h"
 #include "t8dg_local_precomputed_values.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_mortar t8dg_mortar_t;
 
 sc_array_t         *t8dg_mortar_get_flux (t8dg_mortar_t * mortar);
@@ -39,5 +41,7 @@ void                t8dg_mortar_fill (t8dg_mortar_t * mortar,
                                       t8dg_global_precomputed_values_t * global_values,
                                       t8dg_local_precomputed_values_t * local_values,
                                       t8dg_linear_flux_t * flux, t8dg_linear_numerical_flux_fn numerical_flux_fn);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_MORTAR_H_ */

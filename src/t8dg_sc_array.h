@@ -12,6 +12,8 @@
 #include <t8.h>
 #include <sc_containers.h>
 
+T8DG_EXTERN_C_BEGIN ();
+
 sc_array_t         *t8dg_sc_array_block_double_new_view (sc_array_t * src, t8_locidx_t idata);
 
 /** Calculates Y = a * X + Y for sc_arrays, where each element is assumed to be a block of double
@@ -58,5 +60,7 @@ sc_array_t         *t8dg_sc_array_duplicate (const sc_array_t * src);
 void                t8dg_sc_array_copy (const sc_array_t * src, sc_array_t * dest);
 
 void                t8dg_sc_array_block_double_set_zero (sc_array_t * array);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_SC_ARRAY_H_ */

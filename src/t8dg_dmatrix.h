@@ -10,6 +10,8 @@
 #define SRC_T8DG_DMATRIX_H_
 #include "t8dg.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_dmatrix t8dg_dmatrix_t;
 
 double              t8dg_dmatrix_at (const t8dg_dmatrix_t * dmatrix, const int irow, const int icolumn);
@@ -40,5 +42,7 @@ void                t8dg_square3D_matrix_apply_rotation_reflection_matrix_to_mat
                                                                                      matrix_invers,
                                                                                      t8dg_square_3D_matrix_t matrix,
                                                                                      int idx_rotation_reflection, int dim);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_DMATRIX_H_ */

@@ -17,6 +17,8 @@
 #include "t8dg_quadrature.h"
 #include "t8dg_coarse_geometry.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_linear_flux t8dg_linear_flux_t;
 
 /** linear numerical flux function for the 1D case  */
@@ -52,5 +54,7 @@ void                t8dg_flux_element_multiply_flux_value (const t8dg_linear_flu
                                                            double current_time, t8dg_local_precomputed_values_t * local_values,
                                                            t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement,
                                                            t8dg_quadrature_t * quadrature, t8dg_coarse_geometry_t * coarse_geometry);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

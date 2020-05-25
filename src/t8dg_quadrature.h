@@ -12,6 +12,8 @@
 #include "t8dg_vertexset.h"
 #include <sc_containers.h>
 
+T8DG_EXTERN_C_BEGIN ();
+
 /** Index used to enumerate quadrature points*/
 typedef int         t8dg_quad_idx_t;
 
@@ -109,5 +111,7 @@ t8dg_quad_idx_t
 
 double              t8dg_quadrature_integrate_reference_element (t8dg_quadrature_t * quadrature, t8dg_scalar_function_3d_fn integrand_fn,
                                                                  void *integrand_data);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_QUADRATURE_H_ */

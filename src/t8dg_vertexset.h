@@ -8,6 +8,8 @@
 #ifndef SRC_T8DG_VERTEXSET_H_
 #define SRC_T8DG_VERTEXSET_H_
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef enum t8dg_vertexset_type
 {
   T8DG_VERT_LGL,
@@ -39,5 +41,7 @@ void                t8dg_vertexset_destroy (t8dg_vertexset_t ** pvertexset);
 void                t8dg_vertexset_ref (t8dg_vertexset_t * vertexset);
 
 void                t8dg_vertexset_unref (t8dg_vertexset_t ** vertexset);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_VERTEXSET_H_ */
