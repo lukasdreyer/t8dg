@@ -22,7 +22,8 @@ libt8dg_installed_headers = \
   src/t8dg_sc_array.h \
   src/t8dg_tensor.h
 
-libt8dg_internal_headers = \
+libt8dg_internal_headers = 
+
 libt8dg_compiled_sources = \
   src/t8dg_functionbasis.c \
   src/t8dg_refcount.c \

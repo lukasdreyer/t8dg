@@ -3,7 +3,7 @@
 # Makefile.am in toplevel directory
 
 # include makefiles from installed subpackages
-ACLOCAL_AMFLAGS = -I config @T8DG_SC_AMFLAGS@ @T8DG_P4EST_AMFLAGS@ @T8DG_T8CODE_AMFLAGS@
+ACLOCAL_AMFLAGS = -I config @T8DG_SC_AMFLAGS@ @T8DG_P4EST_AMFLAGS@ @T8DG_T8_AMFLAGS@
 if T8DG_SC_MK_USE
 @T8DG_SC_MK_INCLUDE@
 endif
@@ -70,6 +70,7 @@ DISTCLEANFILES += \
 
 # non-recursive build
 include src/Makefile.am
+include exec/Makefile.am
 
 # revision control and ChangeLog
 ChangeLog:

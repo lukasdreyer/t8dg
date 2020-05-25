@@ -12,7 +12,7 @@
 #include <sc_options.h>
 #include <sc.h>
 
-#include <example/common/t8_example_common.h>
+#include <../example/common/t8_example_common.h>
 
 double
 t8dg_scalar3d_hat_function (const double x[3], const double t)
