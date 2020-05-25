@@ -45,7 +45,7 @@ fi
 # RUNNING BOOTSTRAP FOR T8CODE
 
 #override by option argument
-T8_CONFIG="t8code/config"
+T8_CONFIG="t8/config"
 if test -n "$3" ; then
   T8_CONFIG="$3"
   if test ! -d "$T8_CONFIG" ; then
@@ -57,9 +57,9 @@ fi
 echo Changing to dir [$T8_CONFIG]
 T8_CONFIG=`cd "$T8_CONFIG" && pwd`
 
-if test -x "t8code/bootstrap" ; then
-  echo "Running bootstrap in subdirectory t8code"
-  (cd t8code && ./bootstrap "$SC_CONFIG" "$P4EST_CONFIG")
+if test -x "t8/bootstrap" ; then
+  echo "Running bootstrap in subdirectory t8"
+  (cd t8 && ./bootstrap "$SC_CONFIG" "$P4EST_CONFIG")
 fi
 
 # Starting now with t8dg part

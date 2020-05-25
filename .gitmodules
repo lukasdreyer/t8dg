@@ -6,3 +6,7 @@
 	path = sc
 	url = https://github.com/cburstedde/libsc
 	branch = prev3-develop
+[submodule "t8"]
+	path = t8
+	url = https://github.com/holke/t8code
+	branch = develop
