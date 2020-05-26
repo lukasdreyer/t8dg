@@ -50,6 +50,7 @@ AC_DEFUN([T8DG_CHECK_LIBRARIES],
 dnl Currently this causes an error during configure:
 dnl syntax error near unexpected token `T8DG'
 dnl T8DG_CHECK_CPPSTD([$1])
+  T8DG_CHECK_CBLAS([$1])
 ])
 
 dnl T8DG_AS_SUBPACKAGE(PREFIX)
