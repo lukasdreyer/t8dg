@@ -8,6 +8,7 @@
 #include "t8dg.h"
 #include <sc_containers.h>
 #include <t8_eclass.h>
+#include "t8dg_tensor.h"
 
 t8_eclass_t
 t8dg_tensor_eclass (t8_eclass_t eclass_tensor1, t8_eclass_t eclass_tensor2)

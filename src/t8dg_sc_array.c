@@ -7,6 +7,7 @@
 
 #include <t8.h>
 #include "t8dg.h"
+#include "t8dg_sc_array.h"
 #include <sc_containers.h>
 
 int

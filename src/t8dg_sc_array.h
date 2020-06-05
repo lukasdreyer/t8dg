@@ -9,7 +9,7 @@
 #ifndef SRC_T8DG_SC_ARRAY_H_
 #define SRC_T8DG_SC_ARRAY_H_
 
-#include <t8dg.h>
+#include "t8dg.h"
 #include <sc_containers.h>
 
 T8DG_EXTERN_C_BEGIN ();

@@ -8,6 +8,8 @@
 #ifndef SRC_T8DG_VERTEXSET_H_
 #define SRC_T8DG_VERTEXSET_H_
 
+#include "t8dg.h"
+
 T8DG_EXTERN_C_BEGIN ();
 
 typedef enum t8dg_vertexset_type

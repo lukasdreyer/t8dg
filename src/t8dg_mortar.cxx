@@ -15,6 +15,7 @@
 #include "t8dg_precomputed_values.h"
 #include "t8dg_flux.h"
 #include "t8dg_sc_array.h"
+#include "t8dg_geometry.h"
 
 /** struct used to save the calculated numerical fluxes at quadrature points*/
 struct t8dg_mortar
