@@ -31,7 +31,7 @@ typedef struct t8dg_mortar_fill_data
   const double        time;
 } t8dg_mortar_fill_data_t;
 
-void                t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_data);
+//void                t8dg_mortar_fill (t8dg_mortar_t * mortar, t8dg_mortar_fill_data_t * mortar_fill_data);
 
 void                t8dg_mortar_array_fill (t8dg_mortar_array_t * mortar_array, t8dg_mortar_fill_data_t * mortar_fill_data);
 

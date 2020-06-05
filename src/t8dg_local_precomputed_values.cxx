@@ -200,7 +200,8 @@ t8dg_local_precomputed_values_new (t8_forest_t forest, t8dg_global_precomputed_v
   values->element_trafo_quad_weight = sc_array_new_count (sizeof (double) * values->max_num_elem_values, num_local_elems);
 
   for (iface = 0; iface < values->max_num_faces; iface++) {
-    values->face_trafo_quad_weight[iface] = sc_array_new_count (sizeof (double) * values->max_num_face_values, num_local_elems);
+    values->face_trafo_quad_weight[iface] =
+      sc_array_new_count (sizeof (double) * values->max_num_face_values, num_local_elems + t8_forest_get_num_ghosts (forest));
 
     values->face_normal_vectors[iface] =
       sc_array_new_count (sizeof (double) * DIM3 * values->max_num_face_values, num_local_elems + t8_forest_get_num_ghosts (forest));
@@ -317,6 +318,8 @@ t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t for
   int                 iface;
   sc_array_t         *local_view_normal_old;
   sc_array_t         *local_view_normal_new;
+  sc_array_t         *local_view_face_weight_old;
+  sc_array_t         *local_view_face_weight_new;
 
   t8_forest_partition_data (forest_old, forest_partition,
                             local_values_old->element_trafo_quad_weight, local_values_partition->element_trafo_quad_weight);
@@ -333,8 +336,14 @@ t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t for
     sc_array_destroy (local_view_normal_new);
     sc_array_destroy (local_view_normal_old);
 
-    t8_forest_partition_data (forest_old, forest_partition,
-                              local_values_old->face_trafo_quad_weight[iface], local_values_partition->face_trafo_quad_weight[iface]);
+    local_view_face_weight_old =
+      sc_array_new_view (local_values_old->face_trafo_quad_weight[iface], 0, t8_forest_get_num_element (forest_old));
+    local_view_face_weight_new =
+      sc_array_new_view (local_values_partition->face_trafo_quad_weight[iface], 0, t8_forest_get_num_element (forest_partition));
+
+    t8_forest_partition_data (forest_old, forest_partition, local_view_face_weight_old, local_view_face_weight_new);
+    sc_array_destroy (local_view_face_weight_old);
+    sc_array_destroy (local_view_face_weight_new);
   }
 }
 
@@ -344,6 +353,7 @@ t8dg_local_precomputed_values_ghost_exchange (t8_forest_t forest, t8dg_local_pre
   int                 iface;
   for (iface = 0; iface < local_values->max_num_faces; iface++) {
     t8_forest_ghost_exchange_data (forest, local_values->face_normal_vectors[iface]);
+    t8_forest_ghost_exchange_data (forest, local_values->face_trafo_quad_weight[iface]);
   }
 }
 
