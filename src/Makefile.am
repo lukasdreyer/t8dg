@@ -20,7 +20,9 @@ libt8dg_installed_headers = \
   src/t8dg_advect_problem.h	\
   src/t8dg.h \
   src/t8dg_sc_array.h \
-  src/t8dg_tensor.h
+  src/t8dg_tensor.h \
+  src/t8dg_geometry.h \
+  src/t8dg_common.h
 
 libt8dg_internal_headers = 
 
@@ -34,13 +36,15 @@ libt8dg_compiled_sources = \
   src/t8dg_local_precomputed_values.cxx \
   src/t8dg_tensor.c \
   src/t8dg_coarse_geometry.c \
-  src/t8dg_mortar.c	\
+  src/t8dg_mortar.cxx	\
   src/t8dg_timestepping.c \
   src/t8dg_dmatrix.c \
   src/t8dg_precomputed_values.c \
   src/t8dg_vertexset.c \
   src/t8dg_flux.c \
-  src/t8dg_quadrature.c
+  src/t8dg_quadrature.c \
+  src/t8dg_geometry.cxx \
+  src/t8dg_common.c
 
 
 # this variable is used for headers that are not publicly installed
