@@ -387,20 +387,26 @@ t8dg_functionbasis_get_lagrange_vertexset (const t8dg_functionbasis_t * function
   T8DG_ASSERT (t8dg_functionbasis_is_lagrange (functionbasis));
   switch (functionbasis->element_class) {
   case T8_ECLASS_VERTEX:
-    t8dg_functionbasis_0D_lagrange_data_t * lagrange0D_data;
-    lagrange0D_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
-    return lagrange0D_data->vertexset;
-    break;
+    {
+      t8dg_functionbasis_0D_lagrange_data_t *lagrange0D_data;
+      lagrange0D_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
+      return lagrange0D_data->vertexset;
+      break;
+    }
   case T8_ECLASS_LINE:
-    t8dg_functionbasis_1D_lagrange_data_t * lagrange1D_data;
-    lagrange1D_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
-    return lagrange1D_data->vertexset;
-    break;
+    {
+      t8dg_functionbasis_1D_lagrange_data_t *lagrange1D_data;
+      lagrange1D_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
+      return lagrange1D_data->vertexset;
+      break;
+    }
   case T8_ECLASS_TRIANGLE:
-    t8dg_functionbasis_triangle_lagrange_data_t * lagrange_triangle_data;
-    lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
-    return lagrange_triangle_data->vertexset;
-    break;
+    {
+      t8dg_functionbasis_triangle_lagrange_data_t *lagrange_triangle_data;
+      lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
+      return lagrange_triangle_data->vertexset;
+      break;
+    }
 
   default:
     T8DG_ABORT ("Not yet implemented");
@@ -463,23 +469,29 @@ t8dg_functionbasis_get_lagrange_derivative_matrix (const t8dg_functionbasis_t * 
 {
   switch (functionbasis->element_class) {
   case T8_ECLASS_VERTEX:
-    T8DG_ABORT ("Is this really needed?");
-    T8DG_ASSERT (direction_idx == 0);
-    t8dg_functionbasis_0D_lagrange_data_t *lagrange0d_data;
-    lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
-    return lagrange0d_data->identity;
-    break;
+    {
+      T8DG_ABORT ("Is this really needed?");
+      T8DG_ASSERT (direction_idx == 0);
+      t8dg_functionbasis_0D_lagrange_data_t *lagrange0d_data;
+      lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
+      return lagrange0d_data->identity;
+      break;
+    }
   case T8_ECLASS_LINE:
-    T8DG_ASSERT (direction_idx == 0);
-    t8dg_functionbasis_1D_lagrange_data_t *lagrange1d_data;
-    lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
-    return lagrange1d_data->derivative_matrix;
-    break;
+    {
+      T8DG_ASSERT (direction_idx == 0);
+      t8dg_functionbasis_1D_lagrange_data_t *lagrange1d_data;
+      lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
+      return lagrange1d_data->derivative_matrix;
+      break;
+    }
   case T8_ECLASS_TRIANGLE:
-    t8dg_functionbasis_triangle_lagrange_data_t * lagrange_triangle_data;
-    lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
-    return lagrange_triangle_data->derivative_matrix[direction_idx];
-    break;
+    {
+      t8dg_functionbasis_triangle_lagrange_data_t *lagrange_triangle_data;
+      lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
+      return lagrange_triangle_data->derivative_matrix[direction_idx];
+      break;
+    }
   default:
     T8DG_ABORT ("Not yet implemented");
     break;
@@ -600,20 +612,26 @@ t8dg_functionbasis_get_lagrange_child_interpolation_matrix (const t8dg_functionb
   T8DG_ASSERT (ichild >= 0 && ichild < functionbasis->num_children);
   switch (functionbasis->element_class) {
   case T8_ECLASS_VERTEX:
-    t8dg_functionbasis_0D_lagrange_data_t * lagrange0d_data;
-    lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
-    return lagrange0d_data->identity;
-    break;
+    {
+      t8dg_functionbasis_0D_lagrange_data_t *lagrange0d_data;
+      lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
+      return lagrange0d_data->identity;
+      break;
+    }
   case T8_ECLASS_LINE:
-    t8dg_functionbasis_1D_lagrange_data_t * lagrange1d_data;
-    lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
-    return lagrange1d_data->interpolate_to_child_matrix[ichild];
-    break;
+    {
+      t8dg_functionbasis_1D_lagrange_data_t *lagrange1d_data;
+      lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
+      return lagrange1d_data->interpolate_to_child_matrix[ichild];
+      break;
+    }
   case T8_ECLASS_TRIANGLE:
-    t8dg_functionbasis_triangle_lagrange_data_t * lagrange_triangle_data;
-    lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
-    return lagrange_triangle_data->interpolate_to_child_matrix[ichild];
-    break;
+    {
+      t8dg_functionbasis_triangle_lagrange_data_t *lagrange_triangle_data;
+      lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
+      return lagrange_triangle_data->interpolate_to_child_matrix[ichild];
+      break;
+    }
   default:
     T8DG_ABORT ("Not yet implemented");
     break;
@@ -915,35 +933,40 @@ t8dg_functionbasis_reset (t8dg_functionbasis_t * functionbasis)
   else if (t8dg_functionbasis_is_lagrange (functionbasis)) {
     switch (functionbasis->element_class) {
     case T8_ECLASS_VERTEX:
-      t8dg_functionbasis_0D_lagrange_data_t * lagrange0d_data;
-      lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
-      t8dg_dmatrix_destroy (&lagrange0d_data->identity);
-      t8dg_vertexset_unref (&lagrange0d_data->vertexset);
-      T8DG_FREE (lagrange0d_data);
-      break;
+      {
+        t8dg_functionbasis_0D_lagrange_data_t *lagrange0d_data;
+        lagrange0d_data = (t8dg_functionbasis_0D_lagrange_data_t *) functionbasis->data;
+        t8dg_dmatrix_destroy (&lagrange0d_data->identity);
+        t8dg_vertexset_unref (&lagrange0d_data->vertexset);
+        T8DG_FREE (lagrange0d_data);
+        break;
+      }
     case T8_ECLASS_LINE:
-      t8dg_functionbasis_1D_lagrange_data_t * lagrange1d_data;
-      lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
-      sc_array_destroy (lagrange1d_data->barycentric_weights_1D);
-      t8dg_dmatrix_destroy (&lagrange1d_data->derivative_matrix);
-      t8dg_dmatrix_destroy (&lagrange1d_data->interpolate_to_child_matrix[0]);
-      t8dg_dmatrix_destroy (&lagrange1d_data->interpolate_to_child_matrix[1]);
-      t8dg_vertexset_unref (&lagrange1d_data->vertexset);
-      T8DG_FREE (lagrange1d_data);
-      break;
+      {
+        t8dg_functionbasis_1D_lagrange_data_t *lagrange1d_data;
+        lagrange1d_data = (t8dg_functionbasis_1D_lagrange_data_t *) functionbasis->data;
+        sc_array_destroy (lagrange1d_data->barycentric_weights_1D);
+        t8dg_dmatrix_destroy (&lagrange1d_data->derivative_matrix);
+        t8dg_dmatrix_destroy (&lagrange1d_data->interpolate_to_child_matrix[0]);
+        t8dg_dmatrix_destroy (&lagrange1d_data->interpolate_to_child_matrix[1]);
+        t8dg_vertexset_unref (&lagrange1d_data->vertexset);
+        T8DG_FREE (lagrange1d_data);
+        break;
+      }
     case T8_ECLASS_TRIANGLE:
-      t8dg_functionbasis_triangle_lagrange_data_t * lagrange_triangle_data;
-      lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->derivative_matrix[0]);
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->derivative_matrix[1]);
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[0]);
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[1]);
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[2]);
-      t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[3]);
-      t8dg_vertexset_unref (&lagrange_triangle_data->vertexset);
-      T8DG_FREE (lagrange_triangle_data);
-      break;
-
+      {
+        t8dg_functionbasis_triangle_lagrange_data_t *lagrange_triangle_data;
+        lagrange_triangle_data = (t8dg_functionbasis_triangle_lagrange_data_t *) functionbasis->data;
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->derivative_matrix[0]);
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->derivative_matrix[1]);
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[0]);
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[1]);
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[2]);
+        t8dg_dmatrix_destroy (&lagrange_triangle_data->interpolate_to_child_matrix[3]);
+        t8dg_vertexset_unref (&lagrange_triangle_data->vertexset);
+        T8DG_FREE (lagrange_triangle_data);
+        break;
+      }
     default:
       T8DG_ABORT ("Not yet implemented");
       break;
