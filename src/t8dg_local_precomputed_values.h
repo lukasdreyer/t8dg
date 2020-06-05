@@ -17,6 +17,8 @@
 #include "t8dg_flux.h"
 #include "t8dg_global_precomputed_values.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_local_precomputed_values t8dg_local_precomputed_values_t;
 
 /*TODO: normal vector on functionbasis!!*/
@@ -65,5 +67,7 @@ void                t8dg_local_precomputed_values_ghost_exchange (t8_forest_t fo
 void                t8dg_local_precomputed_values_partition (t8_forest_t forest_old, t8_forest_t forest_partition,
                                                              t8dg_local_precomputed_values_t * local_values_old,
                                                              t8dg_local_precomputed_values_t * local_values_partition);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_LOCAL_PRECOMPUTED_VALUES_H_ */

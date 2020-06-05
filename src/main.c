@@ -17,7 +17,7 @@
 #include <sc_options.h>
 #include <sc.h>
 
-#include <example/common/t8_example_common.h>
+#include <../example/common/t8_example_common.h>
 
 static              t8dg_scalar_function_3d_time_fn
 t8dg_choose_initial_cond_fn (int initial_cond_arg)

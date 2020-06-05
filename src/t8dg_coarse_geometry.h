@@ -16,6 +16,9 @@
 
 #include "t8dg.h"
 #include "t8dg_dmatrix.h"
+
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 
 /**Create a new coarse geometry for the linear 1D case*/
@@ -45,5 +48,7 @@ void                t8dg_coarse_geometry_calculate_gradient_tangential_vector (c
 void                t8dg_coarse_geometry_transform_normal_vector
   (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
    const t8_locidx_t itree, const double coarse_vertex[3], const double coarse_normal_vector[3], double image_normal_vector[3]);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_COARSE_GEOMETRY_H_ */

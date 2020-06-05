@@ -13,6 +13,8 @@
 #include "t8dg_geometry.h"
 #include "t8dg_mortar.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_precomputed_values_fn_evaluation_data
 {
   t8dg_geometry_transformation_data_t *geometry_data;
@@ -66,5 +68,7 @@ double              t8dg_precomputed_values_element_norm_l2_squared
 
 double
              t8dg_precomputed_values_transform_reference_vertex_and_evaluate (const double reference_vertex[3], void *scalar_fn_data);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_PRECOMPUTED_VALUES_H_ */

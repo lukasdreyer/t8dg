@@ -14,6 +14,8 @@
 
 #include "t8dg.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_flux t8dg_flux_t;
 
 t8dg_flux_t        *t8dg_flux_new_linear_constant_flux (const double flow_direction[3], const double flow_velocity);
@@ -24,4 +26,6 @@ void                t8dg_flux_calulate_flux (const t8dg_flux_t * flux, const dou
 
 double              t8dg_flux_calculate_numerical_flux_value (const t8dg_flux_t * flux, const double u_minus, const double u_plus,
                                                               const double flow_vector[3], const double normal_vector[3]);
+T8DG_EXTERN_C_END ();
+
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

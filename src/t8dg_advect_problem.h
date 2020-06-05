@@ -16,6 +16,8 @@
 #include "t8dg_timestepping.h"
 #include "t8dg_coarse_geometry.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
 /* Enum for statistics. */
@@ -94,5 +96,7 @@ int                 t8dg_advect_mass_adapt (t8_forest_t forest,
                                             t8_forest_t forest_from,
                                             t8_locidx_t which_tree,
                                             t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_ADVECT_H_ */

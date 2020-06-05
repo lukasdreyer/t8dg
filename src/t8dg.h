@@ -22,7 +22,7 @@
 #define T8DG_EXTERN_C_END() T8_EXTERN_C_END()
 
 /* call this after including all headers */
-T8_EXTERN_C_BEGIN ();
+T8DG_EXTERN_C_BEGIN ();
 
 #define T8DG_ASSERT T8_ASSERT
 #define T8DG_ALLOC T8_ALLOC

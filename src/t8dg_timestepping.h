@@ -11,6 +11,8 @@
 #include <sc_containers.h>
 #include "t8dg.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_timestepping_data t8dg_timestepping_data_t;
 
 typedef void        (*t8dg_time_matrix_application) (const sc_array_t * src, sc_array_t * dest, const double t,
@@ -57,5 +59,7 @@ int                 t8dg_timestepping_data_get_step_number (t8dg_timestepping_da
 void                t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_data);
 
 double              t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_TIMESTEPPING_H_ */

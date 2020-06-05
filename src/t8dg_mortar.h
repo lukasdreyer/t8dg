@@ -18,6 +18,8 @@
 #include "t8dg_local_precomputed_values.h"
 #include "t8dg_geometry.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_mortar t8dg_mortar_t;
 typedef struct t8dg_mortar_array t8dg_mortar_array_t;
 
@@ -43,5 +45,7 @@ void                t8dg_mortar_array_destroy (t8dg_mortar_array_t ** pmortar_ar
 
 /*TODO!!!!!*/
 sc_array_t         *t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_locidx_t idata, int iface);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_MORTAR_H_ */
