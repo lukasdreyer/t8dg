@@ -12,6 +12,8 @@
 #include <t8.h>
 #include <sc_containers.h>
 
+int                 t8dg_sc_array_block_double_is_valid (sc_array_t * array);
+
 sc_array_t         *t8dg_sc_array_block_double_new_view (sc_array_t * src, t8_locidx_t idata);
 
 /** Calculates Y = a * X + Y for sc_arrays, where each element is assumed to be a block of double

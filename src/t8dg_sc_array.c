@@ -9,6 +9,20 @@
 #include "t8dg.h"
 #include <sc_containers.h>
 
+int
+t8dg_sc_array_block_double_is_valid (sc_array_t * array)
+{
+  T8DG_ASSERT (array->elem_size % sizeof (double) == 0);
+  size_t              iarray, num_double;
+  num_double = (array->elem_size / sizeof (double)) * array->elem_count;
+  for (iarray = 0; iarray < num_double; iarray++) {
+    if (*(double *) sc_array_index (array, iarray) != *(double *) sc_array_index (array, iarray)) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
 void
 t8dg_sc_array_copy_only_at_indices (sc_array_t * incoming_array, t8_locidx_t incoming_idata,
                                     sc_array_t * outgoing_array, t8_locidx_t outgoing_idata)

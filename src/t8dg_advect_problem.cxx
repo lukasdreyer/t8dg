@@ -458,6 +458,7 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
       geometry_data.ielement = ielement;
       element_dof_values = t8dg_sc_array_block_double_new_view (src_dof, idata);
+      T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (element_dof_values));
       element_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_flux_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_res_summand_dof_values = sc_array_new_count (sizeof (double), num_dof);
@@ -483,6 +484,8 @@ t8dg_advect_problem_apply_stiffness_matrix (t8dg_linear_advection_problem_t * pr
 //        t8dg_sc_array_block_double_debug_print (element_res_summand_dof_values);
         t8dg_sc_array_block_double_axpy (1, element_res_summand_dof_values, element_res_dof_values);
       }
+
+      T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (element_res_dof_values));
 
       sc_array_destroy (element_dof_values);
       sc_array_destroy (element_quad_values);
@@ -538,6 +541,7 @@ t8dg_advect_problem_apply_boundary_integrals (t8dg_linear_advection_problem_t * 
       element_result_dof = t8dg_sc_array_block_double_new_view (result_dof, idata);
       t8dg_precomputed_values_apply_element_boundary_integral (problem->global_values, problem->local_values, problem->face_mortars, idata,
                                                                element_result_dof);
+      T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (element_result_dof));
       sc_array_destroy (element_result_dof);
     }
   }

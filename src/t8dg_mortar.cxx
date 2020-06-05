@@ -422,10 +422,12 @@ t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_loci
   T8DG_ASSERT (mortar != NULL);
   t8dg_debugf ("adress: %p \n", (void *) mortar);
   if (idata == mortar->elem_idata_minus && iface == mortar->iface_minus) {
+    T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (mortar->fluxvalue_minus));
     return mortar->fluxvalue_minus;
   }
   for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
     if (mortar->subface_is_local[isubface] && mortar->elem_idata_plus[isubface] == idata && mortar->iface_plus[isubface] == iface) {
+      T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (mortar->fluxvalue_plus[isubface]));
       return mortar->fluxvalue_plus[isubface];
     }
   }

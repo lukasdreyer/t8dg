@@ -28,6 +28,7 @@ t8dg_precomputed_values_apply_element_boundary_integral (t8dg_global_precomputed
 
     t8dg_functionbasis_transform_face_dof_to_element_dof (t8dg_global_precomputed_values_get_functionbasis (global_values), iface, face_dof,
                                                           summand);
+    T8DG_ASSERT (t8dg_sc_array_block_double_is_valid (summand));
     t8dg_sc_array_block_double_axpy (1, summand, element_result_dof);
     sc_array_destroy (face_dof);
   }
