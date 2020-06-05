@@ -12,6 +12,8 @@
 #include <t8_forest.h>
 #include "t8dg_coarse_geometry.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 typedef struct t8dg_geometry_transformation_data
 {
   const t8dg_coarse_geometry_t *coarse_geometry;
@@ -37,5 +39,7 @@ void                t8dg_geometry_calculate_normal_vector
 
 double              t8dg_geometry_calculate_face_sqrt_gram_determinant
   (const t8dg_geometry_transformation_data_t * geometry_data, const int iface, const double reference_vertex[3]);
+
+T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_GEOMETRY_H_ */
