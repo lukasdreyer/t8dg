@@ -16,16 +16,18 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
-typedef struct t8dg_flux t8dg_flux_t;
+typedef double      (*t8dg_numerical_linear_flux3D_fn) (const double u_minus, const double u_plus,
+                                                        const double flow_vector[3], const double normal_vector[3],
+                                                        const void *numerical_flux_data);
 
-t8dg_flux_t        *t8dg_flux_new_linear_constant_flux (const double flow_direction[3], const double flow_velocity);
+typedef double      (*t8dg_numerical_linear_flux1D_fn) (const double u_minus, const double u_plus,
+                                                        const double flow_constant, const double normal_component,
+                                                        const void *numerical_flux_data);
 
-void                t8dg_flux_destroy (t8dg_flux_t ** pflux);
+typedef void        (*t8dg_linear_flux1D_fn) (const double x_vec[3], double *flux_velocity, const double t, const void *flux_data);
 
-void                t8dg_flux_calulate_flux (const t8dg_flux_t * flux, const double x_vec[3], double flux_vec[3], const double t);
+typedef void        (*t8dg_linear_flux3D_fn) (double x_vec[3], double flux_velocity[3], double t, void *flux_data);
 
-double              t8dg_flux_calculate_numerical_flux_value (const t8dg_flux_t * flux, const double u_minus, const double u_plus,
-                                                              const double flow_vector[3], const double normal_vector[3]);
 T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_NUMERICAL_FLUX_H_ */

@@ -12,6 +12,7 @@
 #include "t8dg_advect_problem.h"
 #include "t8dg_coarse_geometry.h"
 #include "t8dg_flux.h"
+#include "t8dg_flux_implementation.h"
 #include "t8dg_common.h"
 
 #include <sc_options.h>
@@ -140,12 +141,16 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   t8dg_scalar_function_3d_time_fn u_initial;
   t8_cmesh_t          cmesh;
   t8dg_coarse_geometry_t *coarse_geometry;
-  t8dg_flux_t        *flux;
+
   t8dg_timestepping_data_t *time_data;
   double             *first_tree_vertices;
-  double              tangential_vector[3];
   int                 dim;
   t8_forest_adapt_t   adapt_fn;
+
+  t8dg_linear_advection_problem_description_t description;
+  description.flux_data = T8_ALLOC (t8dg_linear_flux3D_constant_flux_data_t, 1);        /*TODO: free */
+  double             *flow_direction = ((t8dg_linear_flux3D_constant_flux_data_t *) description.flux_data)->flow_direction;
+  double             *p_flow_speed = &((t8dg_linear_flux3D_constant_flux_data_t *) description.flux_data)->flow_velocity;
 
   adapt_fn = t8dg_choose_adapt_fn (adapt_arg);
 
@@ -154,21 +159,28 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
     cmesh = t8dg_choose_cmesh (icmesh, comm);
     dim = 1;
     first_tree_vertices = t8_cmesh_get_tree_vertices (cmesh, 0);
-    t8_vec_axpyz (first_tree_vertices, first_tree_vertices + 3, tangential_vector, -1);
-    flux = t8dg_flux_new_linear_constant_flux (tangential_vector, flow_speed);
+
+    t8_vec_axpyz (first_tree_vertices, first_tree_vertices + 3, flow_direction, -1);
+    *p_flow_speed = flow_speed;
+    description.velocity_field = t8dg_linear_flux3D_constant_flux_fn;
+
   }
   else {
     coarse_geometry = t8dg_coarse_geometry_new_2D_linear ();
     cmesh = t8dg_choose_cmesh (icmesh, comm);
     dim = 2;
-    double              diagonal[3] = { 1, 0, 0 };
-    flux = t8dg_flux_new_linear_constant_flux (diagonal, flow_speed);
+    flow_direction[0] = 1;
+    flow_direction[1] = 0;
+    flow_direction[2] = 0;
+    *p_flow_speed = flow_speed;
+    description.velocity_field = t8dg_linear_flux3D_constant_flux_fn;
   }
-  u_initial = t8dg_choose_initial_cond_fn (initial_cond_arg);
+
+  description.initial_condition_fn = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
   time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
 
-  return t8dg_advect_problem_init (cmesh, coarse_geometry, dim, u_initial, flux,
+  return t8dg_advect_problem_init (cmesh, coarse_geometry, dim, &description,
                                    uniform_level, max_level, number_LGL_points, time_data, adapt_fn, comm);
 }
 

@@ -20,6 +20,17 @@ T8DG_EXTERN_C_BEGIN ();
 
 typedef struct t8dg_linear_advection_problem t8dg_linear_advection_problem_t;
 
+typedef struct t8dg_linear_advection_problem_description
+{
+  t8dg_scalar_function_3d_time_fn initial_condition_fn;             /**< Initial condition function */
+
+  t8dg_linear_flux3D_fn velocity_field;
+  void               *flux_data;
+
+  t8dg_scalar_function_3d_time_fn source_sink_fn;
+  t8dg_scalar_function_3d_time_fn analytical_sol_fn;             /**< Analytical solution function */
+} t8dg_linear_advection_problem_description_t;
+
 /* Enum for statistics. */
 typedef enum
 {
@@ -52,8 +63,7 @@ typedef enum
 t8dg_linear_advection_problem_t *t8dg_advect_problem_init (t8_cmesh_t cmesh,
                                                            t8dg_coarse_geometry_t * coarse_geometry,
                                                            int dim,
-                                                           t8dg_scalar_function_3d_time_fn u_initial,
-                                                           t8dg_flux_t * flux,
+                                                           t8dg_linear_advection_problem_description_t * description,
                                                            int uniform_level, int max_level,
                                                            int number_LGL_points, t8dg_timestepping_data_t * time_data,
                                                            t8_forest_adapt_t adapt_fn, sc_MPI_Comm comm);

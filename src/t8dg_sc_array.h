@@ -14,6 +14,7 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
+#if 0
 int                 t8dg_sc_array_block_double_is_valid (sc_array_t * array);
 
 sc_array_t         *t8dg_sc_array_block_double_new_view (sc_array_t * src, t8_locidx_t idata);
@@ -62,6 +63,8 @@ sc_array_t         *t8dg_sc_array_duplicate (const sc_array_t * src);
 void                t8dg_sc_array_copy (const sc_array_t * src, sc_array_t * dest);
 
 void                t8dg_sc_array_block_double_set_zero (sc_array_t * array);
+
+#endif
 
 T8DG_EXTERN_C_END ();
 

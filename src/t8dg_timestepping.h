@@ -10,12 +10,13 @@
 #define SRC_TIMESTEPPING_H_
 #include <sc_containers.h>
 #include "t8dg.h"
+#include "t8dg_dof.h"
 
 T8DG_EXTERN_C_BEGIN ();
 
 typedef struct t8dg_timestepping_data t8dg_timestepping_data_t;
 
-typedef void        (*t8dg_time_matrix_application) (const sc_array_t * src, sc_array_t * dest, const double t,
+typedef void        (*t8dg_time_matrix_application) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
                                                      const void *application_data);
 
 /** implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal
@@ -30,7 +31,7 @@ void
  
  
  t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative,
-                                     t8dg_timestepping_data_t * time_data, sc_array_t ** pdof_array, void *user_data);
+                                     t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data);
 
 void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
 

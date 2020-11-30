@@ -7,7 +7,7 @@ t8dg_refcount_init (t8dg_refcount_t * rc)
 }
 
 t8dg_refcount_t    *
-t8_refcount_new (void)
+t8dg_refcount_new (void)
 {
   t8dg_refcount_t    *rc;
 
