@@ -21,7 +21,6 @@ libt8dg_installed_headers = \
   src/t8dg_dmatrix.h \
   src/t8dg_quadrature.h \
   src/t8dg_advect_problem.h	\
-  src/t8dg.h \
   src/t8dg_sc_array.h \
   src/t8dg_tensor.h \
   src/t8dg_geometry.h \

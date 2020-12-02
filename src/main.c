@@ -147,10 +147,11 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   int                 dim;
   t8_forest_adapt_t   adapt_fn;
 
-  t8dg_linear_advection_problem_description_t description;
-  description.flux_data = T8_ALLOC (t8dg_linear_flux3D_constant_flux_data_t, 1);        /*TODO: free */
-  double             *flow_direction = ((t8dg_linear_flux3D_constant_flux_data_t *) description.flux_data)->flow_direction;
-  double             *p_flow_speed = &((t8dg_linear_flux3D_constant_flux_data_t *) description.flux_data)->flow_velocity;
+  t8dg_linear_advection_problem_description_t *description;
+  description = T8DG_ALLOC (t8dg_linear_advection_problem_description_t, 1);
+  description->flux_data = T8_ALLOC (t8dg_linear_flux3D_constant_flux_data_t, 1);       /*TODO: free */
+  double             *flow_direction = ((t8dg_linear_flux3D_constant_flux_data_t *) description->flux_data)->flow_direction;
+  double             *p_flow_speed = &((t8dg_linear_flux3D_constant_flux_data_t *) description->flux_data)->flow_velocity;
 
   adapt_fn = t8dg_choose_adapt_fn (adapt_arg);
 
@@ -162,7 +163,7 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
 
     t8_vec_axpyz (first_tree_vertices, first_tree_vertices + 3, flow_direction, -1);
     *p_flow_speed = flow_speed;
-    description.velocity_field = t8dg_linear_flux3D_constant_flux_fn;
+    description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
 
   }
   else {
@@ -173,14 +174,14 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
     flow_direction[1] = 0;
     flow_direction[2] = 0;
     *p_flow_speed = flow_speed;
-    description.velocity_field = t8dg_linear_flux3D_constant_flux_fn;
+    description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
   }
 
-  description.initial_condition_fn = t8dg_choose_initial_cond_fn (initial_cond_arg);
+  description->initial_condition_fn = t8dg_choose_initial_cond_fn (initial_cond_arg);
 
   time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
 
-  return t8dg_advect_problem_init (cmesh, coarse_geometry, dim, &description,
+  return t8dg_advect_problem_init (cmesh, coarse_geometry, dim, description,
                                    uniform_level, max_level, number_LGL_points, time_data, adapt_fn, comm);
 }
 

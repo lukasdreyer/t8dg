@@ -71,6 +71,7 @@ DISTCLEANFILES += \
 # non-recursive build
 include src/Makefile.am
 include exec/Makefile.am
+include test/Makefile.am
 
 # revision control and ChangeLog
 ChangeLog:

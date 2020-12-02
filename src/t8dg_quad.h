@@ -18,7 +18,7 @@ typedef struct t8dg_global_values t8dg_global_values_t; /*forward declared typed
 t8dg_element_quad_values_t *t8dg_quad_values_new_element_quad_values_view (t8dg_quad_values_t * quad_values, t8_locidx_t itree,
                                                                            t8_locidx_t ielement);
 
-t8dg_face_quad_values_t *t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, t8_locidx_t itree,
+t8dg_face_quad_values_t *t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, int iface, t8_locidx_t itree,
                                                                      t8_locidx_t ielement);
 
 void                t8dg_element_quad_values_destroy (t8dg_element_quad_values_t ** quad_values);
@@ -47,6 +47,10 @@ t8dg_quad_values_t *t8dg_quad_values_new_local (t8_forest_t forest, t8dg_global_
 void                t8dg_quad_values_destroy (t8dg_quad_values_t ** quad_values);
 
 void                t8dg_quad_values_partition (t8dg_quad_values_t * quad_values_old, t8dg_quad_values_t * quad_values_partition);
+
+int                 t8dg_quad_values_is_valid (t8dg_quad_values_t * values);
+int                 t8dg_element_quad_values_is_valid (t8dg_element_quad_values_t * element_values);
+int                 t8dg_face_quad_values_is_valid (t8dg_element_quad_values_t * face_values);
 
 T8DG_EXTERN_C_END ();
 

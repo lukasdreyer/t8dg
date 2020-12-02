@@ -20,6 +20,7 @@ struct t8dg_values
   t8dg_coarse_geometry_t *coarse_geometry;
 
   t8_forest_t         forest;
+  t8_forest_t         forest_adapt;
 };
 
 t8dg_values_t      *
@@ -50,30 +51,44 @@ t8dg_values_new_LGL_hypercube (int dim, int num_LGL_vertices, t8dg_coarse_geomet
   return_values->local_values = t8dg_local_values_new (forest, return_values->global_values_array, coarse_geometry);
   return_values->coarse_geometry = coarse_geometry;
   return_values->mortar_array = t8dg_mortar_array_new_empty (forest, return_values->local_values);
+  return_values->forest = forest;
+  t8_forest_ref (forest);
   return return_values;
 }
 
-/*takes ownership of global_values_array*/
-t8dg_values_t      *
-t8dg_values_new_global_values (int dim, t8dg_global_values_t * global_values_array[T8_ECLASS_COUNT], t8dg_geometry_t * geometry,
-                               t8_forest_t forest)
+void
+t8dg_values_destroy (t8dg_values_t ** p_values)
 {
-  T8DG_ABORT ("Not implemented \n ");
-  return NULL;
+  t8dg_values_t      *values;
+  values = *p_values;
+  t8_eclass_t         eclass;
+
+  t8dg_mortar_array_destroy (&values->mortar_array);
+
+  t8dg_local_values_destroy (&values->local_values);
+
+  for (eclass = 0; eclass < T8_ECLASS_COUNT; eclass++) {
+    if (values->global_values_array[eclass] != NULL) {
+      t8dg_global_values_destroy (&values->global_values_array[eclass]);
+    }
+  }
+  t8_forest_unref (&values->forest);
+  T8DG_FREE (values->global_values_array);
+  T8DG_FREE (values);
+  *p_values = NULL;
 }
 
 void
 t8dg_values_apply_mass_matrix (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof)
 {
   t8_locidx_t         itree, ielement, idata;
-  t8_locidx_t         num_elements;
   t8dg_element_dof_values_t *src_element_dofs;
   t8dg_element_dof_values_t *dest_element_dofs;
 
-  for (itree = 0; idata < t8_forest_get_num_local_trees (values->forest); itree++) {
+  for (itree = 0, idata = 0; itree < t8_forest_get_num_local_trees (values->forest); itree++) {
     for (ielement = 0; ielement < t8_forest_get_tree_num_elements (values->forest, itree); ielement++, idata++) {
-      src_element_dofs = t8dg_dof_values_new_element_dof_values_view (src_dof, idata);
-      dest_element_dofs = t8dg_dof_values_new_element_dof_values_view (dest_dof, idata);
+      src_element_dofs = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
+      dest_element_dofs = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
 
       t8dg_local_values_apply_element_mass_matrix (values->local_values, itree, ielement, src_element_dofs, dest_element_dofs);
 
@@ -92,10 +107,10 @@ t8dg_values_apply_inverse_mass_matrix (t8dg_values_t * values, t8dg_dof_values_t
   t8dg_element_dof_values_t *src_element_dofs;
   t8dg_element_dof_values_t *dest_element_dofs;
 
-  for (itree = 0; idata < t8_forest_get_num_local_trees (values->forest); itree++) {
+  for (itree = 0, idata = 0; itree < t8_forest_get_num_local_trees (values->forest); itree++) {
     for (ielement = 0; ielement < t8_forest_get_tree_num_elements (values->forest, itree); ielement++, idata++) {
-      src_element_dofs = t8dg_dof_values_new_element_dof_values_view (src_dof, idata);
-      dest_element_dofs = t8dg_dof_values_new_element_dof_values_view (dest_dof, idata);
+      src_element_dofs = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
+      dest_element_dofs = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
 
       t8dg_local_values_apply_element_inverse_mass_matrix (values->local_values, itree, ielement, src_element_dofs, dest_element_dofs);
 
@@ -137,12 +152,12 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
 
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-      element_dof_values = t8dg_dof_values_new_element_dof_values_view (src_dof, idata);
-      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dof_values));
+      element_dof_values = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
+//      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dof_values));
       element_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_flux_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
       element_res_summand_dof_values = sc_array_new_count (sizeof (double), num_dof);
-      element_res_dof_values = t8dg_dof_values_new_element_dof_values_view (dest_dof, idata);
+      element_res_dof_values = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
 
       t8dg_local_values_element_multiply_trafo_quad_weight (values->local_values, itree, ielement, element_dof_values, element_quad_values);    /*TODO: Vandermonde? */
 //      t8_debugf ("element_quad_values*qtw\n");
@@ -167,7 +182,7 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
         t8dg_element_dof_values_axpy (1, element_res_summand_dof_values, element_res_dof_values);
       }
 
-      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_res_dof_values));
+//      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_res_dof_values));
 
       sc_array_destroy (element_dof_values);
       sc_array_destroy (element_quad_values);
@@ -196,7 +211,7 @@ t8dg_values_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t 
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
 
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-      element_dest_dof = t8dg_dof_values_new_element_dof_values_view (dest_dof, idata);
+      element_dest_dof = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
       t8dg_mortar_array_apply_element_boundary_integral (values->mortar_array, itree, ielement, element_dest_dof);
 
       T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dest_dof));
@@ -214,15 +229,18 @@ t8dg_values_ghost_exchange (t8dg_values_t * values)
   t8dg_local_values_ghost_exchange (values->local_values);
 }
 
-void
-t8dg_values_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
+t8dg_global_values_t *
+t8dg_values_get_global_values (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement)
 {
-
+  t8_eclass_t         eclass;
+  eclass = t8_forest_get_eclass (values->forest, itree);
+  return values->global_values_array[eclass];
 }
 
 t8dg_global_values_t *
-t8dg_values_get_global_values_from_itree (t8dg_values_t * values, t8_locidx_t itree)
+t8dg_values_get_global_values_adapt (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement)
 {
+  T8DG_ASSERT (values->forest_adapt != NULL);
   t8_eclass_t         eclass;
   eclass = t8_forest_get_eclass (values->forest, itree);
   return values->global_values_array[eclass];
@@ -237,32 +255,81 @@ t8dg_values_get_global_values_array (t8dg_values_t * values)
 void
 t8dg_values_copy_element_values (t8dg_values_t * values, t8_locidx_t idata_old, t8_locidx_t idata_new)
 {
+  T8DG_ASSERT (values->local_values_adapt != NULL);
   t8dg_local_values_copy_element_values (values->local_values, idata_old, values->local_values_adapt, idata_new);
+}
+
+void
+t8dg_values_set_element_adapt (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement_new)
+{
+  t8dg_local_values_set_element (values->local_values_adapt, itree, ielement_new);
+}
+
+/*Interpolation only dependent on functionbasis*/
+void
+t8dg_values_transform_parent_dof_to_child_dof (t8dg_values_t * values, t8dg_dof_values_t * dof_values, t8dg_dof_values_t * dof_values_adapt,
+                                               t8_locidx_t itree, t8_locidx_t ielem_parent_old, t8_locidx_t ielem_child_new, int ichild)
+{
+  t8dg_global_values_t *global_values;
+  t8dg_element_dof_values_t *parent_dof;
+  t8dg_element_dof_values_t *child_dof;
+
+  parent_dof = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielem_parent_old);
+  child_dof = t8dg_dof_values_new_element_dof_values_view (dof_values_adapt, itree, ielem_child_new);
+
+  t8dg_global_values_transform_element_dof_to_child_dof (global_values, parent_dof, child_dof, ichild);
+  t8dg_element_dof_values_destroy (&parent_dof);
+  t8dg_element_dof_values_destroy (&child_dof);
+}
+
+/*L2 projection needs geometry information */
+void
+t8dg_values_transform_child_dof_to_parent_dof (t8dg_values_t * values, t8dg_dof_values_t * dof_values, t8dg_dof_values_t * dof_values_adapt,
+                                               t8_locidx_t itree, t8_locidx_t num_children, t8_locidx_t ielem_first_child_old,
+                                               t8_locidx_t ielem_parent_new)
+{
+  t8dg_element_dof_values_t *child_dof[MAX_SUBELEMENTS];
+  t8dg_element_dof_values_t *parent_dof;
+  int                 ichild;
+  for (ichild = 0; ichild < num_children; ichild++) {
+    child_dof[ichild] = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielem_first_child_old + ichild);
+  }
+  parent_dof = t8dg_dof_values_new_element_dof_values_view (dof_values_adapt, itree, ielem_parent_new);
+
+  t8dg_local_values_transform_child_dof_to_parent_dof (values->local_values, values->local_values_adapt, child_dof, parent_dof,
+                                                       num_children, itree, ielem_first_child_old, ielem_parent_new);
+  for (ichild = 0; ichild < num_children; ichild++) {
+    t8dg_element_dof_values_destroy (&child_dof[ichild]);
+  }
+  t8dg_element_dof_values_destroy (&parent_dof);
 }
 
 void
 t8dg_values_allocate_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
 {
-
   values->local_values_adapt = t8dg_local_values_new (forest_adapt, values->global_values_array, values->coarse_geometry);
-
+  values->forest_adapt = forest_adapt;
+  t8_forest_ref (values->forest_adapt);
 }
 
 void
-t8dg_values_cleanup_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
+t8dg_values_cleanup_adapt (t8dg_values_t * values)
 {
   /* clean the old element data */
-  values->forest = forest_adapt;
-
-  t8dg_mortar_array_destroy (&values->mortar_array);
-  t8dg_local_values_destroy (&values->local_values);
+  t8_forest_unref (&values->forest);
+  values->forest = values->forest_adapt;
+  values->forest_adapt = NULL;
 
   /* Set the elem data to the adapted elem data */
+  t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
 
+/*TODO: Is the order important?*/
+
   /*Create new mortar arrays */
-  values->mortar_array = t8dg_mortar_array_new_empty (forest_adapt, values->local_values_adapt);
+  t8dg_mortar_array_destroy (&values->mortar_array);
+  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values_adapt);
 }
 
 void
@@ -280,14 +347,19 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
 
   t8_debugf (" [ADVECT] begin mortars destroy\n");
   t8dg_mortar_array_destroy (&values->mortar_array);
+
+  t8_forest_unref (&values->forest);
   values->forest = forest_partition;
+  t8_forest_ref (values->forest);
+
   values->mortar_array = t8dg_mortar_array_new_empty (forest_partition, values->local_values);
   t8_debugf (" [ADVECT] Done partition\n");
 
 }
 
 double
-t8dg_values_element_norm_l2_squared (t8dg_values_t * values, t8dg_element_dof_values_t * element_dof, t8_locidx_t idata)
+t8dg_values_element_norm_l2_squared (t8dg_values_t * values, t8dg_element_dof_values_t * element_dof, t8_locidx_t itree,
+                                     t8_locidx_t ielement)
 {
   T8DG_ABORT ("Not implemented\n");
 }

@@ -858,7 +858,7 @@ t8dg_functionbasis_get_lagrange_face_vertex (const t8dg_functionbasis_t * functi
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
   T8DG_ASSERT (iface >= 0 && iface < functionbasis->num_face_functionbasis);
-  return t8dg_functionbasis_get_lagrange_vertex (functionbasis->face_functionbasis[iface], idof, vertex);
+  t8dg_functionbasis_get_lagrange_vertex (functionbasis->face_functionbasis[iface], idof, vertex);
 }
 
 t8dg_dmatrix_t     *

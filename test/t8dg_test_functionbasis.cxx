@@ -147,8 +147,8 @@ TEST (functionbasis, derivativeMatrix_hypercube)
   int                 idof;
   t8dg_vertexset_t   *lgl_vertexset;
   t8dg_functionbasis_t *functionbasis;
-  sc_array_t         *derivative_dof_values;
-  sc_array_t         *dof_values;
+  t8dg_element_dof_values_t *derivative_dof_values;
+  t8dg_element_dof_values_t *dof_values;
   int                 icoord_gradient = 0;
   int                 icoord_derivative = 0;
   for (dim = 2; dim <= 3; dim++) {
@@ -157,7 +157,7 @@ TEST (functionbasis, derivativeMatrix_hypercube)
       functionbasis = t8dg_functionbasis_new_hypercube_lagrange (dim, lgl_vertexset, 0);
       EXPECT_EQ (t8dg_functionbasis_get_num_dof (functionbasis), pow (num_lgl, dim));
       derivative_dof_values = sc_array_new_count (sizeof (double), t8dg_functionbasis_get_num_dof (functionbasis));
-      dof_values = t8dg_sc_array_duplicate (derivative_dof_values);
+      dof_values = t8dg_element_dof_values_duplicate (derivative_dof_values);
 
       for (icoord_gradient = 0; icoord_gradient < dim; icoord_gradient++) {
         for (icoord_derivative = 0; icoord_derivative < dim; icoord_derivative++) {
@@ -202,7 +202,7 @@ TEST (functionbasis, derivativeMatrix3d_different_num_dof)
   functionbasis_tensor3D = t8dg_functionbasis_new_tensor (functionbasis_tensor2D, fb_tensor[2], 0);
 
   derivative_dof_values = sc_array_new_count (sizeof (double), t8dg_functionbasis_get_num_dof (functionbasis_tensor3D));
-  dof_values = t8dg_sc_array_duplicate (derivative_dof_values);
+  dof_values = t8dg_element_dof_values_duplicate (derivative_dof_values);
 
   for (icoord_gradient = 0; icoord_gradient < dim; icoord_gradient++) {
     for (icoord_derivative = 0; icoord_derivative < dim; icoord_derivative++) {

@@ -138,6 +138,12 @@ t8dg_global_values_get_quadrature (const t8dg_global_values_t * values)
 }
 
 int
+t8dg_global_values_get_num_face_quad (const t8dg_global_values_t * global_values, int iface)
+{
+  return t8dg_quadrature_get_num_face_vertices (global_values->quadrature, iface);
+}
+
+int
 t8dg_global_values_get_dim (const t8dg_global_values_t * values)
 {
   return t8_eclass_to_dimension[values->element_class];
@@ -156,7 +162,7 @@ t8dg_global_values_get_max_num_element_dof (const t8dg_global_values_t * global_
 }
 
 int
-t8dg_global_values_array_get_max_num_element_quad (t8dg_global_values_t * global_values_array[T8_ECLASS_COUNT])
+t8dg_global_values_array_get_max_num_element_quad (t8dg_global_values_t ** global_values_array)
 {
   int                 eclass;
   int                 max_num_element_quad = 0;
@@ -170,7 +176,7 @@ t8dg_global_values_array_get_max_num_element_quad (t8dg_global_values_t * global
 }
 
 int
-t8dg_global_values_array_get_max_num_element_dof (t8dg_global_values_t * global_values_array[T8_ECLASS_COUNT])
+t8dg_global_values_array_get_max_num_element_dof (t8dg_global_values_t ** global_values_array)
 {
   int                 eclass;
   int                 max_num_element_dof = 0;
@@ -181,4 +187,20 @@ t8dg_global_values_array_get_max_num_element_dof (t8dg_global_values_t * global_
   }
   T8DG_ASSERT (max_num_element_dof > 0);
   return max_num_element_dof;
+}
+
+int
+t8dg_global_values_get_num_children (const t8dg_global_values_t * global_values)
+{
+  return t8dg_functionbasis_get_num_children (global_values->functionbasis);
+}
+
+/*currently only dependent on the elementtype of the coarse element*/
+t8dg_global_values_t *
+t8dg_global_values_array_get_global_values (t8dg_global_values_t ** global_values_array, t8_forest_t forest, t8_locidx_t itree,
+                                            t8_locidx_t ielement)
+{
+  t8_eclass_t         eclass;
+  eclass = t8_forest_get_eclass (forest, itree);
+  return global_values_array[eclass];
 }

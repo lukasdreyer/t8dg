@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "../src/t8dg.h"
-#include "../src/t8dg_global_precomputed_values.h"
-#include "../src/t8dg_local_precomputed_values.h"
-#include "../src/t8dg_precomputed_values.h"
+#include "../src/t8dg_global_values.h"
+#include "../src/t8dg_local_values.h"
+#include "../src/t8dg_values.h"
 #include "../src/t8dg_sc_array.h"
 #include "../src/t8dg_coarse_geometry.h"
 #include <example/common/t8_example_common.h>
