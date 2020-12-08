@@ -221,54 +221,11 @@ t8dg_advect_problem_l_infty_rel (const t8dg_linear_advection_problem_t * problem
 double
 t8dg_advect_problem_l2_rel (const t8dg_linear_advection_problem_t * problem)
 {
-#if 0
-  t8_locidx_t         num_elements, num_trees;
-  t8_locidx_t         ielement, itree, idata;
-  sc_array_t         *elem_ana_sol;
-  sc_array_t         *elem_dof_val;
-  sc_array_t         *elem_error;
-  double              error = 0, global_error;
-  double              ana_norm = 0, global_ana_norm;
-
-  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
-
-  t8dg_local_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.analytical_sol_fn,
-    t8dg_timestepping_data_get_current_time (problem->time_data)
-  };
-
-  elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_values_get_num_dof (problem->global_values));
-  elem_error = t8dg_sc_array_duplicate (elem_ana_sol);
-
-  num_trees = t8_forest_get_num_local_trees (problem->forest);
-  for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    geometry_data.itree = itree;
-    num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
-    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
-      geometry_data.ielement = ielement;
-      elem_dof_val = t8dg_dof_values_new_element_dof_values_view (problem->dof_values, idata);
-      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_values_get_functionbasis (problem->global_values),
-                                                t8dg_values_transform_reference_vertex_and_evaluate, &evaluation_data, elem_ana_sol);
-      t8dg_dof_values_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
-      error += t8dg_values_element_norm_l2_squared (elem_error, problem->global_values, problem->local_values, idata),
-        ana_norm += t8dg_values_element_norm_l2_squared (elem_ana_sol, problem->global_values, problem->local_values, idata);
-      sc_array_destroy (elem_dof_val);
-    }
+  if (problem->description->analytical_sol_fn != NULL) {
+    return t8dg_values_norm_l2_rel (problem->dg_values, problem->dof_values, problem->description->analytical_sol_fn,
+                                    t8dg_timestepping_data_get_current_time (problem->time_data), problem->comm);
   }
-  /* Compute the sum of the error among all processes */
-  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_SUM, problem->comm);
-  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_SUM, problem->comm);
-
-  sc_array_destroy (elem_ana_sol);
-  sc_array_destroy (elem_error);
-
-  global_ana_norm = sqrt (global_ana_norm);
-  global_error = sqrt (global_error);
-
-  /* Return the relative error, that is the l_2 error divided by
-   * the l_2 norm of the analytical solution */
-  return global_error / global_ana_norm;
-#endif
-   /*TODO*/ return 0;
+  return -1;
 }
 
 t8dg_linear_advection_problem_t *
@@ -280,43 +237,40 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
 {
   t8dg_linear_advection_problem_t *problem;
   t8_scheme_cxx_t    *default_scheme;
-  int                 num_elements;
   int                 istat;
+
   /* allocate problem */
   problem = T8_ALLOC (t8dg_linear_advection_problem_t, 1);
 
-  default_scheme = t8_scheme_new_default_cxx ();
-  t8_debugf ("create uniform forest\n");
-  problem->forest = t8_forest_new_uniform (cmesh, default_scheme, uniform_level, 1, comm);
-
-  problem->description = description;
-
-  problem->dim = dim;
-  problem->uniform_refinement_level = uniform_level;
-  problem->maximum_refinement_level = max_level;
-
-  problem->coarse_geometry = coarse_geometry;
-
-  problem->description = description;
-
-  problem->time_data = time_data;
-
-  problem->vtk_count = 0;
-  problem->comm = comm;
-
+  /*initialize stats */
   for (istat = 0; istat < ADVECT_NUM_STATS; istat++) {
     sc_stats_init (&problem->stats[istat], advect_stat_names[istat]);
   }
 
+  default_scheme = t8_scheme_new_default_cxx ();
+
+  t8dg_debugf ("create uniform forest\n");
+  problem->forest = t8_forest_new_uniform (cmesh, default_scheme, uniform_level, 1, comm);
+
+  problem->description = description;
+  problem->dim = dim;
+  problem->uniform_refinement_level = uniform_level;
+  problem->maximum_refinement_level = max_level;
+  problem->coarse_geometry = coarse_geometry;
+  problem->description = description;
+  problem->time_data = time_data;
+  problem->vtk_count = 0;
+  problem->comm = comm;
+
+  problem->adapt_fn = adapt_fn;
+
   problem->dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, problem->coarse_geometry, problem->forest);
 
-  /* the dof_values need to be ghosted. */
   problem->dof_values = t8dg_dof_values_new (problem->forest, t8dg_values_get_global_values_array (problem->dg_values));
-
   problem->dof_values_adapt = NULL;
-  t8_debugf ("start element init\n");
 
-  t8dg_advect_problem_init_elements (problem);
+  t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->initial_condition_fn,
+                                                   t8dg_timestepping_data_get_current_time (problem->time_data), problem->dof_values);
 
   if (problem->maximum_refinement_level > problem->uniform_refinement_level) {
     int                 ilevel;
@@ -326,47 +280,13 @@ t8dg_advect_problem_init (t8_cmesh_t cmesh,
       t8dg_advect_problem_adapt (problem, 0);
       /* repartition */
       t8dg_advect_problem_partition (problem, 0);
-      /* Re initialize the elements */
-      t8dg_advect_problem_init_elements (problem);
+      /* Re initialize the dof_values */
+      t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->initial_condition_fn,
+                                                       t8dg_timestepping_data_get_current_time (problem->time_data), problem->dof_values);
     }
   }
 
   return problem;
-}
-
-void
-t8dg_advect_problem_init_elements (t8dg_linear_advection_problem_t * problem)
-{
-  t8_locidx_t         itree = 0, ielement, idata;
-  t8_locidx_t         num_trees, num_elems_in_tree;
-  sc_array_t         *element_dof_view;
-/*
-  t8dg_geometry_transformation_data_t geometry_data = { problem->coarse_geometry, problem->forest, 0, 0 };
-
-  t8dg_local_values_fn_evaluation_data_t evaluation_data = { &geometry_data, problem->description.initial_condition_fn,
-    t8dg_timestepping_data_get_current_time (problem->time_data)
-  };
-*/
-  t8_debugf ("Start element init \n");
-  num_trees = t8_forest_get_num_local_trees (problem->forest);
-
-  for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
-    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
-/*TODO
-      t8dg_local_values_set_element (problem->local_values, &geometry_data, problem->global_values);
-*/
-      element_dof_view = t8dg_dof_values_new_element_dof_values_view (problem->dof_values, itree, ielement);
-
-/*TODO
-      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_values_get_functionbasis (problem->global_values),
-                                                t8dg_values_transform_reference_vertex_and_evaluate, &evaluation_data,
-                                                element_dof_view);
-*/
-      sc_array_destroy (element_dof_view);
-    }
-  }
-  t8_debugf ("End element init \n");
 }
 
 void
@@ -411,7 +331,7 @@ t8dg_advect_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_values_t *
   double              ghost_exchange_time, ghost_waittime;
 
   t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (problem->dg_values, problem->description->velocity_field,
-                                                       problem->description->flux_data, dof_values, dof_change);
+                                                       problem->description->flux_data, t, dof_values, dof_change);
 
   t8_debugf ("A u\n");
   t8dg_dof_values_debug_print (dof_change);
@@ -429,7 +349,7 @@ t8dg_advect_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_values_t *
 
   t8dg_numerical_linear_flux3D_fn lax_friedrich_NF;
   lax_friedrich_NF = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
-  int                 velocity_bound = 1;
+  double              velocity_bound = 1;
 
   t8dg_values_apply_boundary_integrals (problem->dg_values, dof_values, dof_flux, problem->description->velocity_field,
                                         problem->description->flux_data, lax_friedrich_NF, &velocity_bound, t);
@@ -517,8 +437,7 @@ t8dg_advect_mass_adapt (t8_forest_t forest,
 {
   t8dg_linear_advection_problem_t *problem;
   sc_array_t         *element_dof;
-  sc_array_t         *one_array;
-  int                 level, idof;
+  int                 level;
   double              norm, area;
   int                 ifamilyelement;
 
@@ -531,38 +450,33 @@ t8dg_advect_mass_adapt (t8_forest_t forest,
   }
 
   element_dof = t8dg_dof_values_new_element_dof_values_view (problem->dof_values, itree, ielement);
-  one_array = t8dg_element_dof_values_duplicate (element_dof);
-  for (idof = 0; (size_t) idof < element_dof->elem_count; idof++) {
-    *(double *) sc_array_index_int (one_array, idof) = 1;
-  }
 
   norm = t8dg_values_element_norm_l2_squared (problem->dg_values, element_dof, itree, ielement);
-  area = t8dg_values_element_norm_l2_squared (problem->dg_values, one_array, itree, ielement);
+  area = t8dg_values_element_area (problem->dg_values, itree, ielement);
 
   sc_array_destroy (element_dof);
+
   if (norm / area > 0.2) {
-    sc_array_destroy (one_array);
     return level < problem->maximum_refinement_level;
   }
   if (num_elements > 1) {
+    if (level == problem->uniform_refinement_level) {
+      return 0;                 /* It is not possible to coarsen this element. If this is wanted, balance is needed outside */
+    }
+
     for (ifamilyelement = 0; ifamilyelement < num_elements; ifamilyelement++) {
       element_dof = t8dg_dof_values_new_element_dof_values_view (problem->dof_values, itree, ielement + ifamilyelement);
       norm = t8dg_values_element_norm_l2_squared (problem->dg_values, element_dof, itree, ielement + ifamilyelement);
-      area = t8dg_values_element_norm_l2_squared (problem->dg_values, one_array, itree, ielement + ifamilyelement);
-
+      area = t8dg_values_element_area (problem->dg_values, itree, ielement + ifamilyelement);
       sc_array_destroy (element_dof);
+
       if (norm / area > 0.1) {
-        sc_array_destroy (one_array);
         return 0;
       }
-
     }
-    sc_array_destroy (one_array);
     return -1;
   }
-  sc_array_destroy (one_array);
   return 0;
-
 }
 
 int
@@ -670,7 +584,6 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   if (problem->maximum_refinement_level == problem->uniform_refinement_level)
     return;
 
-  t8_locidx_t         num_elems_p_ghosts, num_elems;
   t8_forest_t         forest_adapt;
   double              adapt_time, ghost_time, balance_time, replace_time;
   int                 did_balance = 0, balance_rounds = 0;
@@ -687,7 +600,7 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   t8_forest_set_user_data (forest_adapt, problem);
   /* Set the adapt function */
   t8_forest_set_adapt (forest_adapt, problem->forest, problem->adapt_fn, 0);
-  if (problem->maximum_refinement_level - problem->uniform_refinement_level > 1) {
+  if (problem->maximum_refinement_level - problem->uniform_refinement_level > 1) {      //>1 if adapt_fn is correct
     /* We also want to balance the forest if there is a possibility of elements
      * with difference in refinement levels greater 1 */
     t8_forest_set_balance (forest_adapt, NULL, 1);
@@ -713,10 +626,6 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
       t8dg_advect_problem_accumulate_stat (problem, ADVECT_BALANCE_ROUNDS, balance_rounds);
     }
   }
-
-  /* Allocate new memory for the element_data of the advected forest */
-  num_elems = t8_forest_get_num_element (forest_adapt);
-  num_elems_p_ghosts = num_elems + t8_forest_get_num_ghosts (forest_adapt);
 
   t8dg_values_allocate_adapt (problem->dg_values, forest_adapt);
   problem->dof_values_adapt = t8dg_dof_values_new (forest_adapt, t8dg_values_get_global_values_array (problem->dg_values));
@@ -745,7 +654,6 @@ t8dg_advect_problem_adapt (t8dg_linear_advection_problem_t * problem, int measur
   /* Set the phi values to the adapted phi values */
   problem->dof_values = problem->dof_values_adapt;
   problem->dof_values_adapt = NULL;
-
 }
 
 void

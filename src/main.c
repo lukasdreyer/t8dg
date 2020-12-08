@@ -138,7 +138,6 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
                                           int number_LGL_points,
                                           double start_time, double end_time, double cfl, int time_order, int adapt_arg, sc_MPI_Comm comm)
 {
-  t8dg_scalar_function_3d_time_fn u_initial;
   t8_cmesh_t          cmesh;
   t8dg_coarse_geometry_t *coarse_geometry;
 

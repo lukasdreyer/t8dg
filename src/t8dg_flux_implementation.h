@@ -11,6 +11,15 @@ typedef struct t8dg_linear_flux3D_constant_flux_data
 
 void                t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data);
 
+typedef struct t8dg_linear_flux_1D_from_3D_data
+{
+  t8dg_linear_flux3D_fn flux_3D_fn;
+  int                 component;
+  void               *flux_3D_data;
+} t8dg_linear_flux_1D_from_3D_data_t;
+
+void                t8dg_linear_flux_1D_from_3D_fn (double x_vec[3], double *flux_value, double t, void *flux_data);
+
 double              t8dg_linear_numerical_flux3D_lax_friedrich_fn (const double u_minus, const double u_plus, const double flow_vector[3],
                                                                    const double normal_vector[3], const void *numerical_flux_data);
 

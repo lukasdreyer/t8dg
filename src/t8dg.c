@@ -148,3 +148,13 @@ t8dg_almost_equal (double x1, double x2)
   double              eps = 1e-10;
   return fabs (x1 - x2) < eps;
 }
+
+t8_eclass_t
+t8dg_forest_get_eclass (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement)
+{
+  if (itree == -1) {
+    /*TODO: is there a way to find out the eclass of a ghost element */
+    return t8_forest_get_eclass (forest, 0);
+  }
+  return t8_forest_get_eclass (forest, itree);
+}

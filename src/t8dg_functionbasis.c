@@ -449,7 +449,7 @@ t8dg_functionbasis_get_lagrange_vertex (const t8dg_functionbasis_t * functionbas
 
 void
 t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionbasis,
-                                          t8dg_scalar_function_3d_fn function, void *scalar_fn_data, sc_array_t * dof_values)
+                                          t8dg_scalar_function_3d_fn function, void *scalar_fn_data, t8dg_element_dof_values_t * dof_values)
 {
   T8DG_ASSERT (t8dg_functionbasis_is_valid (functionbasis));
   T8DG_ASSERT ((size_t) functionbasis->number_of_dof == dof_values->elem_count);
@@ -458,7 +458,7 @@ t8dg_functionbasis_interpolate_scalar_fn (const t8dg_functionbasis_t * functionb
   if (t8dg_functionbasis_is_lagrange (functionbasis)) {
     for (idof = 0; idof < functionbasis->number_of_dof; idof++) {
       t8dg_functionbasis_get_lagrange_vertex (functionbasis, idof, vertex);
-      *(double *) sc_array_index_int (dof_values, idof) = function (vertex, scalar_fn_data);
+      t8dg_element_dof_values_set_value (dof_values, idof, function (vertex, scalar_fn_data));
     }
   }
   else {

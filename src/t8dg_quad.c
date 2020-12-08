@@ -56,6 +56,12 @@ t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, in
   return face_quad_view;
 }
 
+t8dg_element_quad_values_t *
+t8dg_element_quad_values_new (t8dg_quadidx_t num_quad)
+{
+  return sc_array_new_count (sizeof (double), num_quad);
+}
+
 void
 t8dg_element_quad_values_destroy (t8dg_element_quad_values_t ** p_quad_values)
 {
@@ -72,7 +78,8 @@ void
 t8dg_quad_values_copy_from_index_to_index (t8dg_quad_values_t * src_quad, t8_locidx_t src_idata, t8dg_quad_values_t * dest_quad,
                                            t8_locidx_t dest_idata)
 {
-  T8DG_ABORT ("Not implemented \n");
+  memcpy (t8_sc_array_index_locidx (dest_quad->quads, dest_idata),
+          t8_sc_array_index_locidx (src_quad->quads, src_idata), src_quad->quads->elem_size);
 }
 
 double
@@ -191,4 +198,10 @@ int
 t8dg_face_quad_values_is_valid (t8dg_element_quad_values_t * face_values)
 {
   return (face_values->elem_size == sizeof (double));
+}
+
+void
+t8dg_quad_values_ghost_exchange (t8dg_quad_values_t * quad_values)
+{
+  t8_forest_ghost_exchange_data (quad_values->forest, quad_values->quads);
 }

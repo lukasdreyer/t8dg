@@ -28,9 +28,17 @@ void                t8dg_dof_values_copy_from_index_to_index (t8dg_dof_values_t 
 
 t8dg_dof_values_t  *t8dg_dof_values_new (t8_forest_t forest, t8dg_global_values_t ** global_values_array);
 
+t8dg_dof_values_t  *t8dg_dof_values_new_data_local (t8_forest_t forest, t8dg_global_values_t ** global_values_array, double *array,
+                                                    t8dg_dofidx_t num_total_values);
+
 t8dg_dof_values_t  *t8dg_dof_values_duplicate (t8dg_dof_values_t * src_dof_values);
 
 t8dg_dof_values_t  *t8dg_dof_values_clone (t8dg_dof_values_t * src_dof_values);
+
+int                 t8dg_dof_values_equal (t8dg_dof_values_t * dof_values, t8dg_dof_values_t * dof_values_compare);
+
+int                 t8dg_element_dof_values_equal (t8dg_element_dof_values_t * element_dof_values,
+                                                   t8dg_element_dof_values_t * element_dof_values_compare);
 
 int                 t8dg_dof_values_is_valid (t8dg_dof_values_t * dof_values);
 
@@ -69,6 +77,9 @@ void                t8dg_element_dof_values_copy (t8dg_element_dof_values_t * sr
 
 t8dg_face_dof_values_t *t8dg_face_dof_values_duplicate (t8dg_face_dof_values_t * face_dof_values);
 
+double              t8dg_face_dof_values_get_value (t8dg_face_dof_values_t * face_dof_values, t8dg_dofidx_t idof);
+void                t8dg_face_dof_values_set_value (t8dg_face_dof_values_t * face_dof_values, t8dg_dofidx_t idof, double value);
+
 void                t8dg_face_dof_values_set_zero (t8dg_face_dof_values_t * face_dof_values);
 void                t8dg_face_dof_values_axpy (double a, t8dg_face_dof_values_t * x, t8dg_face_dof_values_t * y);
 
@@ -78,12 +89,24 @@ int                 t8dg_element_dof_values_is_valid (t8dg_element_dof_values_t 
 int                 t8dg_face_dof_values_is_valid (t8dg_face_dof_values_t * face_dof_values);
 
 void                t8dg_element_dof_values_axpy (double a, t8dg_element_dof_values_t * x, t8dg_element_dof_values_t * y);
+void                t8dg_element_dof_values_axpyz (double a, t8dg_element_dof_values_t * x, t8dg_element_dof_values_t * y,
+                                                   t8dg_element_dof_values_t * z);
 
 double              t8dg_element_dof_values_get_value (t8dg_element_dof_values_t * element_dof_values, t8dg_dofidx_t idof);
 
 void                t8dg_element_dof_values_set_value (t8dg_element_dof_values_t * element_dof_values, t8dg_dofidx_t idof, double value);
 
+void                t8dg_element_dof_values_set_all (t8dg_element_dof_values_t * element_dof_values, double value);
+t8dg_element_dof_values_t *t8dg_element_dof_values_new (t8dg_dofidx_t num_dof);
+
 t8dg_dofidx_t       t8dg_element_dof_values_get_num_dof (t8dg_element_dof_values_t * element_dof_values);
+
+double              t8dg_element_dof_values_element_norm_infty (t8dg_element_dof_values_t * element_dof_values);
+
+void                t8dg_element_dof_values_square_values (t8dg_element_dof_values_t * element_dof_values,
+                                                           t8dg_element_dof_values_t * element_dof_square_values);
+
+void                t8dg_element_dof_values_debug_print (t8dg_element_dof_values_t * element_dof_values);
 
 T8DG_EXTERN_C_END ();
 

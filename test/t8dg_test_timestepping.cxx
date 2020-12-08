@@ -36,14 +36,14 @@ TEST (timestepping, ode_x0_times_tsquared)
   int                 order;
   int                 N = 1000;
   int                 step;
-  int                 uniform_level;
+  int                 uniform_level = 0;
   double              tolerance = 0.02;
   t8_cmesh_t          cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
   t8dg_timestepping_data_t *time_data;
   t8_scheme_cxx_t    *default_scheme;
   default_scheme = t8_scheme_new_default_cxx ();
 
-  t8_forest_t         forest = t8_forest_new_uniform (cmesh, default_scheme, 0, 1, sc_MPI_COMM_WORLD);
+  t8_forest_t         forest = t8_forest_new_uniform (cmesh, default_scheme, uniform_level, 1, sc_MPI_COMM_WORLD);
   t8dg_global_values_t *global_values_array[T8_ECLASS_COUNT] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
   global_values_array[T8_ECLASS_LINE] = t8dg_global_values_new_hypercube_LGL (1, 2);
   t8dg_dof_values_t  *y = t8dg_dof_values_new (forest, global_values_array);

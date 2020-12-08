@@ -6,6 +6,7 @@
 #include "t8dg_mortar.h"
 #include "t8dg_dof.h"
 #include "t8dg_flux.h"
+#include "t8dg_flux_implementation.h"
 
 typedef struct t8dg_values t8dg_values_t;
 
@@ -54,6 +55,7 @@ t8dg_values_new_LGL_hypercube (int dim, int num_LGL_vertices, t8dg_coarse_geomet
   return_values->forest = forest;
   t8_forest_ref (forest);
   return return_values;
+
 }
 
 void
@@ -76,6 +78,7 @@ t8dg_values_destroy (t8dg_values_t ** p_values)
   T8DG_FREE (values->global_values_array);
   T8DG_FREE (values);
   *p_values = NULL;
+
 }
 
 void
@@ -103,7 +106,6 @@ void
 t8dg_values_apply_inverse_mass_matrix (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof)
 {
   t8_locidx_t         itree, ielement, idata;
-  t8_locidx_t         num_elements;
   t8dg_element_dof_values_t *src_element_dofs;
   t8dg_element_dof_values_t *dest_element_dofs;
 
@@ -121,76 +123,146 @@ t8dg_values_apply_inverse_mass_matrix (t8dg_values_t * values, t8dg_dof_values_t
 }
 
 void
-t8dg_values_apply_directional_stiffness_matrix_linear_flux_fn (t8dg_values_t * values, int idirection, t8dg_linear_flux1D_fn * flux_fn,
-                                                               void *flux_data, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof)
+t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8dg_linear_flux3D_fn flux_fn, void *flux_data, double time,
+                                                     t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof)
 {
+  int                 direction;
+  t8dg_dofidx_t       idof;
+  t8_locidx_t         ielement, itree, num_trees, num_elems_in_tree;
+  t8dg_dof_values_t  *result_dof, *summand;
+  t8dg_dof_values_t **flux_dof;
+  t8dg_element_dof_values_t *element_flux_dof;
+  t8dg_element_dof_values_t *src_element_dof;
+  double              flux_vec[3];
+  double              reference_vertex[3];
+  double              image_vertex[3];
+  t8dg_global_values_t *global_values;
+  t8dg_functionbasis_t *functionbasis;
 
+  flux_dof = T8DG_ALLOC (t8dg_dof_values_t *, values->dim);
+  for (direction = 0; direction < values->dim; direction++) {
+    flux_dof[direction] = t8dg_dof_values_new (values->forest, values->global_values_array);
+  }
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0; itree < num_trees; itree++) {
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
+      for (direction = 0; direction < values->dim; direction++) {
+        element_flux_dof = t8dg_dof_values_new_element_dof_values_view (flux_dof[direction], itree, ielement);
+        src_element_dof = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
+
+        global_values = t8dg_values_get_global_values (values, itree, ielement);
+        functionbasis = t8dg_global_values_get_functionbasis (global_values);
+        for (idof = 0; idof < t8dg_element_dof_values_get_num_dof (element_flux_dof); idof++) {
+          t8dg_functionbasis_get_lagrange_vertex (functionbasis, idof, reference_vertex);
+          t8dg_geometry_transform_reference_vertex_to_image_vertex (values->coarse_geometry, values->forest, itree, ielement,
+                                                                    reference_vertex, image_vertex);
+          flux_fn (image_vertex, flux_vec, time, flux_data);
+          t8dg_element_dof_values_set_value (element_flux_dof, idof,
+                                             flux_vec[direction] * t8dg_element_dof_values_get_value (src_element_dof, idof));
+        }
+        t8dg_element_dof_values_destroy (&element_flux_dof);
+        t8dg_element_dof_values_destroy (&src_element_dof);
+      }
+    }
+  }
+
+  result_dof = t8dg_dof_values_duplicate (dest_dof);
+  summand = t8dg_dof_values_duplicate (dest_dof);
+  t8dg_dof_values_set_zero (result_dof);
+  for (direction = 0; direction < values->dim; direction++) {
+    t8dg_values_apply_component_stiffness_matrix_dof (values, direction, flux_dof[direction], summand);
+    t8dg_dof_values_axpy (1, summand, result_dof);
+  }
+  t8dg_dof_values_copy (result_dof, dest_dof);
+  t8dg_dof_values_destroy (&result_dof);
+  t8dg_dof_values_destroy (&summand);
+  for (direction = 0; direction < values->dim; direction++) {
+    t8dg_dof_values_destroy (&flux_dof[direction]);
+  }
+  T8DG_FREE (flux_dof);
 }
 
 void
-t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8dg_linear_flux3D_fn flux_fn, void *flux_data,
+t8dg_values_apply_component_stiffness_matrix_dof (t8dg_values_t * values, int icomp, t8dg_dof_values_t * flux_dof,
+                                                  t8dg_dof_values_t * dest_dof)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+
+  t8dg_element_dof_values_t *element_flux_dof_values;
+  t8dg_element_dof_values_t *element_dest_dof_values;
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      element_flux_dof_values = t8dg_dof_values_new_element_dof_values_view (flux_dof, itree, ielement);
+      element_dest_dof_values = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
+      t8dg_local_values_apply_element_component_stiffness_matrix_dof (values->local_values, itree, ielement, icomp, element_flux_dof_values,
+                                                                      element_dest_dof_values);
+      t8dg_element_dof_values_destroy (&element_dest_dof_values);
+      t8dg_element_dof_values_destroy (&element_flux_dof_values);
+    }
+  }
+}
+
+/*
+void
+t8dg_values_apply_directional_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, int direction, t8dg_linear_flux3D_fn flux_fn, void *flux_data, double time,
                                                      t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof)
 {
   t8_locidx_t         itree, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
-  t8dg_dofidx_t       num_dof;
   t8dg_quadidx_t      num_quad_vertices;
-  int                 idim;
 
-  sc_array_t         *element_quad_values;
-  sc_array_t         *element_flux_quad_values;
-  sc_array_t         *element_dof_values;
-  sc_array_t         *element_res_dof_values;
-  sc_array_t         *element_res_summand_dof_values;
-  t8_eclass_t         eclass;
+  t8dg_element_quad_values_t         *element_quad_values;
+  t8dg_element_dof_values_t         *element_dof_values;
+  t8dg_element_dof_values_t         *element_res_dof_values;
+  t8dg_global_values_t *global_values;
 
   num_trees = t8_forest_get_num_local_trees (values->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
-    eclass = t8_forest_get_eclass (values->forest, itree);
-    num_quad_vertices = t8dg_global_values_get_num_elem_quad (values->global_values_array[eclass]);
-    num_dof = t8dg_global_values_get_num_dof (values->global_values_array[eclass]);
-
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      global_values = t8dg_values_get_global_values(values, itree, ielement);
+      num_quad_vertices = t8dg_global_values_get_num_elem_quad (global_values);
+
       element_dof_values = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
 //      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dof_values));
-      element_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
-      element_flux_quad_values = sc_array_new_count (sizeof (double), num_quad_vertices);
-      element_res_summand_dof_values = sc_array_new_count (sizeof (double), num_dof);
+      element_quad_values = t8dg_element_quad_values_new (num_quad_vertices);
       element_res_dof_values = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
 
-      t8dg_local_values_element_multiply_trafo_quad_weight (values->local_values, itree, ielement, element_dof_values, element_quad_values);    /*TODO: Vandermonde? */
+      t8dg_global_values_transform_element_dof_to_element_quad(global_values, element_dof_values, element_quad_values);
+
+      t8dg_local_values_element_multiply_trafo_quad_weight (values->local_values, itree, ielement, element_quad_values, element_quad_values);
 //      t8_debugf ("element_quad_values*qtw\n");
 //      t8dg_sc_array_block_double_debug_print (element_quad_values);
 
-      t8dg_element_dof_values_set_zero (element_res_dof_values);
-      for (idim = 0; idim < values->dim; idim++) {
-/* TODO: 
-        t8dg_local_values_element_multiply_flux_value (problem->local_values, problem->description.flux, &geometry_data,
-                                                                   t8dg_global_values_get_quadrature (problem->global_values),
-                                                                   t8dg_timestepping_data_get_current_time (problem->time_data),
-                                                                   idim, element_quad_values, element_flux_quad_values);
+        t8dg_local_values_element_multiply_flux_value_direction(values->local_values,itree, ielement, flux_fn, flux_data, direction, time, element_quad_values, element_quad_values);
 
-*/
+        t8dg_global_values_transform_element_quad_to_element_dof(global_values, element_quad_values, element_res_dof_values);
 
 //        t8_debugf ("element_dof_derivative_values\n");
 //        t8dg_sc_array_block_double_debug_print (element_dof_derivative_values);
-        t8dg_global_values_element_apply_derivative_matrix_transpose (values->global_values_array[eclass], idim,
-                                                                      element_flux_quad_values, element_res_summand_dof_values);
+        t8dg_global_values_element_apply_derivative_matrix_transpose (global_values, direction,
+                                                                      element_res_dof_values, element_res_dof_values);
 //        t8_debugf ("element_res_summand_dof_values\n");
 //        t8dg_sc_array_block_double_debug_print (element_res_summand_dof_values);
-        t8dg_element_dof_values_axpy (1, element_res_summand_dof_values, element_res_dof_values);
-      }
-
 //      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_res_dof_values));
 
-      sc_array_destroy (element_dof_values);
-      sc_array_destroy (element_quad_values);
-      sc_array_destroy (element_flux_quad_values);
-      sc_array_destroy (element_res_dof_values);
-      sc_array_destroy (element_res_summand_dof_values);
+      t8dg_element_dof_values_destroy (&element_dof_values);
+      t8dg_element_dof_values_destroy (&element_quad_values);
+      t8dg_element_quad_values_destroy (&element_res_dof_values);
     }
   }
+}
+*/
+void
+t8dg_values_apply_directional_boundary_integrals ()
+{
+
 }
 
 void
@@ -202,7 +274,9 @@ t8dg_values_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t 
   t8_locidx_t         num_trees, num_elems_in_tree;
   t8dg_element_dof_values_t *element_dest_dof;
 
-  t8dg_mortar_array_calculate_linear_flux3D (values->mortar_array, src_dof, linear_flux, numerical_flux, flux_data, numerical_flux_data,
+  /*TODO: ghost_exchange */
+
+  t8dg_mortar_array_calculate_linear_flux3D (values->mortar_array, src_dof, linear_flux, flux_data, numerical_flux, numerical_flux_data,
                                              time);
 
   num_trees = t8_forest_get_num_local_trees (values->forest);
@@ -277,6 +351,8 @@ t8dg_values_transform_parent_dof_to_child_dof (t8dg_values_t * values, t8dg_dof_
   parent_dof = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielem_parent_old);
   child_dof = t8dg_dof_values_new_element_dof_values_view (dof_values_adapt, itree, ielem_child_new);
 
+  global_values = t8dg_values_get_global_values (values, itree, ielem_parent_old);
+
   t8dg_global_values_transform_element_dof_to_child_dof (global_values, parent_dof, child_dof, ichild);
   t8dg_element_dof_values_destroy (&parent_dof);
   t8dg_element_dof_values_destroy (&child_dof);
@@ -329,7 +405,7 @@ t8dg_values_cleanup_adapt (t8dg_values_t * values)
 
   /*Create new mortar arrays */
   t8dg_mortar_array_destroy (&values->mortar_array);
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values_adapt);
+  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
 }
 
 void
@@ -357,9 +433,142 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
 
 }
 
+typedef struct t8dg_values_fn_evaluation_data
+{
+  t8dg_coarse_geometry_t *coarse_geometry;
+  t8_forest_t         forest;
+  t8_locidx_t         itree;
+  t8_locidx_t         ielement;
+  t8dg_scalar_function_3d_time_fn function;
+  double              time;
+} t8dg_values_fn_evaluation_data_t;
+
+static double
+t8dg_values_transform_reference_vertex_and_evaluate (const double reference_vertex[3], void *scalar_fn_data)
+{
+  double              image_vertex[DIM3];
+  t8dg_values_fn_evaluation_data_t *data;
+
+  data = (t8dg_values_fn_evaluation_data_t *) scalar_fn_data;
+
+  t8dg_geometry_transform_reference_vertex_to_image_vertex (data->coarse_geometry, data->forest, data->itree, data->ielement,
+                                                            reference_vertex, image_vertex);
+
+  /* apply initial condition function at image vertex and start time */
+  return data->function (image_vertex, data->time);
+}
+
+void
+t8dg_values_interpolate_scalar_function_3d_time (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time,
+                                                 t8dg_dof_values_t * dof_values)
+{
+  t8dg_values_fn_evaluation_data_t data;
+  t8_locidx_t         num_trees, itree, ielement, num_elems_in_tree;
+
+  data.coarse_geometry = values->coarse_geometry;
+  data.forest = values->forest;
+  data.function = function;
+  data.time = time;
+
+  t8dg_global_values_t *global_values;
+  t8dg_functionbasis_t *functionbasis;
+  t8dg_element_dof_values_t *element_dof_view;
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0; itree < num_trees; itree++) {
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+    data.itree = itree;
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
+      element_dof_view = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
+      global_values = t8dg_values_get_global_values (values, itree, ielement);
+      functionbasis = t8dg_global_values_get_functionbasis (global_values);
+      data.ielement = ielement;
+      t8dg_functionbasis_interpolate_scalar_fn (functionbasis, t8dg_values_transform_reference_vertex_and_evaluate, &data,
+                                                element_dof_view);
+      t8dg_element_dof_values_destroy (&element_dof_view);
+    }
+  }
+}
+
+double
+t8dg_values_norm_l2 (t8dg_values_t * values, t8dg_dof_values_t * dof_values, sc_MPI_Comm comm)
+{
+  t8_locidx_t         num_elements, num_trees;
+  t8_locidx_t         ielement, itree, idata;
+
+  double              norm_squared = 0, global_norm_squared;
+  t8dg_element_dof_values_t *element_dof_values;
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    num_elements = t8_forest_get_tree_num_elements (values->forest, itree);
+    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
+      element_dof_values = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
+      norm_squared += t8dg_values_element_norm_l2_squared (values, element_dof_values, itree, ielement);
+      t8dg_element_dof_values_destroy (&element_dof_values);
+    }
+  }
+  /* Compute the sum of the error among all processes */
+  sc_MPI_Allreduce (&norm_squared, &global_norm_squared, 1, sc_MPI_DOUBLE, sc_MPI_SUM, comm);
+  return sqrt (global_norm_squared);
+}
+
+double
+t8dg_values_norm_l2_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values, t8dg_scalar_function_3d_time_fn analytical_sol_fn,
+                         double time, sc_MPI_Comm comm)
+{
+  t8_locidx_t         num_elements, num_trees;
+  t8_locidx_t         ielement, itree, idata;
+
+  t8dg_dof_values_t  *analytical_sol_dof;
+
+  double              error_squared = 0, global_error_squared, global_error, error_squared_summand;
+  double              ana_norm_squared = 0, global_ana_norm_squared, global_ana_norm, ana_norm_squared_summand;
+
+  analytical_sol_dof = t8dg_dof_values_duplicate (dof_values);
+
+  t8dg_values_interpolate_scalar_function_3d_time (values, analytical_sol_fn, time, analytical_sol_dof);
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    num_elements = t8_forest_get_tree_num_elements (values->forest, itree);
+    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
+      t8dg_local_values_element_error_ana_l2_squared (values->local_values, dof_values, analytical_sol_dof, itree, ielement, time,
+                                                      &error_squared_summand, &ana_norm_squared_summand);
+      error_squared += error_squared_summand;
+      ana_norm_squared += ana_norm_squared_summand;
+    }
+  }
+  /* Compute the sum of the error among all processes */
+  sc_MPI_Allreduce (&ana_norm_squared, &global_ana_norm_squared, 1, sc_MPI_DOUBLE, sc_MPI_SUM, comm);
+  sc_MPI_Allreduce (&error_squared, &global_error_squared, 1, sc_MPI_DOUBLE, sc_MPI_SUM, comm);
+
+  global_ana_norm = sqrt (global_ana_norm_squared);
+  global_error = sqrt (global_error_squared);
+
+  t8dg_dof_values_destroy (&analytical_sol_dof);
+
+  /* Return the relative error, that is the l_2 error divided by
+   * the l_2 norm of the analytical solution */
+  return global_error / global_ana_norm;
+}
+
 double
 t8dg_values_element_norm_l2_squared (t8dg_values_t * values, t8dg_element_dof_values_t * element_dof, t8_locidx_t itree,
                                      t8_locidx_t ielement)
 {
-  T8DG_ABORT ("Not implemented\n");
+  return t8dg_local_values_element_norm_l2_squared (values->local_values, element_dof, itree, ielement);
+}
+
+double
+t8dg_values_element_area (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement)
+{
+  double              area;
+  t8dg_element_dof_values_t *one_array;
+  t8dg_dofidx_t       num_dof = t8dg_global_values_get_num_dof (t8dg_values_get_global_values (values, itree, ielement));
+  one_array = t8dg_element_dof_values_new (num_dof);
+  t8dg_element_dof_values_set_all (one_array, 1);
+  area = t8dg_values_element_norm_l2_squared (values, one_array, itree, ielement);
+  t8dg_element_dof_values_destroy (&one_array);
+  return area;
 }

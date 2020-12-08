@@ -201,6 +201,37 @@ t8dg_global_values_array_get_global_values (t8dg_global_values_t ** global_value
                                             t8_locidx_t ielement)
 {
   t8_eclass_t         eclass;
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
+  if (global_values_array[eclass] == NULL) {
+    T8DG_ABORT ("Fail\n");
+  }
   return global_values_array[eclass];
+}
+
+/*Vandermonde*/
+void
+t8dg_global_values_transform_element_dof_to_element_quad (const t8dg_global_values_t * values,
+                                                          t8dg_element_dof_values_t * element_dof,
+                                                          t8dg_element_quad_values_t * element_quad)
+{
+  if (t8dg_global_values_simplifies (values)) {
+    t8dg_element_dof_values_copy (element_dof, element_quad);   /* TODO: write own function */
+  }
+  else {
+    T8DG_ABORT ("Not implemented \n ");
+  }
+}
+
+/*Vandermonde transpose*/
+void
+t8dg_global_values_transform_element_quad_to_element_dof (const t8dg_global_values_t * values,
+                                                          t8dg_element_quad_values_t * element_quad,
+                                                          t8dg_element_dof_values_t * element_dof)
+{
+  if (t8dg_global_values_simplifies (values)) {
+    t8dg_element_dof_values_copy (element_quad, element_dof);   /* TODO: write own function */
+  }
+  else {
+    T8DG_ABORT ("Not implemented \n ");
+  }
 }

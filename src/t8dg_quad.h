@@ -21,6 +21,8 @@ t8dg_element_quad_values_t *t8dg_quad_values_new_element_quad_values_view (t8dg_
 t8dg_face_quad_values_t *t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, int iface, t8_locidx_t itree,
                                                                      t8_locidx_t ielement);
 
+t8dg_element_quad_values_t *t8dg_element_quad_values_new (t8dg_quadidx_t num_quad);
+
 void                t8dg_element_quad_values_destroy (t8dg_element_quad_values_t ** quad_values);
 void                t8dg_face_quad_values_destroy (t8dg_face_quad_values_t ** quad_values);
 
@@ -51,6 +53,8 @@ void                t8dg_quad_values_partition (t8dg_quad_values_t * quad_values
 int                 t8dg_quad_values_is_valid (t8dg_quad_values_t * values);
 int                 t8dg_element_quad_values_is_valid (t8dg_element_quad_values_t * element_values);
 int                 t8dg_face_quad_values_is_valid (t8dg_element_quad_values_t * face_values);
+
+void                t8dg_quad_values_ghost_exchange (t8dg_quad_values_t * quad_values);
 
 T8DG_EXTERN_C_END ();
 

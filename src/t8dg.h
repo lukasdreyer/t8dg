@@ -48,6 +48,7 @@ void               *t8dg_sc_array_index_locidx (const sc_array_t * array, t8dg_l
 t8_locidx_t         t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement);
 void                t8dg_vec_print (double x[3]);
 int                 t8dg_almost_equal (double x1, double x2);
+t8_eclass_t         t8dg_forest_get_eclass (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement);
 
 /** Query the package identity as registered in libsc.
  * \return          This is -1 before \ref t8dg_init has been called

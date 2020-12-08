@@ -21,9 +21,15 @@ t8dg_geometry_transform_reference_vertex_to_coarse_vertex (const t8dg_coarse_geo
   t8_eclass_scheme_c *scheme;
   t8_element_t       *element;
 
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
   scheme = t8_forest_get_eclass_scheme (forest, eclass);
-  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  if (itree == -1) {
+    element = t8_forest_get_element (forest, ielement, NULL);
+    return;                     /*TODO: how to get element for ghosts just from idata */
+  }
+  else {
+    element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  }
 
   level = scheme->t8_element_level (element);
   scaling_factor = pow (2, -level);
@@ -45,6 +51,8 @@ t8dg_geometry_transform_reference_vertex_to_image_vertex (const t8dg_coarse_geom
                                                           const t8_locidx_t itree, const t8_locidx_t ielement,
                                                           const double reference_vertex[3], double image_vertex[3])
 {
+  if (itree == -1)
+    return;                     //TODO: geometry for not local_elements
   double              coarse_vertex[3];
   /* transform into coarse reference element */
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (coarse_geometry, forest, itree, ielement, reference_vertex, coarse_vertex);
@@ -66,13 +74,19 @@ t8dg_geometry_calculate_sqrt_gram_determinant (const t8dg_coarse_geometry_t * co
   double              scaling_factor;
   double              coarse_vertex[3];
 
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
   scheme = t8_forest_get_eclass_scheme (forest, eclass);
-  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  if (itree == -1) {
+    T8DG_ABORT ("Not implemented \n ");
+    element = t8_forest_get_element (forest, ielement, NULL);
+  }
+  else {
+    element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  }
 
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (coarse_geometry, forest, itree, ielement, reference_vertex, coarse_vertex);
 
-  dim = t8_eclass_to_dimension[t8_forest_get_eclass (forest, itree)];
+  dim = t8_eclass_to_dimension[t8dg_forest_get_eclass (forest, itree, ielement)];
   level = scheme->t8_element_level (element);
   scaling_factor = pow (2, -dim * level);
 
@@ -95,9 +109,15 @@ t8dg_geometry_calculate_transformed_gradient_tangential_vector (const t8dg_coars
   double              coarse_vertex[3];
   double              coarse_tangential_vector[3];
 
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
   scheme = t8_forest_get_eclass_scheme (forest, eclass);
-  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  if (itree == -1) {
+    T8DG_ABORT ("Not implemented \n ");
+    element = t8_forest_get_element (forest, ielement, NULL);
+  }
+  else {
+    element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  }
 
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (coarse_geometry, forest, itree, ielement, reference_vertex, coarse_vertex);
 
@@ -122,7 +142,7 @@ t8dg_geometry_calculate_normal_vector (const t8dg_coarse_geometry_t * coarse_geo
   int                 side;
   int                 normal_direction;
 
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
   if (eclass == T8_ECLASS_LINE || eclass == T8_ECLASS_QUAD || eclass == T8_ECLASS_HEX) {
     /* For Hypercubes, there is no change of the normal vector from reference element to coarse element */
     side = iface % 2;
@@ -151,13 +171,19 @@ t8dg_geometry_calculate_face_sqrt_gram_determinant (const t8dg_coarse_geometry_t
   double              scaling_factor;
   double              coarse_vertex[3];
 
-  eclass = t8_forest_get_eclass (forest, itree);
+  eclass = t8dg_forest_get_eclass (forest, itree, ielement);
   scheme = t8_forest_get_eclass_scheme (forest, eclass);
-  element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  if (itree == -1) {
+    T8DG_ABORT ("Not implemented \n ");
+    element = t8_forest_get_element (forest, ielement, NULL);
+  }
+  else {
+    element = t8_forest_get_element_in_tree (forest, itree, ielement);
+  }
 
   t8dg_geometry_transform_reference_vertex_to_coarse_vertex (coarse_geometry, forest, itree, ielement, reference_vertex, coarse_vertex);
 
-  dim = t8_eclass_to_dimension[t8_forest_get_eclass (forest, itree)];
+  dim = t8_eclass_to_dimension[t8dg_forest_get_eclass (forest, itree, ielement)];
   level = scheme->t8_element_level (element);
   scaling_factor = pow (2, -(dim - 1) * level);
 

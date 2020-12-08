@@ -30,13 +30,13 @@ void                t8dg_global_values_destroy (t8dg_global_values_t ** pvalues)
 
 /*Vandermonde*/
 void                t8dg_global_values_transform_element_dof_to_element_quad (const t8dg_global_values_t * values,
-                                                                              const t8dg_element_dof_values_t * element_dof,
+                                                                              t8dg_element_dof_values_t * element_dof,
                                                                               t8dg_element_quad_values_t * element_quad);
 
 /*Vandermonde transpose*/
 void                t8dg_global_values_transform_element_quad_to_element_dof (const t8dg_global_values_t * values,
-                                                                              const sc_array_t * element_quad_array,
-                                                                              sc_array_t * element_dof_array);
+                                                                              t8dg_element_quad_values_t * element_quad,
+                                                                              t8dg_element_dof_values_t * element_dof);
 
 /*Use from functionbasis*/
 void                t8dg_global_values_element_apply_derivative_matrix_transpose
