@@ -13,7 +13,7 @@
 #include <t8_forest.h>
 #include <t8_forest/t8_forest_iterate.h>
 #include <t8_schemes/t8_default_cxx.hxx>
-#include <mpi.h>
+#include <sc_mpi.h>
 #include <tuple>
 
 
