@@ -77,7 +77,13 @@ t8dg_test_values_replace_all (t8_forest_t forest_old,
   t8_element_t       *element = t8_forest_get_element_in_tree (forest_old, itree, first_ielem_old);
   num_children = ts->t8_element_num_children (element);
 
-  T8DG_ASSERT (num_children == num_elems_new && num_elems_old == 1);
+#ifndef T8DG_ENABLE_MPI
+  ASSERT_EQ_MPI (num_children, num_elems_new);
+  ASSERT_EQ_MPI (num_elems_old, 1);
+#else
+  ASSERT_EQ (num_children, num_elems_new);
+  ASSERT_EQ (num_elems_old, 1);
+#endif
 
   for (ichild = 0; ichild < num_children; ichild++) {
     t8dg_values_set_element_adapt (problem->values, itree, first_ielem_new + ichild);
@@ -99,7 +105,11 @@ TEST_F (ValuesChildInterpolationTest2D, lgl2_element)
 {
   t8dg_global_values_t *global_values = t8dg_values_get_global_values_array (values)[T8_ECLASS_QUAD];
 
+#ifndef T8DG_ENABLE_MPI
   ASSERT_EQ (t8dg_global_values_get_num_faces (global_values), 4);
+#else
+  ASSERT_EQ_MPI (t8dg_global_values_get_num_faces (global_values), 4);
+#endif
 
   t8dg_dof_values_t  *dof_values_adapt;
   t8dg_dof_values_t  *dof_children_expected;
@@ -135,12 +145,18 @@ TEST_F (ValuesChildInterpolationTest2D, lgl2_element)
   forest_adapt = NULL;
 
   dof_children_expected = t8dg_dof_values_new_data_local (forest, t8dg_values_get_global_values_array (values), child_dof, 16);
-  EXPECT_TRUE (t8dg_dof_values_equal (dof_values_adapt, dof_children_expected));
+
+#ifndef T8DG_ENABLE_MPI
+  ASSERT_TRUE (t8dg_dof_values_equal (dof_values_adapt, dof_children_expected));
+
+#else
+  ASSERT_TRUE_MPI (t8dg_dof_values_equal (dof_values_adapt, dof_children_expected));
+
+#endif
 
   t8dg_dof_values_destroy (&dof_values);
   t8dg_dof_values_destroy (&dof_values_adapt);
   t8dg_dof_values_destroy (&dof_children_expected);
-  EXPECT_TRUE (1);
 }
 
 /*TODO: do a test for Face child interpolation*/
@@ -241,7 +257,6 @@ TEST_P (PrecomputedValuesProjectionTest1D, const_one)
   sc_array_destroy (element_dof_values_parent);
 #endif
   t8dg_dof_values_destroy (&dof_values_adapt);
-  EXPECT_TRUE (1);
 }
 
 /* *INDENT-OFF* */
@@ -335,5 +350,10 @@ TEST_P (PrecomputedValuesL2norm1D, test_functions)
   t8dg_values_interpolate_scalar_function_3d_time (values, std::get < 0 > (std::get < 1 > (GetParam ())), time, dof_values);
 
   norm = t8dg_values_norm_l2 (values, dof_values, sc_MPI_COMM_WORLD);
+#ifndef T8DG_ENABLE_MPI
   EXPECT_NEAR (norm, std::get < 1 > (std::get < 1 > (GetParam ())), exp (-4 * std::get < 0 > (GetParam ())));
+#else
+  EXPECT_NEAR_MPI (norm, std::get < 1 > (std::get < 1 > (GetParam ())), exp (-4 * std::get < 0 > (GetParam ())));
+#endif
+
 }
