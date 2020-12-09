@@ -186,7 +186,7 @@ protected:
   t8dg_dof_values_t  *dof_values;
 };
 
-INSTANTIATE_TEST_SUITE_P (lglRange, PrecomputedValuesProjectionTest1D, testing::Range (2, MAX_LGL_NUMBER + 1));
+INSTANTIATE_TEST_CASE_P (lglRange, PrecomputedValuesProjectionTest1D, testing::Range (2, MAX_LGL_NUMBER + 1));
 
 TEST_P (PrecomputedValuesProjectionTest1D, const_one)
 {
@@ -318,7 +318,7 @@ static const
 t8dg_scalar_function_3d_time_fn, double >function3 (t8dg_test_expx, sqrt ((exp (2) - 1) / 2));
 
 /* *INDENT-OFF* */
-INSTANTIATE_TEST_SUITE_P (lgl_and_functions, PrecomputedValuesL2norm1D,
+INSTANTIATE_TEST_CASE_P (lgl_and_functions, PrecomputedValuesL2norm1D,
     ::testing::Combine (
 	::testing::Range (2, 8),
 	::testing::Values (function1, function2, function3)));
