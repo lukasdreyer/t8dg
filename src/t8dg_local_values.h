@@ -32,7 +32,15 @@ void                t8dg_local_values_destroy (t8dg_local_values_t ** pvalues);
 void                t8dg_local_values_copy_element_values (t8dg_local_values_t * src_values, t8_locidx_t src_idata,
                                                            t8dg_local_values_t * dest_values, t8_locidx_t dest_idata);
 
+void                t8dg_local_values_set_all_elements (t8dg_local_values_t * local_values);
+
+void                t8dg_local_values_set_all_local_elements (t8dg_local_values_t * local_values);
+
 void                t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t itree, t8_locidx_t ielement);
+
+void                t8dg_local_values_set_all_ghost_elements (t8dg_local_values_t * local_values);
+
+void                t8dg_local_values_set_ghost_element (t8dg_local_values_t * local_values, t8_locidx_t ighosttree, t8_locidx_t ielement);
 
 /* Operations on quad_values */
 
@@ -62,13 +70,29 @@ void
  
  
  
- t8dg_local_values_element_multiply_directional_transformed_gradient_tangential_vector_component (const t8dg_local_values_t * local_values,
-                                                                                                  t8_locidx_t itree, t8_locidx_t ielement,
-                                                                                                  int derivative_direction, int icomp,
-                                                                                                  t8dg_element_quad_values_t *
-                                                                                                  src_element_quad_values,
-                                                                                                  t8dg_element_quad_values_t *
-                                                                                                  dest_element_quad_values);
+ t8dg_local_values_face_divide_trafo_quad_weight_idata_eclass (const t8dg_local_values_t * local_values,
+                                                               t8_locidx_t idata, t8_eclass_t element_eclass, const int iface,
+                                                               t8dg_face_quad_values_t * src_face_quad,
+                                                               t8dg_face_quad_values_t * dest_face_quad);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_local_values_face_multiply_trafo_quad_weight_idata_eclass (const t8dg_local_values_t * local_values,
+                                                                 t8_locidx_t idata, t8_eclass_t element_eclass, const int iface,
+                                                                 t8dg_face_quad_values_t * src_face_quad,
+                                                                 t8dg_face_quad_values_t * dest_face_quad);
+
+void                t8dg_local_values_element_multiply_directional_transformed_gradient_tangential_vector_component
+  (const t8dg_local_values_t * local_values,
+   t8_locidx_t itree, t8_locidx_t ielement,
+   int derivative_direction, int icomp,
+   t8dg_element_quad_values_t * src_element_quad_values, t8dg_element_quad_values_t * dest_element_quad_values);
 
 void
  
@@ -85,21 +109,21 @@ void
                                                       t8_locidx_t itree, t8_locidx_t ielem_first_child, t8_locidx_t ielem_parent);
 
 void
- 
- 
- 
- 
- 
- 
- 
- t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t8dg_local_values_t * local_values,
-                                                                                t8dg_face_dof_values_t * child_face_dof[MAX_SUBFACES],
-                                                                                t8dg_face_dof_values_t * parent_face_dof,
-                                                                                const int num_face_children, t8_locidx_t itree_children,
-                                                                                t8_locidx_t ielem_child_neighbour[MAX_SUBFACES],
-                                                                                int iface_child_neighbour[MAX_SUBFACES],
-                                                                                t8_locidx_t itree_parent, t8_locidx_t ielem_parent,
-                                                                                int iface_parent);
+   
+   
+   
+   
+   
+   
+   
+   t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes
+  (t8dg_local_values_t * local_values,
+   t8dg_face_dof_values_t * child_face_dof[MAX_SUBFACES],
+   t8dg_face_dof_values_t * parent_face_dof,
+   const int num_face_children,
+   t8_locidx_t idata_child_neighbour[MAX_SUBFACES],
+   t8_eclass_t element_eclass_children[MAX_SUBFACES],
+   int iface_child_neighbour[MAX_SUBFACES], t8_locidx_t idata_parent, t8_eclass_t element_eclass_parent, int iface_parent);
 
 void                t8dg_local_values_apply_element_mass_matrix (t8dg_local_values_t * values, t8_locidx_t itree, t8_locidx_t ielement,
                                                                  t8dg_element_dof_values_t * src_element_dof,
@@ -117,18 +141,17 @@ void                t8dg_local_values_apply_face_inverse_mass_matrix (t8dg_local
                                                                       int iface, t8dg_face_dof_values_t * src_face_dof,
                                                                       t8dg_face_dof_values_t * dest_face_dof);
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_local_values_apply_element_component_stiffness_matrix_dof (t8dg_local_values_t * local_values, t8_locidx_t itree,
-                                                                 t8_locidx_t ielement, int icomp,
-                                                                 t8dg_element_dof_values_t * src_element_dof,
-                                                                 t8dg_element_dof_values_t * dest_element_dof);
+void                t8dg_local_values_apply_face_inverse_mass_matrix_idata_eclass
+  (t8dg_local_values_t * values, t8_locidx_t idata, t8_eclass_t element_eclass, int iface,
+   t8dg_face_dof_values_t * src_face_dof, t8dg_face_dof_values_t * dest_face_dof);
+
+void                t8dg_local_values_apply_face_mass_matrix_idata_eclass
+  (t8dg_local_values_t * values, t8_locidx_t idata, t8_eclass_t element_eclass, int iface,
+   t8dg_face_dof_values_t * src_face_dof, t8dg_face_dof_values_t * dest_face_dof);
+
+void                t8dg_local_values_apply_element_component_stiffness_matrix_dof
+  (t8dg_local_values_t * local_values, t8_locidx_t itree,
+   t8_locidx_t ielement, int icomp, t8dg_element_dof_values_t * src_element_dof, t8dg_element_dof_values_t * dest_element_dof);
 
 /* data exchange and partition */
 
@@ -150,6 +173,19 @@ void
  t8dg_local_values_get_face_normal_vector (const t8dg_local_values_t * values,
                                            const t8_locidx_t itree, const t8_locidx_t ielement, const int iface, const int idof,
                                            double vector[3]);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_local_values_get_face_normal_vector_idata_eclass (const t8dg_local_values_t * values,
+                                                        const t8_locidx_t idata, const t8_eclass_t element_eclass, const int iface,
+                                                        const int idof, double vector[3]);
+
 t8dg_coarse_geometry_t *t8dg_local_values_get_coarse_geometry (t8dg_local_values_t * local_values);
 
 double

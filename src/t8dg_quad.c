@@ -12,6 +12,7 @@ struct t8dg_quad_values
   t8_locidx_t         num_total_elements;
 
   t8dg_quadidx_t      max_num_element_quad;
+  t8dg_quadidx_t      max_num_face_quad;
 
   t8_forest_t         forest;   /* to convert idata into eclass */
   t8dg_global_values_t **global_values; /*to get the appropriate amount of dofs for each elementtype */
@@ -20,40 +21,58 @@ struct t8dg_quad_values
 t8dg_element_quad_values_t *
 t8dg_quad_values_new_element_quad_values_view (t8dg_quad_values_t * quad_values, t8_locidx_t itree, t8_locidx_t ielement)
 {
-  t8dg_dofidx_t       idata;
-  idata = t8dg_itree_ielement_to_idata (quad_values->forest, itree, ielement);
+  t8_locidx_t         idata;
+  t8dg_element_quad_values_t *element_quad_view;
+  t8dg_quadidx_t      num_element_quad;
+
+  if (itree == -1) {
+    T8DG_ABORT ("Not implemented, should not be needed? \n ");
+    num_element_quad = quad_values->max_num_element_quad;       /*get eclass of ghost element */
+    idata = ielement;
+  }
+  else {
+    t8dg_global_values_t *global_values;
+    global_values = t8dg_global_values_array_get_global_values (quad_values->global_values, quad_values->forest, itree, ielement);
+    num_element_quad = t8dg_global_values_get_num_elem_quad (global_values);
+    idata = t8dg_itree_ielement_to_idata (quad_values->forest, itree, ielement);
+  }
   T8DG_ASSERT (idata >= 0 && (size_t) idata < quad_values->num_total_elements);
 
-  t8dg_element_quad_values_t *element_quad_view;
-
-  t8dg_global_values_t *global_values =
-    t8dg_global_values_array_get_global_values (quad_values->global_values, quad_values->forest, itree, ielement);
-
-  t8dg_dofidx_t       num_element_quad = t8dg_global_values_get_num_elem_quad (global_values);
+  /* Create new view */
   element_quad_view =
     (t8dg_element_quad_values_t *) sc_array_new_data (t8_sc_array_index_locidx (quad_values->quads, idata), sizeof (double),
                                                       num_element_quad);
-  /* Create new view */
   return element_quad_view;
+}
+
+t8dg_face_quad_values_t *
+t8dg_quad_values_new_face_quad_values_view_idata_eclass (t8dg_quad_values_t * quad_values, int iface, t8_locidx_t idata,
+                                                         t8_eclass_t element_eclass)
+{
+  t8dg_face_quad_values_t *face_quad_view;
+  t8dg_quadidx_t      num_face_quad;
+
+  t8dg_global_values_t *global_values;
+  global_values = quad_values->global_values[element_eclass];
+  num_face_quad = t8dg_global_values_get_num_face_quad (global_values, iface);
+
+  /* Create new view */
+  face_quad_view =
+    (t8dg_face_quad_values_t *) sc_array_new_data (t8_sc_array_index_locidx (quad_values->quads, idata), sizeof (double), num_face_quad);
+  return face_quad_view;
+
 }
 
 t8dg_face_quad_values_t *
 t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, int iface, t8_locidx_t itree, t8_locidx_t ielement)
 {
-  t8dg_dofidx_t       idata;
+  T8DG_ASSERT (itree >= 0 && itree < t8_forest_get_num_local_trees (quad_values->forest));
+  t8_locidx_t         idata;
+  t8_eclass_t         element_eclass;
   idata = t8dg_itree_ielement_to_idata (quad_values->forest, itree, ielement);
   T8DG_ASSERT (idata >= 0 && (size_t) idata < quad_values->num_total_elements);
-
-  t8dg_face_quad_values_t *face_quad_view;
-
-  t8dg_global_values_t *global_values =
-    t8dg_global_values_array_get_global_values (quad_values->global_values, quad_values->forest, itree, ielement);
-
-  t8dg_dofidx_t       num_face_quad = t8dg_global_values_get_num_face_quad (global_values, iface);
-  face_quad_view =
-    (t8dg_element_quad_values_t *) sc_array_new_data (t8_sc_array_index_locidx (quad_values->quads, idata), sizeof (double), num_face_quad);
-  /* Create new view */
-  return face_quad_view;
+  element_eclass = t8dg_forest_get_eclass (quad_values->forest, itree, ielement);
+  return t8dg_quad_values_new_face_quad_values_view_idata_eclass (quad_values, iface, idata, element_eclass);
 }
 
 t8dg_element_quad_values_t *
@@ -132,6 +151,7 @@ t8dg_quad_values_new (t8_forest_t forest, t8dg_global_values_t * global_values_a
   return_values->forest = forest;
   return_values->global_values = global_values_array;
   return_values->max_num_element_quad = t8dg_global_values_array_get_max_num_element_quad (global_values_array);
+  return_values->max_num_face_quad = t8dg_global_values_array_get_max_num_face_quad (global_values_array);
   return_values->num_local_elements = t8_forest_get_num_element (forest);
   return_values->num_ghost_elements = t8_forest_get_num_ghosts (forest);
   return_values->num_total_elements = return_values->num_local_elements + return_values->num_ghost_elements;

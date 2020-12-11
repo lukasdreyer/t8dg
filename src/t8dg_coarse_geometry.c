@@ -13,18 +13,18 @@
 
 #include "t8dg.h"
 
-typedef double      (*t8dg_coarse_geometry_sqrt_gram_determinant_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+typedef double      (*t8dg_coarse_geometry_sqrt_gram_determinant_fn) (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                                       const double coarse_vertex[3]);
 
-typedef double      (*t8dg_coarse_geometry_sqrt_face_gram_determinant_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
-                                                                           const int iface, const double coarse_vertex[3]);
+typedef double      (*t8dg_coarse_geometry_sqrt_face_gram_determinant_fn) (const t8_forest_t forest, const t8_gloidx_t iglobaltree,
+                                                                           void *data, const int iface, const double coarse_vertex[3]);
 
-typedef void        (*t8dg_coarse_geometry_differential_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+typedef void        (*t8dg_coarse_geometry_differential_fn) (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                              const double coarse_vertex[3], const double coarse_tangential_vector[3],
                                                              double transformed_gradient_tangential_vector[3]);
 
 /** returns the image vertex of the geometry function*/
-typedef void        (*t8dg_coarse_geometry_fn) (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+typedef void        (*t8dg_coarse_geometry_fn) (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                 const double vertex[DIM3], double image_vertex[DIM3]);
 
 typedef enum t8dg_coarse_geometry_data
@@ -45,47 +45,47 @@ struct t8dg_coarse_geometry
 /*TODO: Document In and Output*/
 double
 t8dg_coarse_geometry_calculate_sqrt_face_gram_determinant (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
-                                                           const t8_locidx_t itree, const int iface, const double coarse_vertex[3])
+                                                           const t8_gloidx_t iglobaltree, const int iface, const double coarse_vertex[3])
 {
-  return coarse_geometry->sqrt_face_gram_det (forest, itree, coarse_geometry->data, iface, coarse_vertex);
+  return coarse_geometry->sqrt_face_gram_det (forest, iglobaltree, coarse_geometry->data, iface, coarse_vertex);
 }
 
 double
 t8dg_coarse_geometry_calculate_sqrt_gram_determinant (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
-                                                      const t8_locidx_t itree, const double coarse_vertex[3])
+                                                      const t8_gloidx_t iglobaltree, const double coarse_vertex[3])
 {
-  return coarse_geometry->sqrt_gram_det (forest, itree, coarse_geometry->data, coarse_vertex);
+  return coarse_geometry->sqrt_gram_det (forest, iglobaltree, coarse_geometry->data, coarse_vertex);
 }
 
 void
 t8dg_coarse_geometry_apply (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
-                            const t8_locidx_t itree, const double coarse_vertex[3], double image_vertex[3])
+                            const t8_gloidx_t iglobaltree, const double coarse_vertex[3], double image_vertex[3])
 {
-  coarse_geometry->geometry (forest, itree, coarse_geometry->data, coarse_vertex, image_vertex);
+  coarse_geometry->geometry (forest, iglobaltree, coarse_geometry->data, coarse_vertex, image_vertex);
 }
 
 void
 t8dg_coarse_geometry_calculate_gradient_tangential_vector (const t8dg_coarse_geometry_t * coarse_geometry,
-                                                           const t8_forest_t forest, const t8_locidx_t itree,
+                                                           const t8_forest_t forest, const t8_gloidx_t iglobaltree,
                                                            const double coarse_vertex[3], const double coarse_tangential_vector[3],
                                                            double transformed_gradient_tangential_vector[3])
 {
-  coarse_geometry->differential_invers_transpose (forest, itree, coarse_geometry->data, coarse_vertex, coarse_tangential_vector,
+  coarse_geometry->differential_invers_transpose (forest, iglobaltree, coarse_geometry->data, coarse_vertex, coarse_tangential_vector,
                                                   transformed_gradient_tangential_vector);
 }
 
 void
 t8dg_coarse_geometry_transform_normal_vector (const t8dg_coarse_geometry_t * coarse_geometry, const t8_forest_t forest,
-                                              const t8_locidx_t itree, const double coarse_vertex[3], const double coarse_normal_vector[3],
-                                              double image_normal_vector[3])
+                                              const t8_gloidx_t iglobaltree, const double coarse_vertex[3],
+                                              const double coarse_normal_vector[3], double image_normal_vector[3])
 {
   /*TODO: Check for nonlinear geometry! */
-  coarse_geometry->differential_invers_transpose (forest, itree, coarse_geometry->data, coarse_vertex, coarse_normal_vector,
+  coarse_geometry->differential_invers_transpose (forest, iglobaltree, coarse_geometry->data, coarse_vertex, coarse_normal_vector,
                                                   image_normal_vector);
 }
 
 static void
-t8dg_linear_1D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+t8dg_linear_1D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                  const double coarse_vertex[3], const double coarse_tangential_vector[3],
                                                  double transformed_gradient_tangential_vector[3])
 {
@@ -93,8 +93,8 @@ t8dg_linear_1D_differential_invers_transpose_fn (const t8_forest_t forest, const
   double              image_coarse_element_length_vector[3];
   double              image_coarse_element_length_squared;
 
-  tree_vertices = t8_forest_get_tree_vertices (forest, itree);
-
+  tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
+  T8DG_ASSERT (tree_vertices != NULL);
   /*tangential vector of the coarse element */
   t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector, -1);
 
@@ -105,20 +105,20 @@ t8dg_linear_1D_differential_invers_transpose_fn (const t8_forest_t forest, const
 }
 
 static double
-t8dg_linear_1D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const int iface,
+t8dg_linear_1D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const int iface,
                                               const double coarse_vertex[3])
 {
   return 1;
 }
 
 static double
-t8dg_linear_1D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double coarse_vertex[3])
+t8dg_linear_1D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double coarse_vertex[3])
 {
   double             *tree_vertices;
   double              image_coarse_element_length_vector[3];
   double              image_coarse_element_length;
 
-  tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+  tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   /*tangential vector of the coarse element */
   t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector, -1);
@@ -128,12 +128,12 @@ t8dg_linear_1D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_loci
 }
 
 static void
-t8dg_linear_1D_geometry_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double vertex[DIM3],
+t8dg_linear_1D_geometry_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double vertex[DIM3],
                             double image_vertex[DIM3])
 {
   T8DG_ASSERT (vertex != NULL && image_vertex != NULL);
 
-  double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   double              image_coarse_element_length_vector[3];
 
@@ -155,10 +155,11 @@ t8dg_coarse_geometry_new_1D_linear ()
 }
 
 static void
-t8dg_linear_2D_geometry_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double vertex[DIM3],
+t8dg_linear_2D_geometry_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double vertex[DIM3],
                             double image_vertex[DIM3])
 {
-  double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   double              image_coarse_element_length_vector_x[3];
   double              image_coarse_element_length_vector_y[3];
@@ -170,11 +171,11 @@ t8dg_linear_2D_geometry_fn (const t8_forest_t forest, const t8_locidx_t itree, v
 }
 
 static void
-t8dg_linear_2D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data,
+t8dg_linear_2D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                  const double coarse_vertex[3], const double coarse_tangential_vector[3],
                                                  double transformed_gradient_tangential_vector[3])
 {
-  double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   double              image_coarse_element_length_vector_x[3];
   double              image_coarse_element_length_vector_y[3];
@@ -195,9 +196,9 @@ t8dg_linear_2D_differential_invers_transpose_fn (const t8_forest_t forest, const
 }
 
 static double
-t8dg_linear_2D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const double coarse_vertex[3])
+t8dg_linear_2D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double coarse_vertex[3])
 {
-  double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   double              image_coarse_element_length_vector_x[3];
   double              image_coarse_element_length_vector_y[3];
@@ -214,10 +215,10 @@ t8dg_linear_2D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_loci
 }
 
 static double
-t8dg_linear_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8_locidx_t itree, void *data, const int iface,
+t8dg_linear_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const int iface,
                                               const double coarse_vertex[3])
 {
-  double             *tree_vertices = t8_forest_get_tree_vertices (forest, itree);
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
 
   double              image_coarse_element_length_vector_x[3];
   double              image_coarse_element_length_vector_y[3];

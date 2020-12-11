@@ -16,6 +16,7 @@
 
 #include <t8_vec.h>
 #include <t8_forest/t8_forest_partition.h>
+#include <t8_forest/t8_forest_ghost.h>
 
 struct t8dg_local_values
 {
@@ -74,6 +75,14 @@ t8dg_local_values_get_face_trafo_quad_weights_view (t8dg_local_values_t * values
   return t8dg_quad_values_new_face_quad_values_view (values->face_trafo_quad_weight[faceindex], faceindex, itree, ielement);
 }
 
+static t8dg_face_dof_values_t *
+t8dg_local_values_get_face_trafo_quad_weights_view_idata_eclass (t8dg_local_values_t * values, const t8_locidx_t idata,
+                                                                 const t8_eclass_t element_eclass, const int faceindex)
+{
+  return t8dg_quad_values_new_face_quad_values_view_idata_eclass (values->face_trafo_quad_weight[faceindex], faceindex, idata,
+                                                                  element_eclass);
+}
+
 static t8dg_element_dof_values_t *
 t8dg_local_values_get_element_trafo_quad_weights_view (const t8dg_local_values_t * values, const t8_locidx_t itree,
                                                        const t8_locidx_t ielement)
@@ -117,12 +126,26 @@ t8dg_local_values_set_face_normal_vector (const t8dg_local_values_t * values,
                                           double vector[3])
 {
   int                 icomp;
-  t8dg_element_dof_values_t *element_face_normal_component;
+  t8dg_face_dof_values_t *face_normal_component;
   for (icomp = 0; icomp < DIM3; icomp++) {
-    element_face_normal_component =
-      t8dg_dof_values_new_element_dof_values_view (values->face_normal_vectors[iface][icomp], itree, ielement);
-    t8dg_element_dof_values_set_value (element_face_normal_component, idof, vector[icomp]);
-    t8dg_element_dof_values_destroy (&element_face_normal_component);
+    face_normal_component = t8dg_dof_values_new_face_dof_values_view (values->face_normal_vectors[iface][icomp], iface, itree, ielement);
+    t8dg_face_dof_values_set_value (face_normal_component, idof, vector[icomp]);
+    t8dg_face_dof_values_destroy (&face_normal_component);
+  }
+}
+
+void
+t8dg_local_values_set_face_normal_vector_idata_eclass (const t8dg_local_values_t * values,
+                                                       const t8_locidx_t idata, const t8_eclass_t element_eclass, const int iface,
+                                                       const int idof, double vector[3])
+{
+  int                 icomp;
+  t8dg_face_dof_values_t *face_normal_component;
+  for (icomp = 0; icomp < DIM3; icomp++) {
+    face_normal_component =
+      t8dg_dof_values_new_face_dof_values_view_idata_eclass (values->face_normal_vectors[iface][icomp], iface, idata, element_eclass);
+    t8dg_element_dof_values_set_value (face_normal_component, idof, vector[icomp]);
+    t8dg_element_dof_values_destroy (&face_normal_component);
   }
 }
 
@@ -132,12 +155,26 @@ t8dg_local_values_get_face_normal_vector (const t8dg_local_values_t * values,
                                           double vector[3])
 {
   int                 icomp;
-  t8dg_element_dof_values_t *element_face_normal_component;
+  t8dg_face_dof_values_t *face_normal_component;
   for (icomp = 0; icomp < DIM3; icomp++) {
-    element_face_normal_component =
-      t8dg_dof_values_new_element_dof_values_view (values->face_normal_vectors[iface][icomp], itree, ielement);
-    vector[icomp] = t8dg_element_dof_values_get_value (element_face_normal_component, idof);
-    t8dg_element_dof_values_destroy (&element_face_normal_component);
+    face_normal_component = t8dg_dof_values_new_face_dof_values_view (values->face_normal_vectors[iface][icomp], iface, itree, ielement);
+    vector[icomp] = t8dg_face_dof_values_get_value (face_normal_component, idof);
+    t8dg_face_dof_values_destroy (&face_normal_component);
+  }
+}
+
+void
+t8dg_local_values_get_face_normal_vector_idata_eclass (const t8dg_local_values_t * values,
+                                                       const t8_locidx_t idata, const t8_eclass_t element_eclass, const int iface,
+                                                       const int idof, double vector[3])
+{
+  int                 icomp;
+  t8dg_face_dof_values_t *face_normal_component;
+  for (icomp = 0; icomp < DIM3; icomp++) {
+    face_normal_component =
+      t8dg_dof_values_new_face_dof_values_view_idata_eclass (values->face_normal_vectors[iface][icomp], iface, idata, element_eclass);
+    vector[icomp] = t8dg_face_dof_values_get_value (face_normal_component, idof);
+    t8dg_face_dof_values_destroy (&face_normal_component);
   }
 }
 
@@ -171,6 +208,97 @@ t8dg_local_values_copy_element_values (t8dg_local_values_t * src_values, t8_loci
 }
 
 void
+t8dg_local_values_set_all_ghost_elements (t8dg_local_values_t * local_values)
+{
+  t8_locidx_t         ighosttree, ielement, num_ghost_trees, num_elements_in_ghost_tree;
+
+  num_ghost_trees = t8_forest_get_num_ghost_trees (local_values->forest);
+  for (ighosttree = 0; ighosttree < num_ghost_trees; ighosttree++) {
+    num_elements_in_ghost_tree = t8_forest_ghost_tree_num_elements (local_values->forest, ighosttree);
+    for (ielement = 0; ielement < num_elements_in_ghost_tree; ielement++) {
+      t8dg_local_values_set_ghost_element (local_values, ighosttree, ielement);
+    }
+  }
+}
+
+void
+t8dg_local_values_set_ghost_element (t8dg_local_values_t * local_values, t8_locidx_t ighosttree, t8_locidx_t ielement)
+{
+  double              sqrt_gram_det, face_sqrt_gram_det;
+  int                 iquad, iface, idim, idof;
+
+  /*pointer on the values to fill */
+  t8dg_face_quad_values_t *face_trafo_quad;     /*size: num_face_quad */
+  double              image_normal_vector[3];   /*size: 3, gets evaluated for each face dof point */
+
+  double              reference_vertex[3];
+  double              reference_tangential_vector[3];
+
+  int                 num_face_quad;
+  int                 num_faces, num_face_dof;
+
+  t8dg_global_values_t *global_values;
+  t8dg_quadrature_t  *quadrature;
+  t8dg_functionbasis_t *functionbasis;
+  t8_element_t       *element;
+  element = t8_forest_ghost_get_element (local_values->forest, ighosttree, ielement);
+
+  t8_gloidx_t         iglobaltree = t8_forest_ghost_get_global_treeid (local_values->forest, ighosttree);
+  t8_eclass_t         element_eclass = t8dg_eclass_from_gloidx_element (local_values->forest, iglobaltree, element);
+
+  t8_locidx_t         idata = t8dg_ighosttree_ielement_to_idata (local_values->forest, ighosttree, ielement);
+
+  global_values = local_values->global_values[element_eclass];
+  quadrature = t8dg_global_values_get_quadrature (global_values);
+  functionbasis = t8dg_global_values_get_functionbasis (global_values);
+
+  num_faces = t8dg_global_values_get_num_faces (global_values);
+
+  for (iface = 0; iface < num_faces; iface++) {
+    face_trafo_quad = t8dg_local_values_get_face_trafo_quad_weights_view_idata_eclass (local_values, idata, element_eclass, iface);
+    num_face_quad = t8dg_quadrature_get_num_face_vertices (quadrature, iface);
+    for (iquad = 0; iquad < num_face_quad; iquad++) {
+      t8dg_quadrature_get_face_vertex (quadrature, iface, iquad, reference_vertex);
+
+      face_sqrt_gram_det =
+        t8dg_geometry_calculate_face_sqrt_gram_determinant (local_values->coarse_geometry, local_values->forest, iglobaltree, element,
+                                                            iface, reference_vertex);
+      t8dg_face_quad_values_set_value (face_trafo_quad, iquad,
+                                       face_sqrt_gram_det * t8dg_quadrature_get_face_weight (quadrature, iface, iquad));
+    }
+
+    num_face_dof = t8dg_functionbasis_get_num_face_dof (functionbasis, iface);
+    for (idof = 0; idof < num_face_dof; idof++) {
+      t8dg_functionbasis_get_lagrange_face_vertex (functionbasis, iface, idof, reference_vertex);
+      t8dg_geometry_calculate_normal_vector (local_values->coarse_geometry, local_values->forest, iglobaltree, element, iface,
+                                             reference_vertex, image_normal_vector);
+      t8dg_local_values_set_face_normal_vector_idata_eclass (local_values, idata, element_eclass, iface, idof, image_normal_vector);
+    }
+    t8dg_face_quad_values_destroy (&face_trafo_quad);
+  }
+}
+
+void
+t8dg_local_values_set_all_local_elements (t8dg_local_values_t * local_values)
+{
+  t8_locidx_t         num_trees, itree, num_elems_in_tree, ielement;
+  num_trees = t8_forest_get_num_local_trees (local_values->forest);
+  for (itree = 0; itree < num_trees; itree++) {
+    num_elems_in_tree = t8_forest_get_tree_num_elements (local_values->forest, itree);
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
+      t8dg_local_values_set_element (local_values, itree, ielement);
+    }
+  }
+}
+
+void
+t8dg_local_values_set_all_elements (t8dg_local_values_t * local_values)
+{
+  t8dg_local_values_set_all_ghost_elements (local_values);
+  t8dg_local_values_set_all_local_elements (local_values);
+}
+
+void
 t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t itree, t8_locidx_t ielement)
 {
   double              sqrt_gram_det, face_sqrt_gram_det;
@@ -192,6 +320,9 @@ t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t i
   t8dg_quadrature_t  *quadrature;
   t8dg_functionbasis_t *functionbasis;
 
+  t8_gloidx_t         iglobaltree = t8_forest_global_tree_id (local_values->forest, itree);
+  t8_element_t       *element = t8_forest_get_element_in_tree (local_values->forest, itree, ielement);
+
   global_values = t8dg_global_values_array_get_global_values (local_values->global_values, local_values->forest, itree, ielement);
   quadrature = t8dg_global_values_get_quadrature (global_values);
   functionbasis = t8dg_global_values_get_functionbasis (global_values);
@@ -204,7 +335,7 @@ t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t i
   for (iquad = 0; iquad < num_elem_quad; iquad++) {
     t8dg_quadrature_get_element_vertex (quadrature, iquad, reference_vertex);
     sqrt_gram_det =
-      t8dg_geometry_calculate_sqrt_gram_determinant (local_values->coarse_geometry, local_values->forest, itree, ielement,
+      t8dg_geometry_calculate_sqrt_gram_determinant (local_values->coarse_geometry, local_values->forest, iglobaltree, element,
                                                      reference_vertex);
 
     t8dg_element_quad_values_set_value (element_trafo_quad, iquad, sqrt_gram_det * t8dg_quadrature_get_element_weight (quadrature, iquad));
@@ -213,8 +344,8 @@ t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t i
       reference_tangential_vector[0] = reference_tangential_vector[1] = reference_tangential_vector[2] = 0;
       reference_tangential_vector[idim] = 1;
 
-      t8dg_geometry_calculate_transformed_gradient_tangential_vector (local_values->coarse_geometry, local_values->forest, itree, ielement,
-                                                                      reference_vertex, reference_tangential_vector,
+      t8dg_geometry_calculate_transformed_gradient_tangential_vector (local_values->coarse_geometry, local_values->forest, iglobaltree,
+                                                                      element, reference_vertex, reference_tangential_vector,
                                                                       transformed_gradient_tangential_vector);
       t8dg_local_values_set_transformed_gradient_tangential_vector (local_values, itree, ielement, iquad, idim,
                                                                     transformed_gradient_tangential_vector);
@@ -228,8 +359,8 @@ t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t i
     for (iquad = 0; iquad < num_face_quad; iquad++) {
       t8dg_quadrature_get_face_vertex (quadrature, iface, iquad, reference_vertex);
       face_sqrt_gram_det =
-        t8dg_geometry_calculate_face_sqrt_gram_determinant (local_values->coarse_geometry, local_values->forest, itree, ielement, iface,
-                                                            reference_vertex);
+        t8dg_geometry_calculate_face_sqrt_gram_determinant (local_values->coarse_geometry, local_values->forest, iglobaltree, element,
+                                                            iface, reference_vertex);
       t8dg_face_quad_values_set_value (face_trafo_quad, iquad,
                                        face_sqrt_gram_det * t8dg_quadrature_get_face_weight (quadrature, iface, iquad));
     }
@@ -237,8 +368,8 @@ t8dg_local_values_set_element (t8dg_local_values_t * local_values, t8_locidx_t i
     num_face_dof = t8dg_functionbasis_get_num_face_dof (functionbasis, iface);
     for (idof = 0; idof < num_face_dof; idof++) {
       t8dg_functionbasis_get_lagrange_face_vertex (functionbasis, iface, idof, reference_vertex);
-      t8dg_geometry_calculate_normal_vector (local_values->coarse_geometry, local_values->forest, itree, ielement, iface, reference_vertex,
-                                             image_normal_vector);
+      t8dg_geometry_calculate_normal_vector (local_values->coarse_geometry, local_values->forest, iglobaltree, element, iface,
+                                             reference_vertex, image_normal_vector);
       t8dg_local_values_set_face_normal_vector (local_values, itree, ielement, iface, idof, image_normal_vector);
     }
     t8dg_face_quad_values_destroy (&face_trafo_quad);
@@ -291,12 +422,7 @@ t8dg_local_values_new (t8_forest_t forest, t8dg_global_values_t ** global_values
 
   num_trees = t8_forest_get_num_local_trees (local_values->forest);
 
-  for (itree = 0; itree < num_trees; itree++) {
-    num_elems_in_tree = t8_forest_get_tree_num_elements (forest, itree);
-    for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
-      t8dg_local_values_set_element (local_values, itree, ielement);
-    }
-  }
+  //set_elements selber
 
   return local_values;
 }
@@ -422,6 +548,56 @@ t8dg_local_values_face_divide_trafo_quad_weight (const t8dg_local_values_t * loc
 }
 
 void
+t8dg_local_values_face_divide_trafo_quad_weight_idata_eclass (const t8dg_local_values_t * local_values,
+                                                              t8_locidx_t idata, t8_eclass_t element_eclass, const int iface,
+                                                              t8dg_face_quad_values_t * src_face_quad,
+                                                              t8dg_face_quad_values_t * dest_face_quad)
+{
+  int                 ifacequad, num_face_quad;
+  t8dg_face_quad_values_t *face_trafo_quad_weights;
+  double              trafo_quad_weight, old_value;
+
+  face_trafo_quad_weights =
+    t8dg_quad_values_new_face_quad_values_view_idata_eclass (local_values->face_trafo_quad_weight[iface], iface, idata, element_eclass);
+
+  num_face_quad = t8dg_face_quad_values_get_num_face_quad_points (face_trafo_quad_weights);
+
+  T8DG_ASSERT (num_face_quad <= local_values->max_num_face_values);
+
+  for (ifacequad = 0; ifacequad < num_face_quad; ifacequad++) {
+    trafo_quad_weight = t8dg_face_quad_values_get_value (face_trafo_quad_weights, ifacequad);
+    old_value = t8dg_face_quad_values_get_value (src_face_quad, ifacequad);
+    t8dg_face_quad_values_set_value (dest_face_quad, ifacequad, old_value / trafo_quad_weight);
+  }
+  t8dg_face_quad_values_destroy (&face_trafo_quad_weights);
+}
+
+void
+t8dg_local_values_face_multiply_trafo_quad_weight_idata_eclass (const t8dg_local_values_t * local_values,
+                                                                t8_locidx_t idata, t8_eclass_t element_eclass, const int iface,
+                                                                t8dg_face_quad_values_t * src_face_quad,
+                                                                t8dg_face_quad_values_t * dest_face_quad)
+{
+  int                 ifacequad, num_face_quad;
+  t8dg_face_quad_values_t *face_trafo_quad_weights;
+  double              trafo_quad_weight, old_value;
+
+  face_trafo_quad_weights =
+    t8dg_quad_values_new_face_quad_values_view_idata_eclass (local_values->face_trafo_quad_weight[iface], iface, idata, element_eclass);
+
+  num_face_quad = t8dg_face_quad_values_get_num_face_quad_points (face_trafo_quad_weights);
+
+  T8DG_ASSERT (num_face_quad <= local_values->max_num_face_values);
+
+  for (ifacequad = 0; ifacequad < num_face_quad; ifacequad++) {
+    trafo_quad_weight = t8dg_face_quad_values_get_value (face_trafo_quad_weights, ifacequad);
+    old_value = t8dg_face_quad_values_get_value (src_face_quad, ifacequad);
+    t8dg_face_quad_values_set_value (dest_face_quad, ifacequad, old_value * trafo_quad_weight);
+  }
+  t8dg_face_quad_values_destroy (&face_trafo_quad_weights);
+}
+
+void
 t8dg_local_values_partition (t8dg_local_values_t * local_values_old, t8dg_local_values_t * local_values_partition)
 {
   int                 iface, idim, icomp;
@@ -439,7 +615,7 @@ t8dg_local_values_partition (t8dg_local_values_t * local_values_old, t8dg_local_
   for (iface = 0; iface < local_values_old->max_num_faces; iface++) {
     t8dg_quad_values_partition (local_values_old->face_trafo_quad_weight[iface], local_values_partition->face_trafo_quad_weight[iface]);
 
-    for (idim = 0; icomp < DIM3; icomp++) {
+    for (icomp = 0; icomp < DIM3; icomp++) {
       t8dg_dof_values_partition (local_values_old->face_normal_vectors[iface][icomp],
                                  local_values_partition->face_normal_vectors[iface][icomp]);
     }
@@ -557,7 +733,7 @@ void
 t8dg_local_values_apply_face_inverse_mass_matrix (t8dg_local_values_t * values, t8_locidx_t itree, t8_locidx_t ielement, int iface,
                                                   t8dg_face_dof_values_t * src_face_dof, t8dg_face_dof_values_t * dest_face_dof)
 {
-  int                 eclass = t8_forest_get_eclass (values->forest, itree);
+  int                 eclass = t8dg_forest_get_eclass (values->forest, itree, ielement);
   if (t8dg_global_values_simplifies (values->global_values[eclass])) {
     t8dg_local_values_face_divide_trafo_quad_weight (values, itree, ielement, iface, (t8dg_face_quad_values_t *) src_face_dof,
                                                      (t8dg_face_quad_values_t *) dest_face_dof);
@@ -568,13 +744,43 @@ t8dg_local_values_apply_face_inverse_mass_matrix (t8dg_local_values_t * values, 
 }
 
 void
+t8dg_local_values_apply_face_inverse_mass_matrix_idata_eclass (t8dg_local_values_t * values, t8_locidx_t idata, t8_eclass_t element_eclass,
+                                                               int iface, t8dg_face_dof_values_t * src_face_dof,
+                                                               t8dg_face_dof_values_t * dest_face_dof)
+{
+  if (t8dg_global_values_simplifies (values->global_values[element_eclass])) {
+    t8dg_local_values_face_divide_trafo_quad_weight_idata_eclass (values, idata, element_eclass, iface,
+                                                                  (t8dg_face_quad_values_t *) src_face_dof,
+                                                                  (t8dg_face_quad_values_t *) dest_face_dof);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
+}
+
+void
 t8dg_local_values_apply_face_mass_matrix (t8dg_local_values_t * values, t8_locidx_t itree, t8_locidx_t ielement, int iface,
                                           t8dg_face_dof_values_t * src_face_dof, t8dg_face_dof_values_t * dest_face_dof)
 {
-  int                 eclass = t8_forest_get_eclass (values->forest, itree);
+  int                 eclass = t8dg_forest_get_eclass (values->forest, itree, ielement);
   if (t8dg_global_values_simplifies (values->global_values[eclass])) {
     t8dg_local_values_face_multiply_trafo_quad_weight (values, itree, ielement, iface, (t8dg_face_quad_values_t *) src_face_dof,
                                                        (t8dg_face_quad_values_t *) dest_face_dof);
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
+}
+
+void
+t8dg_local_values_apply_face_mass_matrix_idata_eclass (t8dg_local_values_t * values, t8_locidx_t idata, t8_eclass_t element_eclass,
+                                                       int iface, t8dg_face_dof_values_t * src_face_dof,
+                                                       t8dg_face_dof_values_t * dest_face_dof)
+{
+  if (t8dg_global_values_simplifies (values->global_values[element_eclass])) {
+    t8dg_local_values_face_multiply_trafo_quad_weight_idata_eclass (values, idata, element_eclass, iface,
+                                                                    (t8dg_face_quad_values_t *) src_face_dof,
+                                                                    (t8dg_face_quad_values_t *) dest_face_dof);
   }
   else {
     T8DG_ABORT ("Not yet implemented");
@@ -586,7 +792,7 @@ t8dg_local_values_apply_element_inverse_mass_matrix (t8dg_local_values_t * value
                                                      t8dg_element_dof_values_t * src_element_dof,
                                                      t8dg_element_dof_values_t * dest_element_dof)
 {
-  int                 eclass = t8_forest_get_eclass (values->forest, itree);
+  int                 eclass = t8dg_forest_get_eclass (values->forest, itree, ielement);
   if (t8dg_global_values_simplifies (values->global_values[eclass])) {
     t8dg_local_values_element_divide_trafo_quad_weight (values, itree, ielement, (t8dg_element_quad_values_t *) src_element_dof,
                                                         (t8dg_element_quad_values_t *) dest_element_dof);
@@ -600,7 +806,7 @@ void
 t8dg_local_values_apply_element_mass_matrix (t8dg_local_values_t * values, t8_locidx_t itree, t8_locidx_t ielement,
                                              t8dg_element_dof_values_t * src_element_dof, t8dg_element_dof_values_t * dest_element_dof)
 {
-  int                 eclass = t8_forest_get_eclass (values->forest, itree);
+  int                 eclass = t8dg_forest_get_eclass (values->forest, itree, ielement);
   if (t8dg_global_values_simplifies (values->global_values[eclass])) {
     t8dg_local_values_element_multiply_trafo_quad_weight (values, itree, ielement, (t8dg_element_quad_values_t *) src_element_dof,
                                                           (t8dg_element_quad_values_t *) dest_element_dof);
@@ -663,10 +869,11 @@ void
 t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t8dg_local_values_t * local_values,
                                                                                t8dg_face_dof_values_t * child_face_dof[MAX_SUBFACES],
                                                                                t8dg_face_dof_values_t * parent_face_dof,
-                                                                               const int num_face_children, t8_locidx_t itree_children,
-                                                                               t8_locidx_t ielem_child_neighbour[MAX_SUBFACES],
+                                                                               const int num_face_children,
+                                                                               t8_locidx_t idata_child_neighbour[MAX_SUBFACES],
+                                                                               t8_eclass_t element_eclass_children[MAX_SUBFACES],
                                                                                int iface_child_neighbour[MAX_SUBFACES],
-                                                                               t8_locidx_t itree_parent, t8_locidx_t ielem_parent,
+                                                                               t8_locidx_t idata_parent, t8_eclass_t element_eclass_parent,
                                                                                int iface_parent)
 {
   t8dg_face_dof_values_t *summand;
@@ -681,13 +888,12 @@ t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t
 
   t8dg_face_dof_values_set_zero (parent_face_dof);
 
-  global_values =
-    t8dg_global_values_array_get_global_values (local_values->global_values, local_values->forest, itree_parent, ielem_parent);
+  global_values = local_values->global_values[element_eclass_parent];
   face_functionbasis = t8dg_functionbasis_get_face_functionbasis (t8dg_global_values_get_functionbasis (global_values), iface_parent);
 
   for (ichild = 0; ichild < num_face_children; ichild++) {
-    t8dg_local_values_apply_face_mass_matrix (local_values, itree_children, ielem_child_neighbour[ichild], iface_child_neighbour[ichild],
-                                              child_face_dof[ichild], mass_times_child_dof);
+    t8dg_local_values_apply_face_mass_matrix_idata_eclass (local_values, idata_child_neighbour[ichild], element_eclass_children[ichild],
+                                                           iface_child_neighbour[ichild], child_face_dof[ichild], mass_times_child_dof);
 
     /*TODO: orient */
 
@@ -695,8 +901,8 @@ t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t
 
     t8dg_face_dof_values_axpy (1, summand, parent_face_dof);
   }
-  t8dg_local_values_apply_face_inverse_mass_matrix (local_values, itree_parent, ielem_parent, iface_parent, parent_face_dof,
-                                                    parent_face_dof);
+  t8dg_local_values_apply_face_inverse_mass_matrix_idata_eclass (local_values, idata_parent, element_eclass_parent, iface_parent,
+                                                                 parent_face_dof, parent_face_dof);
   t8dg_face_dof_values_destroy (&mass_times_child_dof);
   t8dg_face_dof_values_destroy (&summand);
 }

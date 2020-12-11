@@ -1,7 +1,9 @@
+#include "t8dg.h"
 #include <t8_cmesh.h>
 #include <t8_vec.h>
 #include <t8_cmesh_vtk.h>
 #include "t8dg_common.h"
+#include <sc_mpi.h>
 
 double
 t8dg_scalar1d_hat_function (const double x[3], const double t)
@@ -201,6 +203,30 @@ t8dg_cmesh_new_square_tilted (sc_MPI_Comm comm)
   t8_cmesh_set_tree_vertices (cmesh, 0, t8_get_package_id (), 0, vertices, 4);
   t8_cmesh_set_join (cmesh, 0, 0, 1, 0, 0);
   t8_cmesh_set_join (cmesh, 0, 0, 2, 3, 0);
+  t8_cmesh_commit (cmesh, comm);
+  return cmesh;
+}
+
+t8_cmesh_t
+t8dg_cmesh_new_periodic_line_more_trees (sc_MPI_Comm comm, int num_trees)
+{
+  t8_cmesh_t          cmesh;
+
+  double              vertices[6] = { 0 };
+  int                 itree;
+
+  t8_cmesh_init (&cmesh);
+
+  for (itree = 0; itree < num_trees; itree++) {
+    vertices[0] = 1. / num_trees * itree;
+    vertices[3] = 1. / num_trees * (itree + 1);
+    t8_cmesh_set_tree_class (cmesh, itree, T8_ECLASS_LINE);
+    t8_cmesh_set_tree_vertices (cmesh, itree, t8_get_package_id (), 0, vertices, 2);
+    if (itree < num_trees - 1) {
+      t8_cmesh_set_join (cmesh, itree, itree + 1, 1, 0, 0);
+    }
+  }
+  t8_cmesh_set_join (cmesh, num_trees - 1, 0, 1, 0, 0);
   t8_cmesh_commit (cmesh, comm);
   return cmesh;
 }

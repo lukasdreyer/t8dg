@@ -64,6 +64,7 @@ int                 t8dg_global_values_get_dim (const t8dg_global_values_t * val
 int                 t8dg_global_values_simplifies (const t8dg_global_values_t * global_values);
 
 int                 t8dg_global_values_get_num_face_quad (const t8dg_global_values_t * global_values, int iface);
+int                 t8dg_global_values_get_num_face_dof (const t8dg_global_values_t * global_values, int iface);
 
 int                 t8dg_global_values_get_max_num_facevalues (const t8dg_global_values_t * global_values);
 
@@ -71,6 +72,9 @@ int                 t8dg_global_values_get_num_children (const t8dg_global_value
 
 int                 t8dg_global_values_array_get_max_num_element_quad (t8dg_global_values_t ** global_values_array);
 int                 t8dg_global_values_array_get_max_num_element_dof (t8dg_global_values_t ** global_values_array);
+int                 t8dg_global_values_array_get_max_num_face_quad (t8dg_global_values_t ** global_values_array);
+int                 t8dg_global_values_array_get_max_num_face_dof (t8dg_global_values_t ** global_values_array);
+
 t8dg_global_values_t *t8dg_global_values_array_get_global_values (t8dg_global_values_t ** global_values_array, t8_forest_t forest,
                                                                   t8_locidx_t itree, t8_locidx_t ielement);
 

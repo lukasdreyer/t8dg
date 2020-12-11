@@ -21,6 +21,9 @@ t8dg_element_quad_values_t *t8dg_quad_values_new_element_quad_values_view (t8dg_
 t8dg_face_quad_values_t *t8dg_quad_values_new_face_quad_values_view (t8dg_quad_values_t * quad_values, int iface, t8_locidx_t itree,
                                                                      t8_locidx_t ielement);
 
+t8dg_face_quad_values_t *t8dg_quad_values_new_face_quad_values_view_idata_eclass (t8dg_quad_values_t * quad_values, int iface,
+                                                                                  t8_locidx_t idata, t8_eclass_t element_eclass);
+
 t8dg_element_quad_values_t *t8dg_element_quad_values_new (t8dg_quadidx_t num_quad);
 
 void                t8dg_element_quad_values_destroy (t8dg_element_quad_values_t ** quad_values);

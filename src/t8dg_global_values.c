@@ -144,6 +144,12 @@ t8dg_global_values_get_num_face_quad (const t8dg_global_values_t * global_values
 }
 
 int
+t8dg_global_values_get_num_face_dof (const t8dg_global_values_t * global_values, int iface)
+{
+  return t8dg_functionbasis_get_num_face_dof (global_values->functionbasis, iface);
+}
+
+int
 t8dg_global_values_get_dim (const t8dg_global_values_t * values)
 {
   return t8_eclass_to_dimension[values->element_class];
@@ -187,6 +193,56 @@ t8dg_global_values_array_get_max_num_element_dof (t8dg_global_values_t ** global
   }
   T8DG_ASSERT (max_num_element_dof > 0);
   return max_num_element_dof;
+}
+
+static              t8dg_quadidx_t
+t8dg_global_values_get_max_num_face_quad (t8dg_global_values_t * global_values)
+{
+  t8dg_quadidx_t      max_num_face_quad = 0;
+  int                 iface, num_faces;
+  num_faces = t8dg_quadrature_get_num_face_quadrature (global_values->quadrature);
+  for (iface = 0; iface < num_faces; iface++) {
+    max_num_face_quad = SC_MAX (max_num_face_quad, t8dg_quadrature_get_num_face_vertices (global_values->quadrature, iface));
+  }
+  return max_num_face_quad;
+}
+
+static              t8dg_dofidx_t
+t8dg_global_values_get_max_num_face_dof (t8dg_global_values_t * global_values)
+{
+  t8dg_dofidx_t       max_num_face_dof = 0;
+  int                 iface, num_faces;
+  num_faces = t8dg_functionbasis_get_num_face_functionbasis (global_values->functionbasis);
+  for (iface = 0; iface < num_faces; iface++) {
+    max_num_face_dof = SC_MAX (max_num_face_dof, t8dg_functionbasis_get_num_face_dof (global_values->functionbasis, iface));
+  }
+  return max_num_face_dof;
+}
+
+int
+t8dg_global_values_array_get_max_num_face_quad (t8dg_global_values_t ** global_values_array)
+{
+  int                 eclass;
+  int                 max_num_face_quad = 0;
+  for (eclass = 0; eclass < T8_ECLASS_COUNT; eclass++) {
+    if (global_values_array[eclass] != NULL) {
+      max_num_face_quad = SC_MAX (max_num_face_quad, t8dg_global_values_get_max_num_face_quad (global_values_array[eclass]));
+    }
+  }
+  return max_num_face_quad;
+}
+
+int
+t8dg_global_values_array_get_max_num_face_dof (t8dg_global_values_t ** global_values_array)
+{
+  int                 eclass;
+  int                 max_num_face_dof = 0;
+  for (eclass = 0; eclass < T8_ECLASS_COUNT; eclass++) {
+    if (global_values_array[eclass] != NULL) {
+      max_num_face_dof = SC_MAX (max_num_face_dof, t8dg_global_values_get_max_num_face_dof (global_values_array[eclass]));
+    }
+  }
+  return max_num_face_dof;
 }
 
 int

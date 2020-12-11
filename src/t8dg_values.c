@@ -50,6 +50,7 @@ t8dg_values_new_LGL_hypercube (int dim, int num_LGL_vertices, t8dg_coarse_geomet
   return_values->global_values_array = T8DG_ALLOC_ZERO (t8dg_global_values_t *, T8_ECLASS_COUNT);
   return_values->global_values_array[eclass] = t8dg_global_values_new_hypercube_LGL (dim, num_LGL_vertices);
   return_values->local_values = t8dg_local_values_new (forest, return_values->global_values_array, coarse_geometry);
+  t8dg_local_values_set_all_elements (return_values->local_values);
   return_values->coarse_geometry = coarse_geometry;
   return_values->mortar_array = t8dg_mortar_array_new_empty (forest, return_values->local_values);
   return_values->forest = forest;
@@ -139,6 +140,9 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
   t8dg_global_values_t *global_values;
   t8dg_functionbasis_t *functionbasis;
 
+  t8_gloidx_t         iglobaltree;
+  t8_element_t       *element;
+
   flux_dof = T8DG_ALLOC (t8dg_dof_values_t *, values->dim);
   for (direction = 0; direction < values->dim; direction++) {
     flux_dof[direction] = t8dg_dof_values_new (values->forest, values->global_values_array);
@@ -147,8 +151,10 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
   num_trees = t8_forest_get_num_local_trees (values->forest);
   for (itree = 0; itree < num_trees; itree++) {
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+    iglobaltree = t8_forest_global_tree_id (values->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
       for (direction = 0; direction < values->dim; direction++) {
+        element = t8_forest_get_element_in_tree (values->forest, itree, ielement);
         element_flux_dof = t8dg_dof_values_new_element_dof_values_view (flux_dof[direction], itree, ielement);
         src_element_dof = t8dg_dof_values_new_element_dof_values_view (src_dof, itree, ielement);
 
@@ -156,7 +162,7 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
         functionbasis = t8dg_global_values_get_functionbasis (global_values);
         for (idof = 0; idof < t8dg_element_dof_values_get_num_dof (element_flux_dof); idof++) {
           t8dg_functionbasis_get_lagrange_vertex (functionbasis, idof, reference_vertex);
-          t8dg_geometry_transform_reference_vertex_to_image_vertex (values->coarse_geometry, values->forest, itree, ielement,
+          t8dg_geometry_transform_reference_vertex_to_image_vertex (values->coarse_geometry, values->forest, iglobaltree, element,
                                                                     reference_vertex, image_vertex);
           flux_fn (image_vertex, flux_vec, time, flux_data);
           t8dg_element_dof_values_set_value (element_flux_dof, idof,
@@ -384,6 +390,7 @@ void
 t8dg_values_allocate_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
 {
   values->local_values_adapt = t8dg_local_values_new (forest_adapt, values->global_values_array, values->coarse_geometry);
+  t8dg_local_values_set_all_ghost_elements (values->local_values_adapt);        /*local values get copied or set by replace function */
   values->forest_adapt = forest_adapt;
   t8_forest_ref (values->forest_adapt);
 }
@@ -400,8 +407,7 @@ t8dg_values_cleanup_adapt (t8dg_values_t * values)
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
-
-/*TODO: Is the order important?*/
+  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*local elements get set during replace */
 
   /*Create new mortar arrays */
   t8dg_mortar_array_destroy (&values->mortar_array);
@@ -414,7 +420,8 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
   /* Partition local precomputed values */
   t8dg_local_values_t *local_values_partition;
   local_values_partition = t8dg_local_values_new (forest_partition, values->global_values_array, values->coarse_geometry);
-  t8dg_local_values_partition (values->local_values, local_values_partition);
+  t8dg_local_values_partition (values->local_values, local_values_partition);   /*partitions the local values */
+  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*partitions the ghost values */
 
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = local_values_partition;
@@ -437,8 +444,8 @@ typedef struct t8dg_values_fn_evaluation_data
 {
   t8dg_coarse_geometry_t *coarse_geometry;
   t8_forest_t         forest;
-  t8_locidx_t         itree;
-  t8_locidx_t         ielement;
+  t8_locidx_t         iglobaltree;
+  t8_element_t       *element;
   t8dg_scalar_function_3d_time_fn function;
   double              time;
 } t8dg_values_fn_evaluation_data_t;
@@ -451,7 +458,7 @@ t8dg_values_transform_reference_vertex_and_evaluate (const double reference_vert
 
   data = (t8dg_values_fn_evaluation_data_t *) scalar_fn_data;
 
-  t8dg_geometry_transform_reference_vertex_to_image_vertex (data->coarse_geometry, data->forest, data->itree, data->ielement,
+  t8dg_geometry_transform_reference_vertex_to_image_vertex (data->coarse_geometry, data->forest, data->iglobaltree, data->element,
                                                             reference_vertex, image_vertex);
 
   /* apply initial condition function at image vertex and start time */
@@ -477,12 +484,12 @@ t8dg_values_interpolate_scalar_function_3d_time (t8dg_values_t * values, t8dg_sc
   num_trees = t8_forest_get_num_local_trees (values->forest);
   for (itree = 0; itree < num_trees; itree++) {
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
-    data.itree = itree;
+    data.iglobaltree = t8_forest_global_tree_id (values->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
       element_dof_view = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
       global_values = t8dg_values_get_global_values (values, itree, ielement);
       functionbasis = t8dg_global_values_get_functionbasis (global_values);
-      data.ielement = ielement;
+      data.element = t8_forest_get_element_in_tree (values->forest, itree, ielement);
       t8dg_functionbasis_interpolate_scalar_fn (functionbasis, t8dg_values_transform_reference_vertex_and_evaluate, &data,
                                                 element_dof_view);
       t8dg_element_dof_values_destroy (&element_dof_view);

@@ -18,7 +18,14 @@ typedef struct t8dg_global_values t8dg_global_values_t; /*forward declared typed
 t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view (t8dg_dof_values_t * dof_values, t8_locidx_t itree,
                                                                         t8_locidx_t ielement);
 
-t8dg_face_dof_values_t *t8dg_dof_values_new_face_dof_values_view (t8dg_dof_values_t * dof_values, t8_locidx_t idata);
+t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view_idata_eclass (t8dg_dof_values_t * dof_values, t8_locidx_t idata,
+                                                                                     t8_eclass_t eclass);
+
+t8dg_face_dof_values_t *t8dg_dof_values_new_face_dof_values_view_idata_eclass (t8dg_dof_values_t * dof_values, int iface, t8_locidx_t idata,
+                                                                               t8_eclass_t element_eclass);
+
+t8dg_face_dof_values_t *t8dg_dof_values_new_face_dof_values_view (t8dg_dof_values_t * dof_values, int iface, t8_locidx_t itree,
+                                                                  t8_locidx_t ielement);
 
 void                t8dg_element_dof_values_destroy (t8dg_element_dof_values_t ** dof_values);
 void                t8dg_face_dof_values_destroy (t8dg_face_dof_values_t ** dof_values);
@@ -107,6 +114,8 @@ void                t8dg_element_dof_values_square_values (t8dg_element_dof_valu
                                                            t8dg_element_dof_values_t * element_dof_square_values);
 
 void                t8dg_element_dof_values_debug_print (t8dg_element_dof_values_t * element_dof_values);
+
+t8dg_face_dof_values_t *t8dg_face_dof_values_new (t8dg_dofidx_t num_dof);
 
 T8DG_EXTERN_C_END ();
 
