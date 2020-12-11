@@ -6,6 +6,8 @@
  */
 
 #include <t8_forest.h>
+#include <t8_forest/t8_forest_ghost.h>
+#include <t8_element_cxx.hxx>
 #include <t8.h>
 #include "t8dg.h"
 
@@ -129,6 +131,12 @@ t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t
   return t8_forest_get_tree_element_offset (forest, itree) + ielement;
 }
 
+t8_locidx_t
+t8dg_ighosttree_ielement_to_idata (t8_forest_t forest, t8_locidx_t ighosttree, t8_locidx_t ielement)
+{
+  return t8_forest_get_num_element (forest) + t8_forest_ghost_get_tree_element_offset (forest, ighosttree) + ielement;
+}
+
 void
 t8dg_vec_print (double x[3])
 {
@@ -157,4 +165,32 @@ t8dg_forest_get_eclass (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielem
     return t8_forest_get_eclass (forest, 0);
   }
   return t8_forest_get_eclass (forest, itree);
+}
+
+t8_eclass_t
+t8dg_eclass_from_gloidx_element (const t8_forest_t forest, const t8_gloidx_t iglobaltree, const t8_element_t * element)
+{
+  t8_eclass_t         tree_eclass;
+  t8_eclass_scheme_c *scheme;
+  t8_locidx_t         ilocaltree;
+  t8_locidx_t         ighosttree;
+  ilocaltree = t8_forest_get_local_id (forest, iglobaltree);
+  if (ilocaltree >= 0) {
+    tree_eclass = t8_forest_get_eclass (forest, ilocaltree);
+  }
+  else {
+    ighosttree = t8_forest_ghost_get_ghost_treeid (forest, iglobaltree);
+    T8DG_ASSERT (ighosttree >= 0);
+    tree_eclass = t8_forest_ghost_get_tree_class (forest, ighosttree);
+  }
+  scheme = t8_forest_get_eclass_scheme (forest, tree_eclass);
+  return scheme->t8_element_shape (element);
+}
+
+double             *
+t8dg_forest_get_tree_vertices_gloidx (t8_forest_t forest, t8_gloidx_t iglobaltree)
+{
+  t8_locidx_t         localcmeshtreeid;
+  localcmeshtreeid = t8_cmesh_get_local_id (forest->cmesh, iglobaltree);
+  return t8_cmesh_get_tree_vertices (forest->cmesh, localcmeshtreeid);
 }

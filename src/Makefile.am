@@ -34,7 +34,7 @@ libt8dg_compiled_sources = \
   src/t8dg_global_values.c \
   src/t8dg_advect_problem.cxx \
   src/t8dg_sc_array.c \
-  src/t8dg.c \
+  src/t8dg.cxx \
   src/t8dg_local_values.cxx \
   src/t8dg_tensor.c \
   src/t8dg_coarse_geometry.c \

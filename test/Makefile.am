@@ -10,6 +10,7 @@ test_t8dg_tests_SOURCES = test/t8dg_test_main.cxx \
   test/t8dg_test_functionbasis.cxx \
   test/t8dg_test_quadrature.cxx \
   test/t8dg_test_timestepping.cxx \
+  test/t8dg_test_mortar.cxx \
   test/t8dg_test_values.cxx
 test_t8dg_tests_LDADD = $(LDADD) test/libgtest.la
 test_t8dg_tests_LDFLAGS = $(AM_LDFLAGS) -pthread

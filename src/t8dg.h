@@ -49,6 +49,9 @@ t8_locidx_t         t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_
 void                t8dg_vec_print (double x[3]);
 int                 t8dg_almost_equal (double x1, double x2);
 t8_eclass_t         t8dg_forest_get_eclass (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement);
+t8_eclass_t         t8dg_eclass_from_gloidx_element (const t8_forest_t forest, const t8_gloidx_t iglobaltree, const t8_element_t * element);
+double             *t8dg_forest_get_tree_vertices_gloidx (t8_forest_t forest, t8_gloidx_t iglobaltree);
+t8_locidx_t         t8dg_ighosttree_ielement_to_idata (t8_forest_t forest, t8_locidx_t ighosttree, t8_locidx_t ielement);
 
 /** Query the package identity as registered in libsc.
  * \return          This is -1 before \ref t8dg_init has been called
