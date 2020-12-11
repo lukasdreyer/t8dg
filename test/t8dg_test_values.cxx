@@ -6,7 +6,7 @@
 #include "../src/t8dg_values.h"
 #include "../src/t8dg_sc_array.h"
 #include "../src/t8dg_coarse_geometry.h"
-//#include <example/common/t8_example_common.h>
+#include "../src/t8dg_common.h"
 
 #include <t8_eclass.h>
 #include <t8_cmesh.h>
@@ -14,6 +14,11 @@
 #include <t8_forest/t8_forest_iterate.h>
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <sc_mpi.h>
+
+#ifdef SC_ENABLE_MPI
+#include <mpi.h>
+#endif
+
 #include <tuple>
 
 
@@ -63,11 +68,40 @@ typedef struct t8dg_test_values_problem
 } t8dg_test_values_problem_t;
 
 static void
-t8dg_test_values_replace_all (t8_forest_t forest_old,
-                              t8_forest_t forest_new,
-                              t8_locidx_t itree,
-                              t8_eclass_scheme_c * ts,
-                              int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new)
+t8dg_test_values_replace_all_by_parents (t8_forest_t forest_old,
+                                         t8_forest_t forest_new,
+                                         t8_locidx_t itree,
+                                         t8_eclass_scheme_c * ts,
+                                         int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new)
+{
+  t8dg_test_values_problem_t *problem;
+  int                 num_children;
+
+  problem = (t8dg_test_values_problem_t *) t8_forest_get_user_data (forest_new);
+
+  t8_element_t       *element = t8_forest_get_element_in_tree (forest_new, itree, first_ielem_new);
+  num_children = ts->t8_element_num_children (element);
+
+#ifndef T8DG_ENABLE_MPI
+  ASSERT_EQ (num_children, num_elems_old);
+  ASSERT_EQ (num_elems_new, 1);
+#else
+  ASSERT_EQ_MPI (num_children, num_elems_old);
+  ASSERT_EQ_MPI (num_elems_new, 1);
+#endif
+
+  t8dg_values_set_element_adapt (problem->values, itree, first_ielem_new);
+  t8dg_values_transform_child_dof_to_parent_dof (problem->values, problem->dof_values, problem->dof_values_adapt, itree,
+                                                 num_children, first_ielem_old, first_ielem_new);
+
+}
+
+static void
+t8dg_test_values_replace_all_by_children (t8_forest_t forest_old,
+                                          t8_forest_t forest_new,
+                                          t8_locidx_t itree,
+                                          t8_eclass_scheme_c * ts,
+                                          int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new)
 {
   t8dg_test_values_problem_t *problem;
   int                 ichild, num_children;
@@ -78,11 +112,11 @@ t8dg_test_values_replace_all (t8_forest_t forest_old,
   num_children = ts->t8_element_num_children (element);
 
 #ifndef T8DG_ENABLE_MPI
-  ASSERT_EQ_MPI (num_children, num_elems_new);
-  ASSERT_EQ_MPI (num_elems_old, 1);
-#else
   ASSERT_EQ (num_children, num_elems_new);
   ASSERT_EQ (num_elems_old, 1);
+#else
+  ASSERT_EQ_MPI (num_children, num_elems_new);
+  ASSERT_EQ_MPI (num_elems_old, 1);
 #endif
 
   for (ichild = 0; ichild < num_children; ichild++) {
@@ -99,6 +133,18 @@ t8dg_test_values_refine_all (t8_forest_t forest,
                              t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
 {
   return 1;
+}
+
+int
+t8dg_test_values_coarsen_all (t8_forest_t forest,
+                              t8_forest_t forest_from,
+                              t8_locidx_t itree,
+                              t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+{
+  if (num_elements > 1) {
+    return -1;
+  }
+  return 0;
 }
 
 TEST_F (ValuesChildInterpolationTest2D, lgl2_element)
@@ -137,7 +183,7 @@ TEST_F (ValuesChildInterpolationTest2D, lgl2_element)
 
   dof_values_adapt = t8dg_dof_values_new (forest_adapt, t8dg_values_get_global_values_array (values));
   problem.dof_values_adapt = dof_values_adapt;
-  t8_forest_iterate_replace (forest_adapt, forest, t8dg_test_values_replace_all);
+  t8_forest_iterate_replace (forest_adapt, forest, t8dg_test_values_replace_all_by_children);
 
   t8dg_values_cleanup_adapt (values);
 
@@ -174,11 +220,12 @@ protected:
   {
     t8_cmesh_t          cmesh;
     t8_scheme_cxx_t    *default_scheme;
-
-    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, sc_MPI_COMM_WORLD, 0, 0, 1);
+    int                 num_trees;
+    sc_MPI_Comm_size (sc_MPI_COMM_WORLD, &num_trees);
+    cmesh = t8dg_cmesh_new_periodic_line_more_trees (sc_MPI_COMM_WORLD, num_trees);
     default_scheme = t8_scheme_new_default_cxx ();
 
-    forest = t8_forest_new_uniform (cmesh, default_scheme, 0, 1, sc_MPI_COMM_WORLD);
+    forest = t8_forest_new_uniform (cmesh, default_scheme, 1, 1, sc_MPI_COMM_WORLD);    /*uniform level 1, gets coarsened */
     coarse_geometry = t8dg_coarse_geometry_new_1D_linear ();
 
     int                 num_lgl = GetParam ();
@@ -186,7 +233,6 @@ protected:
 
     dof_values = t8dg_dof_values_new (forest, t8dg_values_get_global_values_array (values));
   }
-
   /* *INDENT-OFF* */
   void TearDown () override
   /* *INDENT-ON* */
@@ -202,61 +248,49 @@ protected:
   t8dg_dof_values_t  *dof_values;
 };
 
-INSTANTIATE_TEST_CASE_P (lglRange, PrecomputedValuesProjectionTest1D, testing::Range (2, MAX_LGL_NUMBER + 1));
+INSTANTIATE_TEST_CASE_P (lglRange, PrecomputedValuesProjectionTest1D, testing::Range (2, MAX_LGL_NUMBER + 1),);
 
 TEST_P (PrecomputedValuesProjectionTest1D, const_one)
 {
-  int                 num_lgl, idof, ichild;
-  sc_array_t         *element_dof_values_child[2];
-  sc_array_t         *element_dof_values_parent;
-
+  int                 num_lgl, idof;
   t8_forest_t         forest_adapt;
   t8dg_dof_values_t  *dof_values_adapt;
+  sc_array_t         *element_dof_values_parent;
+
+  double             *tree_vertices;
+  tree_vertices = t8_forest_get_tree_vertices (forest, 0);
+  EXPECT_NE (tree_vertices, (double *) NULL);
 
   t8dg_test_values_problem_t problem = { values, dof_values, NULL };
+  t8dg_dof_values_set_all_values (dof_values, 1);
 
   t8_forest_init (&forest_adapt);
   t8_forest_set_user_data (forest_adapt, &problem);
-  t8_forest_set_adapt (forest_adapt, forest, t8dg_test_values_refine_all, 0);
+  t8_forest_set_adapt (forest_adapt, forest, t8dg_test_values_coarsen_all, 0);
   t8_forest_commit (forest_adapt);
 
   t8dg_values_allocate_adapt (values, forest_adapt);
 
   dof_values_adapt = t8dg_dof_values_new (forest_adapt, t8dg_values_get_global_values_array (values));
   problem.dof_values_adapt = dof_values_adapt;
-  t8_forest_iterate_replace (forest_adapt, forest, t8dg_test_values_replace_all);
+  t8_forest_iterate_replace (forest_adapt, forest, t8dg_test_values_replace_all_by_parents);
 
   t8dg_values_cleanup_adapt (values);
 
   forest = forest_adapt;
   forest_adapt = NULL;
 
+  ASSERT_EQ_MPI (t8_forest_get_num_element (forest), 1);
+  element_dof_values_parent = t8dg_dof_values_new_element_dof_values_view (dof_values_adapt, 0, 0);
   num_lgl = GetParam ();
-#if 0
-  for (ichild = 0; ichild < 2; ichild++) {
-    element_dof_values_child[ichild] = t8dg_sc_array_block_double_new_view (dof_values_adapt, ichild);
-    for (idof = 0; idof < num_lgl; idof++) {
-      *(double *) sc_array_index (element_dof_values_child[ichild], idof) = 1;  //idof + ichild * (i_lgl + 1);
-    }
-    sc_array_destroy (element_dof_values_child[ichild]);
-  }
-
-  for (ichild = 0; ichild < 2; ichild++) {
-    element_dof_values_child[ichild] = t8dg_sc_array_block_double_new_view (dof_values_adapt, ichild);
-  }
-  element_dof_values_parent = t8dg_sc_array_block_double_new_view (dof_values, 0);
-  t8dg_precomputed_values_transform_child_dof_to_parent_dof (global_values, element_dof_values_child, element_dof_values_parent,
-                                                             2, local_values_adapt, local_values, 0, 0);
 
   for (idof = 0; idof < num_lgl; idof++) {
-    EXPECT_NEAR (*(double *) sc_array_index_int (element_dof_values_parent, idof), 1, 1e-10);
+    EXPECT_NEAR (t8dg_element_dof_values_get_value (element_dof_values_parent, idof), 1, 1e-10);
   }
-  for (ichild = 0; ichild < 2; ichild++) {
-    sc_array_destroy (element_dof_values_child[ichild]);
-  }
-  sc_array_destroy (element_dof_values_parent);
-#endif
+  t8dg_element_dof_values_destroy (&element_dof_values_parent);
+
   t8dg_dof_values_destroy (&dof_values_adapt);
+
 }
 
 /* *INDENT-OFF* */
@@ -271,7 +305,6 @@ protected:
   {
     int                 num_lgl;
     int                 level = 4;      //dependent on parameter?
-    int                 itree, ielement;
     t8_cmesh_t          cmesh;
     t8_scheme_cxx_t    *default_scheme;
 
@@ -336,24 +369,16 @@ t8dg_scalar_function_3d_time_fn, double >function3 (t8dg_test_expx, sqrt ((exp (
 INSTANTIATE_TEST_CASE_P (lgl_and_functions, PrecomputedValuesL2norm1D,
     ::testing::Combine (
 	::testing::Range (2, 8),
-	::testing::Values (function1, function2, function3)));
+	::testing::Values (function1, function2, function3)),);
 /* *INDENT-ON* */
 
 TEST_P (PrecomputedValuesL2norm1D, test_functions)
 {
-  t8dg_functionbasis_t *functionbasis;
-  t8_locidx_t         itree = 0, ielement;
   double              time = 0;
   double              norm;
-  t8dg_element_dof_values_t *element_dof_values;
 
   t8dg_values_interpolate_scalar_function_3d_time (values, std::get < 0 > (std::get < 1 > (GetParam ())), time, dof_values);
 
   norm = t8dg_values_norm_l2 (values, dof_values, sc_MPI_COMM_WORLD);
-#ifndef T8DG_ENABLE_MPI
   EXPECT_NEAR (norm, std::get < 1 > (std::get < 1 > (GetParam ())), exp (-4 * std::get < 0 > (GetParam ())));
-#else
-  EXPECT_NEAR_MPI (norm, std::get < 1 > (std::get < 1 > (GetParam ())), exp (-4 * std::get < 0 > (GetParam ())));
-#endif
-
 }
