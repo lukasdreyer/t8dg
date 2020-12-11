@@ -224,15 +224,14 @@ t8dg_local_values_set_all_ghost_elements (t8dg_local_values_t * local_values)
 void
 t8dg_local_values_set_ghost_element (t8dg_local_values_t * local_values, t8_locidx_t ighosttree, t8_locidx_t ielement)
 {
-  double              sqrt_gram_det, face_sqrt_gram_det;
-  int                 iquad, iface, idim, idof;
+  double              face_sqrt_gram_det;
+  int                 iquad, iface, idof;
 
   /*pointer on the values to fill */
   t8dg_face_quad_values_t *face_trafo_quad;     /*size: num_face_quad */
   double              image_normal_vector[3];   /*size: 3, gets evaluated for each face dof point */
 
   double              reference_vertex[3];
-  double              reference_tangential_vector[3];
 
   int                 num_face_quad;
   int                 num_faces, num_face_dof;
@@ -418,12 +417,6 @@ t8dg_local_values_new (t8_forest_t forest, t8dg_global_values_t ** global_values
       local_values->face_normal_vectors[iface][icomp] = t8dg_dof_values_new (forest, global_values_array);
     }
   }
-  t8_locidx_t         itree, ielement, num_trees, num_elems_in_tree;
-
-  num_trees = t8_forest_get_num_local_trees (local_values->forest);
-
-  //set_elements selber
-
   return local_values;
 }
 
