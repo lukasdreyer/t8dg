@@ -14,6 +14,7 @@
 #include "t8dg_flux.h"
 #include "t8dg_flux_implementation.h"
 #include "t8dg_common.h"
+#include "t8dg_adapt.h"
 
 #include <sc_options.h>
 #include <sc.h>
@@ -117,10 +118,10 @@ t8dg_choose_adapt_fn (int adapt_arg)
 {
   switch (adapt_arg) {
   case 0:
-    return t8dg_advect_mass_adapt;
+    return t8dg_adapt_mass;
     break;
   case 1:
-    return t8dg_advect_gradient_adapt;
+    return t8dg_adapt_gradient;
     break;
 
   default:
@@ -177,6 +178,7 @@ t8dg_advect_problem_init_linear_geometry (int icmesh,
   }
 
   description->initial_condition_fn = t8dg_choose_initial_cond_fn (initial_cond_arg);
+  description->analytical_sol_fn = NULL;
 
   time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
 
@@ -206,36 +208,22 @@ t8dg_advect_solve (int icmesh, int initial_cond_arg,
 {
   t8dg_linear_advection_problem_t *problem;
   int                 step_number;
-  double              total_time, io_time, solve_time;
-  double              l2_error, l_inf_error;
 
   t8dg_debugf ("Start Advection Solve\n");
-
-  total_time = -sc_MPI_Wtime ();
-
   problem = t8dg_advect_problem_init_linear_geometry (icmesh, initial_cond_arg, flow_velocity,
                                                       uniform_level, uniform_level + refinement_levels,
                                                       number_LGL_points, start_time, end_time, cfl, time_order, adapt_arg, comm);
-
-  t8dg_advect_problem_accumulate_stat (problem, ADVECT_INIT, total_time + sc_MPI_Wtime ());
 
   t8dg_debugf ("Dof values beginning:\n");
   t8dg_advect_problem_printdof (problem);
 
   /*Timeloop with Rungekutta timestepping: */
   while (!t8dg_advect_problem_endtime_reached (problem)) {
-    t8dg_advect_problem_set_time_step (problem);
-    step_number = t8dg_advect_problem_get_stepnumber (problem); /*TODO: could also simply be in this loop */
+    step_number = t8dg_advect_problem_get_stepnumber (problem);
     if (vtk_freq && step_number % vtk_freq == 0) {
-      io_time = -sc_MPI_Wtime ();
-      t8dg_advect_write_vtk (problem);
-      io_time += sc_MPI_Wtime ();
-      t8dg_advect_problem_accumulate_stat (problem, ADVECT_IO, io_time);
+      t8dg_advect_problem_write_vtk (problem);
     }
-    solve_time = -sc_MPI_Wtime ();
     t8dg_advect_problem_advance_timestep (problem);
-    solve_time += sc_MPI_Wtime ();
-    t8dg_advect_problem_accumulate_stat (problem, ADVECT_SOLVE, solve_time);
 
     if (adapt_freq && step_number % adapt_freq == adapt_freq - 1) {
       t8dg_advect_problem_adapt (problem, 1);
@@ -243,20 +231,13 @@ t8dg_advect_solve (int icmesh, int initial_cond_arg,
     }
   }
 
-  t8dg_advect_write_vtk (problem);
+  t8dg_advect_problem_write_vtk (problem);
 
-  total_time += sc_MPI_Wtime ();
-  t8dg_advect_problem_accumulate_stat (problem, ADVECT_TOTAL, total_time);
-
-  l2_error = t8dg_advect_problem_l2_rel (problem);
-  l_inf_error = t8dg_advect_problem_l_infty_rel (problem);
-
-  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_2, l2_error);
-  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_INF, l_inf_error);
+  t8dg_advect_problem_l2_rel (problem);
+  t8dg_advect_problem_l_infty_rel (problem);
 
   t8dg_advect_problem_compute_and_print_stats (problem);
 
-  /*Current output */
   t8dg_debugf ("End Dof values:\n");
   t8dg_advect_problem_printdof (problem);
 

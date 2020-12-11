@@ -579,3 +579,50 @@ t8dg_values_element_area (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t
   t8dg_element_dof_values_destroy (&one_array);
   return area;
 }
+
+double
+t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
+                              t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm)
+{
+#if 0
+  t8_locidx_t         num_elements, num_trees;
+  t8_locidx_t         ielement, itree, idata;
+  sc_array_t         *elem_ana_sol;
+  sc_array_t         *elem_dof_val;
+  sc_array_t         *elem_error;
+  double              error = 0, global_error;
+  double              ana_norm = 0, global_ana_norm;
+
+  t8dg_geometry_t     geometry = { problem->coarse_geometry, problem->forest };
+  t8_eclass_t         eclass;
+
+  elem_ana_sol = sc_array_new_count (sizeof (double), t8dg_global_values_get_num_dof (problem->global_values));
+  elem_error = t8dg_sc_array_duplicate (elem_ana_sol);
+
+  num_trees = t8_forest_get_num_local_trees (problem->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+    num_elements = t8_forest_get_tree_num_elements (problem->forest, itree);
+    for (ielement = 0; ielement < num_elements; ielement++, idata++) {
+      elem_dof_val = t8dg_dof_values_new_element_dof_values_view (problem->dof_values, idata);
+      t8dg_functionbasis_interpolate_scalar_fn (t8dg_global_values_get_functionbasis (problem->global_values),
+                                                t8dg_values_transform_reference_vertex_and_evaluate, &evaluation_data, elem_ana_sol);
+      t8dg_dof_values_axpyz (-1, elem_ana_sol, elem_dof_val, elem_error);
+      error = SC_MAX (error, t8dg_values_element_norm_infty (elem_error));
+      ana_norm = SC_MAX (ana_norm, t8dg_values_element_norm_infty (elem_ana_sol));
+      sc_array_destroy (elem_dof_val);
+    }
+  }
+  /* Compute the maximum of the error among all processes */
+  sc_MPI_Allreduce (&ana_norm, &global_ana_norm, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+  sc_MPI_Allreduce (&error, &global_error, 1, sc_MPI_DOUBLE, sc_MPI_MAX, problem->comm);
+
+  sc_array_destroy (elem_ana_sol);
+  sc_array_destroy (elem_error);
+
+  /* Return the relative error, that is the l_infty error divided by
+   * the l_infty norm of the analytical solution */
+  return global_error / global_ana_norm;
+  t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_INF, 0);
+#endif
+  return -1;
+}

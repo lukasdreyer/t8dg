@@ -76,22 +76,11 @@ double              t8dg_values_norm_l2 (t8dg_values_t * values, t8dg_dof_values
 
 double              t8dg_values_norm_l2_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
                                              t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm);
-double              t8dg_values_norm_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
-                                                t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm);
+double              t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
+                                                  t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm);
 
-//only static needed
-//double              t8dg_values_transform_reference_vertex_and_evaluate (const double reference_vertex[3], void *scalar_fn_data);
-
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_values_interpolate_scalar_function_3d_time (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time,
-                                                  t8dg_dof_values_t * dof_values);
+void                t8dg_values_interpolate_scalar_function_3d_time
+  (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time, t8dg_dof_values_t * dof_values);
 
 T8DG_EXTERN_C_END ();
 

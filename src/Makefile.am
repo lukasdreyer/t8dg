@@ -24,7 +24,9 @@ libt8dg_installed_headers = \
   src/t8dg_sc_array.h \
   src/t8dg_tensor.h \
   src/t8dg_geometry.h \
-  src/t8dg_common.h
+  src/t8dg_common.h \
+  src/t8dg_adapt.h \
+  src/t8dg_output.h
 
 libt8dg_internal_headers =
 
@@ -49,8 +51,9 @@ libt8dg_compiled_sources = \
   src/t8dg_flux_implementation.c \
   src/t8dg_quadrature.c \
   src/t8dg_geometry.cxx \
-  src/t8dg_common.c
-
+  src/t8dg_common.c \
+  src/t8dg_adapt.cxx \
+  src/t8dg_output.c
 
 # this variable is used for headers that are not publicly installed
 T8DG_CPPFLAGS =
