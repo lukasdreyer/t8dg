@@ -20,6 +20,8 @@ double              t8dg_scalar2d_step_function (const double x[3], const double
 
 double              t8dg_scalar2d_triangle_step_function (const double x[3], const double t);
 
+double              t8dg_scalar3d_step_function (const double x[3], const double t);
+
 T8DG_EXTERN_C_END ();
 
 #endif

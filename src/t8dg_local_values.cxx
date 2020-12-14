@@ -867,7 +867,7 @@ t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t
                                                                                t8_eclass_t element_eclass_children[MAX_SUBFACES],
                                                                                int iface_child_neighbour[MAX_SUBFACES],
                                                                                t8_locidx_t idata_parent, t8_eclass_t element_eclass_parent,
-                                                                               int iface_parent)
+                                                                               int iface_parent, int orientation)
 {
   t8dg_face_dof_values_t *summand;
   t8dg_face_dof_values_t *mass_times_child_dof;
@@ -888,7 +888,7 @@ t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (t
     t8dg_local_values_apply_face_mass_matrix_idata_eclass (local_values, idata_child_neighbour[ichild], element_eclass_children[ichild],
                                                            iface_child_neighbour[ichild], child_face_dof[ichild], mass_times_child_dof);
 
-    /*TODO: orient */
+    t8dg_face_dof_values_orient_back (mass_times_child_dof, t8dg_functionbasis_get_eclass (face_functionbasis), orientation);
 
     t8dg_functionbasis_apply_child_interpolation_matrix_transpose (face_functionbasis, ichild, mass_times_child_dof, summand);
 

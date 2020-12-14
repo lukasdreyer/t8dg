@@ -240,6 +240,93 @@ t8dg_linear_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8
   }
 }
 
+static void
+t8dg_linear_3D_geometry_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double vertex[DIM3],
+                            double image_vertex[DIM3])
+{
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
+
+  double              image_coarse_element_length_vector_x[3];
+  double              image_coarse_element_length_vector_y[3];
+  double              image_coarse_element_length_vector_z[3];
+
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector_x, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 2 * DIM3, image_coarse_element_length_vector_y, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 4 * DIM3, image_coarse_element_length_vector_z, -1);
+
+  t8_vec_axpyz (image_coarse_element_length_vector_x, tree_vertices, image_vertex, vertex[0]);
+  t8_vec_axpy (image_coarse_element_length_vector_y, image_vertex, vertex[1]);
+  t8_vec_axpy (image_coarse_element_length_vector_z, image_vertex, vertex[2]);
+}
+
+static void
+t8dg_linear_3D_differential_invers_transpose_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
+                                                 const double coarse_vertex[3], const double coarse_tangential_vector[3],
+                                                 double transformed_gradient_tangential_vector[3])
+{
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
+
+  double              image_coarse_element_length_vector_x[3];
+  double              image_coarse_element_length_vector_y[3];
+  double              image_coarse_element_length_vector_z[3];
+
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector_x, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 2 * DIM3, image_coarse_element_length_vector_y, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 4 * DIM3, image_coarse_element_length_vector_z, -1);
+
+  int                 idx;
+/*TODO: improve geometry!!*/
+  for (idx = 0; idx < DIM3; idx++) {
+    transformed_gradient_tangential_vector[idx] = coarse_tangential_vector[idx];
+  }
+  return;
+  T8DG_ABORT ("Not implemented \n ");
+}
+
+static double
+t8dg_linear_3D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double coarse_vertex[3])
+{
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
+
+  double              image_coarse_element_length_vector_x[3];
+  double              image_coarse_element_length_vector_y[3];
+  double              image_coarse_element_length_vector_z[3];
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector_x, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 2 * DIM3, image_coarse_element_length_vector_y, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 4 * DIM3, image_coarse_element_length_vector_z, -1);
+  return 1;
+  T8DG_ABORT ("Not implemented \n ");
+//  return det;
+}
+
+static double
+t8dg_linear_3D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const int iface,
+                                              const double coarse_vertex[3])
+{
+  double             *tree_vertices = t8dg_forest_get_tree_vertices_gloidx (forest, iglobaltree);
+
+  double              image_coarse_element_length_vector_x[3];
+  double              image_coarse_element_length_vector_y[3];
+  t8_vec_axpyz (tree_vertices, tree_vertices + DIM3, image_coarse_element_length_vector_x, -1);
+  t8_vec_axpyz (tree_vertices, tree_vertices + 2 * DIM3, image_coarse_element_length_vector_y, -1);
+  return 1;
+  T8DG_ABORT ("Not implemented \n ");
+
+  switch (iface / 2) {
+  case 0:
+    return sqrt (t8_vec_dot (image_coarse_element_length_vector_y, image_coarse_element_length_vector_y));
+    break;
+
+  case 1:
+    return sqrt (t8_vec_dot (image_coarse_element_length_vector_x, image_coarse_element_length_vector_x));
+    break;
+
+  default:
+    T8DG_ABORT ("Facenumber too big");
+    break;
+  }
+}
+
 t8dg_coarse_geometry_t *
 t8dg_coarse_geometry_new_linear (int dim)
 {
@@ -250,11 +337,26 @@ t8dg_coarse_geometry_new_linear (int dim)
   case 2:
     return t8dg_coarse_geometry_new_2D_linear ();
     break;
+  case 3:
+    return t8dg_coarse_geometry_new_3D_linear ();
 
   default:
     T8DG_ABORT ("Not implemented \n ");
     break;
   }
+}
+
+t8dg_coarse_geometry_t *
+t8dg_coarse_geometry_new_3D_linear ()
+{
+  t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);
+  geometry->geometry = t8dg_linear_3D_geometry_fn;
+  geometry->sqrt_gram_det = t8dg_linear_3D_sqrt_gram_determinant_fn;
+  geometry->sqrt_face_gram_det = t8dg_linear_3D_sqrt_face_gram_determinant_fn;
+  geometry->differential_invers_transpose = t8dg_linear_3D_differential_invers_transpose_fn;
+  geometry->attribute_data_type = T8DG_TREE_VERTICES;
+  geometry->data = NULL;
+  return geometry;
 }
 
 t8dg_coarse_geometry_t *

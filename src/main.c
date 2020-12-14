@@ -19,9 +19,9 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
                     int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq,
                     int adapt_arg, double diffusion_coefficient)
 {
-  if (!(icmesh >= 0 && icmesh <= 7))
+  if (!(icmesh >= 0 && icmesh <= 8))
     return 0;
-  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 7))
+  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 8))
     return 0;
   if (!(uniform_level >= 0 && uniform_level <= 30))
     return 0;

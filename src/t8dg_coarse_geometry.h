@@ -27,6 +27,8 @@ t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_linear (int dim);
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Create a new coarse geometry for the linear 2D case*/
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_linear ();
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_linear ();
+
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
 

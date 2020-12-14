@@ -94,36 +94,21 @@ void                t8dg_local_values_element_multiply_directional_transformed_g
    int derivative_direction, int icomp,
    t8dg_element_quad_values_t * src_element_quad_values, t8dg_element_quad_values_t * dest_element_quad_values);
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_local_values_transform_child_dof_to_parent_dof (t8dg_local_values_t * local_values_old,
-                                                      t8dg_local_values_t * local_values_new,
-                                                      t8dg_element_dof_values_t * child_dof[MAX_SUBELEMENTS],
-                                                      t8dg_element_dof_values_t * parent_dof, int num_children,
-                                                      t8_locidx_t itree, t8_locidx_t ielem_first_child, t8_locidx_t ielem_parent);
+void                t8dg_local_values_transform_child_dof_to_parent_dof (t8dg_local_values_t * local_values_old,
+                                                                         t8dg_local_values_t * local_values_new,
+                                                                         t8dg_element_dof_values_t * child_dof[MAX_SUBELEMENTS],
+                                                                         t8dg_element_dof_values_t * parent_dof, int num_children,
+                                                                         t8_locidx_t itree, t8_locidx_t ielem_first_child,
+                                                                         t8_locidx_t ielem_parent);
 
-void
-   
-   
-   
-   
-   
-   
-   
-   t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes
+void                t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes
   (t8dg_local_values_t * local_values,
    t8dg_face_dof_values_t * child_face_dof[MAX_SUBFACES],
    t8dg_face_dof_values_t * parent_face_dof,
    const int num_face_children,
    t8_locidx_t idata_child_neighbour[MAX_SUBFACES],
    t8_eclass_t element_eclass_children[MAX_SUBFACES],
-   int iface_child_neighbour[MAX_SUBFACES], t8_locidx_t idata_parent, t8_eclass_t element_eclass_parent, int iface_parent);
+   int iface_child_neighbour[MAX_SUBFACES], t8_locidx_t idata_parent, t8_eclass_t element_eclass_parent, int iface_parent, int orientation);
 
 void                t8dg_local_values_apply_element_mass_matrix (t8dg_local_values_t * values, t8_locidx_t itree, t8_locidx_t ielement,
                                                                  t8dg_element_dof_values_t * src_element_dof,

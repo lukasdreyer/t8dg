@@ -99,9 +99,13 @@ t8dg_mortar_calculate_face_orientation (const t8_forest_t forest, t8_locidx_t it
   int                 orientation;
   element = t8_forest_get_element_in_tree (forest, itree, ielement);
 
+  t8_locidx_t         icmesh_tree;
+  icmesh_tree = t8_forest_ltreeid_to_cmesh_ltreeid (forest, itree);
+
   scheme = t8_forest_get_eclass_scheme (forest, t8_forest_get_tree_class (forest, itree));
   if (scheme->t8_element_is_root_boundary (element, iface)) {
-    t8_cmesh_get_face_neighbor (t8_forest_get_cmesh (forest), itree, scheme->t8_element_tree_face (element, iface), NULL, &orientation);
+    t8_cmesh_get_face_neighbor (t8_forest_get_cmesh (forest), icmesh_tree, scheme->t8_element_tree_face (element, iface), NULL,
+                                &orientation);
     return orientation;
   }
   else {
@@ -175,7 +179,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
         t8dg_functionbasis_ref (mortar->functionbasis_minus);
         mortar->number_face_dof = t8dg_functionbasis_get_num_dof (mortar->face_functionbasis);
         mortar->eclass_face = t8dg_functionbasis_get_eclass (mortar->face_functionbasis);
-        mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);
+        mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);  /*orientation from small to big element */
       }
 //      t8dg_debugf ("Adress: %p, idata: %i, num_local: %i\n", (void *) mortar, neigh_idatas[0], t8_forest_get_num_element (forest));
 //      t8dg_debugf ("mortar: num_subfaces: %i\n", mortar->num_subfaces);
@@ -247,7 +251,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
     mortar->number_face_dof = t8dg_functionbasis_get_num_dof (mortar->face_functionbasis);
 
     mortar->eclass_face = t8dg_functionbasis_get_eclass (mortar->face_functionbasis);
-    mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);
+    mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);      /*orientation from big to small element, TODO: differs */
 
     /* allocate memory for sc_arrays */
     for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
@@ -262,27 +266,6 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
   T8_FREE (neigh_idatas);
   T8_FREE (neigh_ifaces);
   return mortar;
-}
-
-void
-t8dg_mortar_sc_array_orient (sc_array_t * array, t8_eclass_t eclass, int orientation)
-{
-  T8DG_CHECK_ABORT (eclass == T8_ECLASS_LINE || eclass == T8_ECLASS_VERTEX, "Currently only implemented for line faces");
-  switch (orientation) {
-  case 0:
-    return;
-  case 1:
-    size_t idx;
-    double              tmp;
-    for (idx = 0; idx < array->elem_count / 2; idx++) {
-      tmp = *(double *) sc_array_index (array, idx);
-      *(double *) sc_array_index (array, idx) = *(double *) sc_array_index (array, array->elem_count - idx - 1);
-      *(double *) sc_array_index (array, array->elem_count - idx - 1) = tmp;
-    }
-    return;
-  default:
-    T8DG_ABORT ("Not yet implemented");
-  }
 }
 
 static void
@@ -337,14 +320,14 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
         face_dof_values_minus[isubface] = t8dg_face_dof_values_new (mortar->number_face_dof);
         t8dg_functionbasis_apply_child_interpolation_matrix (mortar->face_functionbasis, isubface, face_dof_values_minus_big,
                                                              face_dof_values_minus[isubface]);
-        t8dg_mortar_sc_array_orient (face_dof_values_minus[isubface], mortar->eclass_face, mortar->orientation);
+        t8dg_face_dof_values_orient (face_dof_values_minus[isubface], mortar->eclass_face, mortar->orientation);
       }
     }
   }
   else {
     T8DG_ASSERT (mortar->num_subfaces == 1);
     face_dof_values_minus[0] = face_dof_values_minus_big;
-    t8dg_mortar_sc_array_orient (face_dof_values_minus[0], mortar->eclass_face, mortar->orientation);
+    t8dg_face_dof_values_orient (face_dof_values_minus[0], mortar->eclass_face, mortar->orientation);
   }
 
   /*Calculate Flux values */
@@ -401,18 +384,15 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
   if (!(mortar->bigface_is_ghost)) {
     if (mortar->num_subfaces > 1) {
       /*What is the order of orientation and projection ? */
-      for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
-        t8dg_mortar_sc_array_orient (face_flux_values_minus[isubface], mortar->eclass_face, mortar->orientation);       /*TODO: Move to transform_orient! */
-      }
-
       t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (mortar_array->local_values, face_flux_values_minus,
                                                                                      mortar->fluxvalue_minus, mortar->num_subfaces,
                                                                                      mortar->idata_plus, mortar->eclass_plus,
                                                                                      mortar->iface_plus, mortar->idata_minus,
-                                                                                     mortar->eclass_minus, mortar->iface_minus);
+                                                                                     mortar->eclass_minus, mortar->iface_minus,
+                                                                                     mortar->orientation);
     }
     else {
-      t8dg_mortar_sc_array_orient (face_flux_values_minus[0], mortar->eclass_face, mortar->orientation);
+      t8dg_face_dof_values_orient_back (face_flux_values_minus[0], mortar->eclass_face, mortar->orientation);
       sc_array_copy (mortar->fluxvalue_minus, face_flux_values_minus[0]);
 
     }
@@ -483,14 +463,14 @@ t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * do
         face_dof_values_minus[isubface] = t8dg_face_dof_values_new (mortar->number_face_dof);
         t8dg_functionbasis_apply_child_interpolation_matrix (mortar->face_functionbasis, isubface, face_dof_values_minus_big,
                                                              face_dof_values_minus[isubface]);
-        t8dg_mortar_sc_array_orient (face_dof_values_minus[isubface], mortar->eclass_face, mortar->orientation);
+        t8dg_face_dof_values_orient (face_dof_values_minus[isubface], mortar->eclass_face, mortar->orientation);
       }
     }
   }
   else {
     T8DG_ASSERT (mortar->num_subfaces == 1);
     face_dof_values_minus[0] = face_dof_values_minus_big;
-    t8dg_mortar_sc_array_orient (face_dof_values_minus[0], mortar->eclass_face, mortar->orientation);
+    t8dg_face_dof_values_orient (face_dof_values_minus[0], mortar->eclass_face, mortar->orientation);
   }
 
   /*Calculate Flux values */
@@ -531,19 +511,15 @@ t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * do
   /*Project on big face if it is local */
   if (!(mortar->bigface_is_ghost)) {
     if (mortar->num_subfaces > 1) {
-      /*What is the order of orientation and projection ? */
-      for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
-        t8dg_mortar_sc_array_orient (face_flux_values_minus[isubface], mortar->eclass_face, mortar->orientation);       /*TODO: Move to transform_orient! */
-      }
-
       t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (mortar_array->local_values, face_flux_values_minus,
                                                                                      mortar->fluxvalue_minus, mortar->num_subfaces,
                                                                                      mortar->idata_plus, mortar->eclass_plus,
                                                                                      mortar->iface_plus, mortar->idata_minus,
-                                                                                     mortar->eclass_minus, mortar->iface_minus);
+                                                                                     mortar->eclass_minus, mortar->iface_minus,
+                                                                                     mortar->orientation);
     }
     else {
-      t8dg_mortar_sc_array_orient (face_flux_values_minus[0], mortar->eclass_face, mortar->orientation);
+      t8dg_face_dof_values_orient_back (face_flux_values_minus[0], mortar->eclass_face, mortar->orientation);
       sc_array_copy (mortar->fluxvalue_minus, face_flux_values_minus[0]);
 
     }

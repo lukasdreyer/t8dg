@@ -592,3 +592,104 @@ t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values)
 {
   return dof_values->forest;
 }
+
+void
+t8dg_face_dof_values_orient_line (t8dg_face_dof_values_t * face_dof_values, int orientation)
+{
+  size_t              idx;
+  double              tmp;
+  switch (orientation) {
+  case 0:
+    return;
+  case 1:
+    for (idx = 0; idx < face_dof_values->elem_count / 2; idx++) {
+      tmp = t8dg_face_dof_values_get_value (face_dof_values, idx);
+      t8dg_face_dof_values_set_value (face_dof_values, idx,
+                                      t8dg_face_dof_values_get_value (face_dof_values, face_dof_values->elem_count - idx - 1));
+      t8dg_face_dof_values_set_value (face_dof_values, face_dof_values->elem_count - idx - 1, tmp);
+    }
+    return;
+  default:
+    T8DG_ABORT ("The orientation for the line needs to be 0 or 1!\n");
+  }
+}
+
+void
+t8dg_face_dof_values_orient_quad (t8dg_face_dof_values_t * face_dof_values, int orientation)
+{
+  if (orientation % 2) {
+    T8DG_ABORT ("Not implemented \n ");
+  }
+  if (orientation / 2) {
+    T8DG_ABORT ("Not implemented \n ");
+  }
+  return;
+}
+
+void
+t8dg_face_dof_values_orient (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation)
+{
+  switch (eclass_face) {
+  case T8_ECLASS_VERTEX:
+    break;
+  case T8_ECLASS_LINE:
+    t8dg_face_dof_values_orient_line (face_dof_values, orientation);
+    break;
+  case T8_ECLASS_QUAD:
+    t8dg_face_dof_values_orient_quad (face_dof_values, orientation);
+    break;
+  case T8_ECLASS_TRIANGLE:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+
+  default:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+  }
+}
+
+int
+t8dg_orientation_back (t8_eclass_t eclass, int orientation)
+{
+  switch (eclass) {
+  case T8_ECLASS_VERTEX:
+    return orientation;
+    break;
+  case T8_ECLASS_LINE:
+    return orientation;
+    break;
+  case T8_ECLASS_QUAD:
+    if (!orientation) {
+      return 0;
+    }
+    else {
+      T8DG_ABORT ("Not implemented \n ");
+    }
+    break;
+  default:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+  }
+}
+
+void
+t8dg_face_dof_values_orient_back (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation)
+{
+  switch (eclass_face) {
+  case T8_ECLASS_VERTEX:
+    break;
+  case T8_ECLASS_LINE:
+    t8dg_face_dof_values_orient_line (face_dof_values, orientation);
+    break;
+  case T8_ECLASS_QUAD:
+    t8dg_face_dof_values_orient_quad (face_dof_values, t8dg_orientation_back (eclass_face, orientation));
+    break;
+  case T8_ECLASS_TRIANGLE:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+
+  default:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+  }
+}

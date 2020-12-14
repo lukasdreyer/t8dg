@@ -27,6 +27,8 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
     return t8dg_scalar2d_step_function;
   case (7):
     return t8dg_scalar2d_triangle_step_function;
+  case (8):
+    return t8dg_scalar3d_step_function;
   default:
     return t8_scalar3d_constant_zero;
   }
@@ -62,4 +64,11 @@ double
 t8dg_scalar2d_triangle_step_function (const double x[3], const double t)
 {
   return x[0] > 0.3 && x[1] > 0.3 && x[0] + x[1] < 0.9;
+}
+
+double
+t8dg_scalar3d_step_function (const double x[3], const double t)
+{
+  double              center[3] = { 0.5, 0.5, 0.5 };
+  return t8_vec_dist (x, center) < 0.15;
 }

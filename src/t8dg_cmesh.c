@@ -31,6 +31,9 @@ t8dg_cmesh_new_arg (int icmesh, sc_MPI_Comm comm)
   case 7:
     cmesh = t8dg_cmesh_new_square_tilted (comm);
     break;
+  case 8:
+    cmesh = t8_cmesh_new_hypercube (T8_ECLASS_HEX, comm, 0, 0, 1);
+    break;
 
   default:
     T8DG_ABORT ("Not yet implemented");

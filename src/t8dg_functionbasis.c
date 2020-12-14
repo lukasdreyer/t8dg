@@ -293,6 +293,7 @@ t8dg_functionbasis_new_tensor (t8dg_functionbasis_t * tensor_first_functionbasis
   functionbasis_tensor->number_of_dof = tensor_first_functionbasis->number_of_dof * tensor_second_functionbasis->number_of_dof;
   functionbasis_tensor->embedded_dimension =
     tensor_first_functionbasis->embedded_dimension + tensor_second_functionbasis->embedded_dimension;
+  functionbasis_tensor->num_children = tensor_first_functionbasis->num_children * tensor_second_functionbasis->num_children;
 
   if (tensor_first_functionbasis->type == T8DG_FB_LAGRANGE_LGL && tensor_second_functionbasis->type == T8DG_FB_LAGRANGE_LGL) {
     functionbasis_tensor->type = T8DG_FB_LAGRANGE_LGL;
@@ -625,6 +626,7 @@ t8dg_functionbasis_apply_child_interpolation_matrix (const t8dg_functionbasis_t 
     for (ivector = 0; ivector < num_vectors; ivector++) {
       t8dg_tensor_array_extract_vector (element_dof, ivector, stride, vector_element_dof);
 
+      T8DG_ASSERT (tensor_data->tensor_first_functionbasis->num_children);
       t8dg_functionbasis_apply_child_interpolation_matrix (tensor_data->tensor_first_functionbasis,
                                                            ichild % tensor_data->tensor_first_functionbasis->num_children,
                                                            vector_element_dof, vector_child_dof);
