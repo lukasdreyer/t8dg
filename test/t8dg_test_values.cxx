@@ -7,6 +7,7 @@
 #include "../src/t8dg_sc_array.h"
 #include "../src/t8dg_coarse_geometry.h"
 #include "../src/t8dg_common.h"
+#include "../src/t8dg_cmesh.h"
 
 #include <t8_eclass.h>
 #include <t8_cmesh.h>
@@ -51,7 +52,6 @@ protected:
   /* *INDENT-ON* */
   {
     t8dg_values_destroy (&values);
-    t8dg_coarse_geometry_destroy (&coarse_geometry);
     t8_forest_unref (&forest);
   }
 
@@ -238,7 +238,6 @@ protected:
   /* *INDENT-ON* */
   {
     t8dg_values_destroy (&values);
-    t8dg_coarse_geometry_destroy (&coarse_geometry);
     t8_forest_unref (&forest);
     t8dg_dof_values_destroy (&dof_values);
   }
@@ -324,7 +323,6 @@ protected:
   /* *INDENT-ON* */
   {
     t8dg_values_destroy (&values);
-    t8dg_coarse_geometry_destroy (&coarse_geometry);
     t8dg_dof_values_destroy (&dof_values);
     t8_forest_unref (&forest);
   }

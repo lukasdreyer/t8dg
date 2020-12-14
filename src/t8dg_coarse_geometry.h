@@ -21,6 +21,8 @@ T8DG_EXTERN_C_BEGIN ();
 
 typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_linear (int dim);
+
 /**Create a new coarse geometry for the linear 1D case*/
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Create a new coarse geometry for the linear 2D case*/

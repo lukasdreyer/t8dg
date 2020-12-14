@@ -1,0 +1,98 @@
+/*
+ * t8dg_advect.h
+ *
+ *  Created on: Mar 22, 2020
+ *      Author: lukas
+ */
+/** @file t8dg_advect_diff_problem.h */
+
+#ifndef SRC_T8DG_ADVECT_DIFF_H_
+#define SRC_T8DG_ADVECT_DIFF_H_
+
+#include <t8_cmesh.h>
+#include <sc.h>
+
+#include "t8dg_flux.h"
+#include "t8dg_timestepping.h"
+#include "t8dg_coarse_geometry.h"
+#include "t8dg_values.h"
+#include "t8dg_adapt.h"
+#include "t8dg_output.h"
+
+T8DG_EXTERN_C_BEGIN ();
+
+typedef struct t8dg_linear_advection_diffusion_problem t8dg_linear_advection_diffusion_problem_t;
+
+typedef struct t8dg_linear_advection_diffusion_problem_description
+{
+  t8dg_scalar_function_3d_time_fn initial_condition_fn;             /**< Initial condition function */
+
+  t8dg_linear_flux3D_fn velocity_field;
+  void               *flux_data;
+
+  double              diffusion_coefficient;
+
+  t8dg_scalar_function_3d_time_fn source_sink_fn;
+  t8dg_scalar_function_3d_time_fn analytical_sol_fn;             /**< Analytical solution function */
+} t8dg_linear_advection_diffusion_problem_description_t;
+
+t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
+                                                                                          int initial_level,
+                                                                                          int number_LGL_points,
+                                                                                          int initial_cond_arg,
+                                                                                          double flow_speed,
+                                                                                          double diffusion_coefficient,
+                                                                                          double start_time,
+                                                                                          double end_time,
+                                                                                          double cfl,
+                                                                                          int time_order,
+                                                                                          int min_level,
+                                                                                          int max_level,
+                                                                                          int adapt_arg,
+                                                                                          int adapt_freq,
+                                                                                          const char *prefix,
+                                                                                          int vtk_freq, sc_MPI_Comm comm);
+
+t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init (t8_forest_t forest,
+                                                                          t8dg_linear_advection_diffusion_problem_description_t *
+                                                                          description, t8dg_values_t * dg_values,
+                                                                          t8dg_timestepping_data_t * time_data,
+                                                                          t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data,
+                                                                          sc_MPI_Comm comm);
+
+void                t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** pproblem);
+
+/*do the important stuff*/
+void                t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem);
+
+void                t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_problem_t * problem);
+
+void                t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * problem, int measure_time);
+
+void                t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * problem, int measure_time);
+
+/*stats*/
+void                t8dg_advect_diff_problem_compute_and_print_stats (t8dg_linear_advection_diffusion_problem_t * problem);
+
+/*error*/
+double              t8dg_advect_diff_problem_l_infty_rel (t8dg_linear_advection_diffusion_problem_t * problem);
+
+double              t8dg_advect_diff_problem_l2_rel (t8dg_linear_advection_diffusion_problem_t * problem);
+
+/*output*/
+void                t8dg_advect_diff_problem_printdof (t8dg_linear_advection_diffusion_problem_t * problem);
+
+void                t8dg_advect_diff_problem_write_vtk (t8dg_linear_advection_diffusion_problem_t * problem);
+
+/*getter*/
+int                 t8dg_advect_diff_problem_endtime_reached (t8dg_linear_advection_diffusion_problem_t * problem);
+
+int                 t8dg_advect_diff_problem_get_stepnumber (t8dg_linear_advection_diffusion_problem_t * problem);
+
+void                t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_t * problem);
+
+int                 t8dg_advect_diff_problem_get_apx_total_steps (t8dg_linear_advection_diffusion_problem_t * problem);
+
+T8DG_EXTERN_C_END ();
+
+#endif /* SRC_T8DG_ADVECT_DIFF_H_ */

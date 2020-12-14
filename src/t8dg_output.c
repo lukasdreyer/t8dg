@@ -3,10 +3,32 @@
 #include <t8_forest.h>
 #include <t8_forest_vtk.h>
 #include <t8_vtk.h>
+#include "t8dg_output.h"
+
+t8dg_vtk_data_t    *
+t8dg_output_vtk_data_new (const char *prefix, int vtk_freq)
+{
+  t8dg_vtk_data_t    *vtk_data;
+  vtk_data = T8DG_ALLOC_ZERO (t8dg_vtk_data_t, 1);
+  vtk_data->prefix = prefix;
+  vtk_data->vtk_count = 0;
+  vtk_data->vtk_freq = vtk_freq;
+  return vtk_data;
+}
 
 void
-t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8_forest_t forest, char prefix[BUFSIZ], int *vtk_count)
+t8dg_output_vtk_data_destroy (t8dg_vtk_data_t ** p_vtk_data)
 {
+  t8dg_vtk_data_t    *vtk_data;
+  vtk_data = *p_vtk_data;
+  T8DG_FREE (vtk_data);
+  vtk_data = NULL;
+}
+
+void
+t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * output_data)
+{
+  t8_forest_t         forest;
   double             *dof_array;
   t8_locidx_t         num_local_elements, itree, ielement, idata, num_trees, num_elems_in_tree;
   t8_vtk_data_field_t vtk_data;
@@ -14,6 +36,8 @@ t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8_forest_t forest, char 
   int                 idof, number_of_dof;
   t8dg_element_dof_values_t *element_dof_values;
   char                fileprefix[BUFSIZ];
+
+  forest = t8dg_dof_values_get_forest (dof_values);
 
   num_local_elements = t8_forest_get_num_element (forest);
   dof_array = T8_ALLOC_ZERO (double, num_local_elements);
@@ -39,7 +63,7 @@ t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8_forest_t forest, char 
   vtk_data.type = T8_VTK_SCALAR;
   vtk_data.data = dof_array;
   /* Write filename */
-  snprintf (fileprefix, BUFSIZ, "%s_%03i", prefix, *vtk_count);
+  snprintf (fileprefix, BUFSIZ, "%s_%03i", output_data->prefix, output_data->vtk_count);
   /* Write vtk files */
   if (t8_forest_vtk_write_file (forest, fileprefix, 1, 1, 1, 1, 0, 1, &vtk_data)) {
     t8_debugf ("[Advect] Wrote pvtu to files %s\n", fileprefix);
@@ -48,7 +72,7 @@ t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8_forest_t forest, char 
     t8_errorf ("[Advect] Error writing to files %s\n", fileprefix);
   }
   /*increase vtk_count */
-  (*vtk_count)++;
+  (output_data->vtk_count)++;
   /* clean-up */
   T8_FREE (dof_array);
 }

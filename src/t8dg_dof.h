@@ -117,6 +117,14 @@ void                t8dg_element_dof_values_debug_print (t8dg_element_dof_values
 
 t8dg_face_dof_values_t *t8dg_face_dof_values_new (t8dg_dofidx_t num_dof);
 
+void                t8dg_dof_values_add (t8dg_dof_values_t * sum, t8dg_dof_values_t * summand);
+
+void                t8dg_dof_values_subtract (t8dg_dof_values_t * tally, t8dg_dof_values_t * subtrahend);
+
+void                t8dg_dof_values_ax (t8dg_dof_values_t * x, double a);
+
+t8_forest_t         t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values);
+
 T8DG_EXTERN_C_END ();
 
 #endif // SRC_T8DG_DOF_H_

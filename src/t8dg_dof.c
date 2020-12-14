@@ -559,3 +559,36 @@ t8dg_face_dof_values_new (t8dg_dofidx_t num_dof)
   face_dof_values = sc_array_new_count (sizeof (double), num_dof);
   return face_dof_values;
 }
+
+void
+t8dg_dof_values_ax (t8dg_dof_values_t * x, double a)
+{
+  double             *x_double;
+  int                 double_count, i;
+
+  /*View array as double array */
+  x_double = (double *) x->dofs->array;
+  double_count = x->max_num_element_dof * x->num_total_elements;        /*total number of doubles */
+
+  for (i = 0; i < double_count; i++) {
+    x_double[i] = a * x_double[i];
+  }
+}
+
+void
+t8dg_dof_values_subtract (t8dg_dof_values_t * tally, t8dg_dof_values_t * subtrahend)
+{
+  t8dg_dof_values_axpy (-1, subtrahend, tally);
+}
+
+void
+t8dg_dof_values_add (t8dg_dof_values_t * sum, t8dg_dof_values_t * summand)
+{
+  t8dg_dof_values_axpy (1, summand, sum);
+}
+
+t8_forest_t
+t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values)
+{
+  return dof_values->forest;
+}

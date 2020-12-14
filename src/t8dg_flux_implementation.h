@@ -23,9 +23,8 @@ void                t8dg_linear_flux_1D_from_3D_fn (double x_vec[3], double *flu
 double              t8dg_linear_numerical_flux3D_lax_friedrich_fn (const double u_minus, const double u_plus, const double flow_vector[3],
                                                                    const double normal_vector[3], const void *numerical_flux_data);
 
-double              t8dg_linear_numerical_flux1D_central (const double u_minus, const double u_plus,
-                                                          const double flow_constant, const double normal_component,
-                                                          const void *numerical_flux_data);
+double              t8dg_numerical_flux1D_central (const double u_minus, const double u_plus,
+                                                   const double normal_component, const void *numerical_flux_data);
 
 T8DG_EXTERN_C_END ();
 

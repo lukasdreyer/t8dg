@@ -20,13 +20,14 @@ libt8dg_installed_headers = \
   src/t8dg_timestepping.h \
   src/t8dg_dmatrix.h \
   src/t8dg_quadrature.h \
-  src/t8dg_advect_problem.h	\
   src/t8dg_sc_array.h \
   src/t8dg_tensor.h \
   src/t8dg_geometry.h \
   src/t8dg_common.h \
   src/t8dg_adapt.h \
-  src/t8dg_output.h
+  src/t8dg_output.h \
+  src/t8dg_cmesh.h \
+  src/t8dg_advect_diff_problem.h
 
 libt8dg_internal_headers =
 
@@ -34,7 +35,6 @@ libt8dg_compiled_sources = \
   src/t8dg_functionbasis.c \
   src/t8dg_refcount.c \
   src/t8dg_global_values.c \
-  src/t8dg_advect_problem.cxx \
   src/t8dg_sc_array.c \
   src/t8dg.cxx \
   src/t8dg_local_values.cxx \
@@ -53,7 +53,9 @@ libt8dg_compiled_sources = \
   src/t8dg_geometry.cxx \
   src/t8dg_common.c \
   src/t8dg_adapt.cxx \
-  src/t8dg_output.c
+  src/t8dg_output.c \
+  src/t8dg_cmesh.c \
+  src/t8dg_advect_diff_problem.cxx
 
 # this variable is used for headers that are not publicly installed
 T8DG_CPPFLAGS =

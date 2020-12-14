@@ -70,6 +70,8 @@ t8dg_values_destroy (t8dg_values_t ** p_values)
 
   t8dg_local_values_destroy (&values->local_values);
 
+  t8dg_coarse_geometry_destroy (&values->coarse_geometry);
+
   for (eclass = 0; eclass < T8_ECLASS_COUNT; eclass++) {
     if (values->global_values_array[eclass] != NULL) {
       t8dg_global_values_destroy (&values->global_values_array[eclass]);
@@ -265,10 +267,32 @@ t8dg_values_apply_directional_stiffness_matrix_linear_flux_fn3D (t8dg_values_t *
   }
 }
 */
-void
-t8dg_values_apply_directional_boundary_integrals ()
-{
 
+void
+t8dg_values_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof,
+                                                int icomp, t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data, double time)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  t8dg_element_dof_values_t *element_dest_dof;
+
+  t8dg_mortar_array_calculate_flux_dof1D (values->mortar_array, src_dof, icomp, numerical_flux, numerical_flux_data, time);
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      element_dest_dof = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
+      t8dg_mortar_array_apply_element_boundary_integral (values->mortar_array, itree, ielement, element_dest_dof);
+
+      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dest_dof));
+      sc_array_destroy (element_dest_dof);
+    }
+  }
+
+  t8dg_mortar_array_invalidate_all (values->mortar_array);
 }
 
 void
@@ -279,8 +303,6 @@ t8dg_values_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t 
   t8_locidx_t         itree, ielement, idata;
   t8_locidx_t         num_trees, num_elems_in_tree;
   t8dg_element_dof_values_t *element_dest_dof;
-
-  /*TODO: ghost_exchange */
 
   t8dg_mortar_array_calculate_linear_flux3D (values->mortar_array, src_dof, linear_flux, flux_data, numerical_flux, numerical_flux_data,
                                              time);
@@ -421,10 +443,11 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
   t8dg_local_values_t *local_values_partition;
   local_values_partition = t8dg_local_values_new (forest_partition, values->global_values_array, values->coarse_geometry);
   t8dg_local_values_partition (values->local_values, local_values_partition);   /*partitions the local values */
-  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*partitions the ghost values */
 
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = local_values_partition;
+
+  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*recalculates the ghost values */
 
   t8_debugf ("[VALUES] Done partition local_data\n");
 

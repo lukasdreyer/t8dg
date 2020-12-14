@@ -6,7 +6,18 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
-void                t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8_forest_t forest, char prefix[BUFSIZ], int *vtk_count);
+typedef struct t8dg_vtk_data
+{
+  int                 vtk_count;
+  const char         *prefix;
+  int                 vtk_freq;
+} t8dg_vtk_data_t;
+
+t8dg_vtk_data_t    *t8dg_output_vtk_data_new (const char *prefix, int vtk_freq);
+
+void                t8dg_output_vtk_data_destroy (t8dg_vtk_data_t ** p_vtk_data);
+
+void                t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * vtk_data);
 
 T8DG_EXTERN_C_END ();
 

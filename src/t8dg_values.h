@@ -62,6 +62,11 @@ void                t8dg_values_apply_boundary_integrals
    t8dg_linear_flux3D_fn linear_flux, void *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
    void *numerical_flux_data, double time);
 
+void                t8dg_values_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
+                                                                    t8dg_dof_values_t * dest_dof, int icomp,
+                                                                    t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data,
+                                                                    double time);
+
 /* Getter */
 t8dg_global_values_t *t8dg_values_get_global_values (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement);
 t8dg_global_values_t *t8dg_values_get_global_values_adapt (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement);

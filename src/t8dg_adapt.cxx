@@ -4,6 +4,46 @@
 #include "t8dg_adapt.h"
 #include <t8_element_cxx.hxx>
 
+t8_forest_adapt_t
+t8dg_adapt_fn_arg (int adapt_arg)
+{
+  switch (adapt_arg) {
+  case 0:
+    return t8dg_adapt_mass;
+    break;
+  case 1:
+    return t8dg_adapt_gradient;
+    break;
+
+  default:
+    T8DG_ABORT ("Wrong adapt fn arg");
+    break;
+  }
+}
+
+t8dg_adapt_data_t  *
+t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level, int max_level, int adapt_fn_arg, int adapt_freq)
+{
+  t8dg_adapt_data_t  *adapt_data;
+  adapt_data = T8DG_ALLOC_ZERO (t8dg_adapt_data_t, 1);
+  adapt_data->dg_values = dg_values;
+  adapt_data->minimum_refinement_level = min_level;
+  adapt_data->initial_refinement_level = initial_level;
+  adapt_data->maximum_refinement_level = max_level;
+  adapt_data->adapt_fn = t8dg_adapt_fn_arg (adapt_fn_arg);
+  adapt_data->adapt_freq = adapt_freq;
+  return adapt_data;
+}
+
+void
+t8dg_adapt_data_destroy (t8dg_adapt_data_t ** p_adapt_data)
+{
+  t8dg_adapt_data_t  *adapt_data;
+  adapt_data = *p_adapt_data;
+  T8DG_FREE (adapt_data);
+  p_adapt_data = NULL;
+}
+
 int
 t8dg_adapt_mass (t8_forest_t forest,
                  t8_forest_t forest_from,
@@ -34,7 +74,7 @@ t8dg_adapt_mass (t8_forest_t forest,
     return level < adapt_data->maximum_refinement_level;
   }
   if (num_elements > 1) {
-    if (level == adapt_data->uniform_refinement_level) {
+    if (level == adapt_data->minimum_refinement_level) {
       return 0;                 /* It is not possible to coarsen this element. If this is wanted, balance is needed outside */
     }
 
@@ -105,7 +145,7 @@ t8dg_adapt_gradient (t8_forest_t forest,
     if (gradient_left > gradient_threshold_refine && level < adapt_data->maximum_refinement_level)
       return 1;
     return -(gradient_left < gradient_threshold_coarsen && gradient_right < gradient_threshold_coarsen
-             && level > adapt_data->uniform_refinement_level);
+             && level > adapt_data->minimum_refinement_level);
   }
   return 0;
 }

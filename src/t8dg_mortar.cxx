@@ -436,6 +436,137 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
 }
 
 static void
+t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * dof_values,
+                                  int icomp, t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data, double time)
+{
+  sc_array_t         *elem_dof_values_minus;
+  sc_array_t         *elem_dof_values_plus[MAX_SUBFACES];
+
+  sc_array_t         *face_dof_values_minus_big;
+  sc_array_t         *face_dof_values_minus[MAX_SUBFACES];
+  sc_array_t         *face_dof_values_plus[MAX_SUBFACES];
+  sc_array_t         *face_flux_values_minus[MAX_SUBFACES];
+
+  int                 idof;
+  int                 isubface;
+  double              fluxvalue;
+  double              u_minus_val;
+  double              u_plus_val;
+
+  t8dg_mortar_array_t *mortar_array;
+  t8dg_functionbasis_t *element_functionbasis = mortar->functionbasis_minus;
+
+  mortar_array = mortar->mortar_array;
+
+  face_dof_values_minus_big = sc_array_new_count (sizeof (double), mortar->number_face_dof);
+
+  elem_dof_values_minus = t8dg_dof_values_new_element_dof_values_view_idata_eclass (dof_values, mortar->idata_minus, mortar->eclass_minus);
+
+  t8dg_functionbasis_transform_element_dof_to_face_dof (element_functionbasis, mortar->iface_minus, elem_dof_values_minus,
+                                                        face_dof_values_minus_big);
+
+  for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
+    if (mortar->subface_is_local[isubface]) {
+      elem_dof_values_plus[isubface] =
+        t8dg_dof_values_new_element_dof_values_view_idata_eclass (dof_values, mortar->idata_plus[isubface], mortar->eclass_plus[isubface]);
+
+      face_dof_values_plus[isubface] = t8dg_face_dof_values_new (mortar->number_face_dof);
+      t8dg_functionbasis_transform_element_dof_to_face_dof (element_functionbasis, mortar->iface_plus[isubface],
+                                                            elem_dof_values_plus[isubface], face_dof_values_plus[isubface]);
+    }
+  }
+
+  if (mortar->num_subfaces > 1) {
+    /*Interpolate to children that are local */
+    for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
+      if (mortar->subface_is_local[isubface]) {
+        face_dof_values_minus[isubface] = t8dg_face_dof_values_new (mortar->number_face_dof);
+        t8dg_functionbasis_apply_child_interpolation_matrix (mortar->face_functionbasis, isubface, face_dof_values_minus_big,
+                                                             face_dof_values_minus[isubface]);
+        t8dg_mortar_sc_array_orient (face_dof_values_minus[isubface], mortar->eclass_face, mortar->orientation);
+      }
+    }
+  }
+  else {
+    T8DG_ASSERT (mortar->num_subfaces == 1);
+    face_dof_values_minus[0] = face_dof_values_minus_big;
+    t8dg_mortar_sc_array_orient (face_dof_values_minus[0], mortar->eclass_face, mortar->orientation);
+  }
+
+  /*Calculate Flux values */
+  t8dg_debugf ("calculate flux for mortar %p\n", (void *) mortar);
+  if (t8dg_functionbasis_is_lagrange (mortar->face_functionbasis)) {
+    for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
+      if (!mortar->subface_is_local[isubface]) {
+        continue;
+      }
+      t8dg_debugf ("calculate flux for idata %i, iface %i ,isubface %i\n", mortar->idata_plus[isubface], mortar->iface_plus[isubface],
+                   isubface);
+      face_flux_values_minus[isubface] = sc_array_new_count (sizeof (double), mortar->number_face_dof);
+      T8DG_ASSERT (mortar->fluxvalue_plus[isubface]->elem_count == (size_t) mortar->number_face_dof);
+      for (idof = 0; idof < mortar->number_face_dof; idof++) {
+        double              outward_normal[3] = { 0, 0, 0 };
+
+        t8dg_local_values_get_face_normal_vector_idata_eclass (mortar_array->local_values, mortar->idata_plus[isubface], mortar->eclass_plus[isubface], mortar->iface_plus[isubface], idof, outward_normal);    /*instead of getting all three components and discarding one, write function for single component */
+
+        t8_vec_ax (outward_normal, -1); //need outward normal to elem_minus at the face nodal_basis_vertices of elem_plus,
+
+        u_minus_val = t8dg_face_dof_values_get_value (face_dof_values_minus[isubface], idof);
+        u_plus_val = t8dg_face_dof_values_get_value (face_dof_values_plus[isubface], idof);
+
+        fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data);
+        t8dg_debugf ("fluxvalue: %f\n", fluxvalue);
+        T8DG_ASSERT (fluxvalue == fluxvalue && fabs (fluxvalue) < 1e200);
+        *(double *) sc_array_index_int (face_flux_values_minus[isubface], idof) = +fluxvalue;
+        *(double *) sc_array_index_int (mortar->fluxvalue_plus[isubface], idof) = -fluxvalue;
+      }
+      T8DG_ASSERT (t8dg_face_dof_values_is_valid (face_flux_values_minus[isubface]));
+      T8DG_ASSERT (t8dg_face_dof_values_is_valid (mortar->fluxvalue_plus[isubface]));
+    }
+  }
+  else {
+    T8DG_ABORT ("Not yet implemented");
+  }
+
+  /*Project on big face if it is local */
+  if (!(mortar->bigface_is_ghost)) {
+    if (mortar->num_subfaces > 1) {
+      /*What is the order of orientation and projection ? */
+      for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
+        t8dg_mortar_sc_array_orient (face_flux_values_minus[isubface], mortar->eclass_face, mortar->orientation);       /*TODO: Move to transform_orient! */
+      }
+
+      t8dg_local_values_transform_orient_face_child_dof_to_parent_dof_hanging_nodes (mortar_array->local_values, face_flux_values_minus,
+                                                                                     mortar->fluxvalue_minus, mortar->num_subfaces,
+                                                                                     mortar->idata_plus, mortar->eclass_plus,
+                                                                                     mortar->iface_plus, mortar->idata_minus,
+                                                                                     mortar->eclass_minus, mortar->iface_minus);
+    }
+    else {
+      t8dg_mortar_sc_array_orient (face_flux_values_minus[0], mortar->eclass_face, mortar->orientation);
+      sc_array_copy (mortar->fluxvalue_minus, face_flux_values_minus[0]);
+
+    }
+  }
+
+  for (isubface = 0; isubface < mortar->num_subfaces; isubface++) {
+    if (mortar->subface_is_local[isubface]) {
+      sc_array_destroy (elem_dof_values_plus[isubface]);
+      sc_array_destroy (face_dof_values_minus[isubface]);
+      sc_array_destroy (face_flux_values_minus[isubface]);
+      sc_array_destroy (face_dof_values_plus[isubface]);
+    }
+  }
+  if (mortar->num_subfaces > 1) {
+    sc_array_destroy (face_dof_values_minus_big);
+
+  }
+  sc_array_destroy (elem_dof_values_minus);
+
+  mortar->valid = 1;
+}
+
+static void
 t8dg_mortar_array_set_mortar (t8dg_mortar_array_t * mortar_array, const t8_locidx_t idata, const int iface, t8dg_mortar_t * mortar)
 {
   T8DG_ASSERT (idata < mortar_array->num_total_elements);
@@ -502,6 +633,41 @@ t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_loci
     }
   }
   T8DG_ABORT ("The element does not border the mortar");
+}
+
+void
+t8dg_mortar_array_calculate_flux_dof1D (t8dg_mortar_array_t * mortar_array, t8dg_dof_values_t * dof_values,
+                                        int icomp, t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data, double time)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  int                 iface;
+  t8dg_mortar_t      *mortar;
+
+  t8dg_dof_values_ghost_exchange (dof_values);
+
+  num_trees = t8_forest_get_num_local_trees (mortar_array->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (mortar_array->forest, itree);
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+
+      /*TODO: num_faces eclass dependent */
+      for (iface = 0; iface < mortar_array->max_num_faces; iface++) {
+        mortar = t8dg_mortar_array_get_mortar (mortar_array, idata, iface);
+
+        /*for all faces check wether mortar is already allocated/computed */
+        if (mortar == NULL) {
+          mortar = t8dg_mortar_new (mortar_array->forest, itree, ielement, iface, mortar_array);
+          t8dg_mortar_array_set_all_pointers (mortar_array, mortar);
+        }
+        if (!mortar->valid) {
+          t8dg_mortar_calculate_flux_dof1D (mortar, dof_values, icomp, numerical_flux, numerical_flux_data, time);
+        }
+        T8DG_ASSERT (t8dg_mortar_array_get_mortar (mortar_array, idata, iface) != NULL);
+      }
+    }
+  }
 }
 
 void
@@ -627,7 +793,6 @@ t8dg_mortar_array_destroy (t8dg_mortar_array_t ** pmortar_array)
   *pmortar_array = NULL;
 }
 
-/*TODO: Who does ghost exchange?*/
 void
 t8dg_mortar_array_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_array,
                                                    t8_locidx_t itree, t8_locidx_t ielement, sc_array_t * element_result_dof)

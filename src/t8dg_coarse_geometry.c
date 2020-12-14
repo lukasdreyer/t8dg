@@ -241,6 +241,23 @@ t8dg_linear_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, const t8
 }
 
 t8dg_coarse_geometry_t *
+t8dg_coarse_geometry_new_linear (int dim)
+{
+  switch (dim) {
+  case 1:
+    return t8dg_coarse_geometry_new_1D_linear ();
+    break;
+  case 2:
+    return t8dg_coarse_geometry_new_2D_linear ();
+    break;
+
+  default:
+    T8DG_ABORT ("Not implemented \n ");
+    break;
+  }
+}
+
+t8dg_coarse_geometry_t *
 t8dg_coarse_geometry_new_2D_linear ()
 {
   t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);

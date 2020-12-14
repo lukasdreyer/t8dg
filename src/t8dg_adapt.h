@@ -9,39 +9,35 @@ T8DG_EXTERN_C_BEGIN ();
 
 typedef struct t8dg_adapt_data
 {
+  int                 initial_refinement_level;
   int                 maximum_refinement_level;
-  int                 uniform_refinement_level;
+  int                 minimum_refinement_level;
+
+  int                 adapt_freq;
+
   t8dg_dof_values_t  *dof_values;
   t8dg_dof_values_t  *dof_values_adapt;
+
   t8dg_values_t      *dg_values;
+
+  t8_forest_adapt_t   adapt_fn;
 } t8dg_adapt_data_t;
 
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_adapt_replace (t8_forest_t forest_old,
-                     t8_forest_t forest_new,
-                     t8_locidx_t itree,
-                     t8_eclass_scheme_c * ts,
-                     int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new);
+t8_forest_adapt_t   t8dg_adapt_fn_arg (int adapt_arg);
 
-int
- 
- 
- 
- 
- 
- 
- 
- 
-t8dg_adapt_gradient (t8_forest_t forest,
-                     t8_forest_t forest_from,
-                     t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
+t8dg_adapt_data_t  *t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level, int max_level, int adapt_fn_arg,
+                                         int adapt_freq);
+
+void                t8dg_adapt_data_destroy (t8dg_adapt_data_t ** p_adapt_data);
+
+void                t8dg_adapt_replace
+  (t8_forest_t forest_old, t8_forest_t forest_new,
+   t8_locidx_t itree,
+   t8_eclass_scheme_c * ts, int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new);
+
+int                 t8dg_adapt_gradient
+  (t8_forest_t forest, t8_forest_t forest_from,
+   t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
 int
  
