@@ -335,19 +335,19 @@ protected:
 };
 
 static double
-t8dg_test_const_one (const double x[3], const double t)
+t8dg_test_const_one (const double x[3], const double t, void *data)
 {
   return 1;
 }
 
 static double
-t8dg_test_sinx (const double x[3], const double t)
+t8dg_test_sinx (const double x[3], const double t, void *data)
 {
   return sin (2 * M_PI * x[0]);
 }
 
 static double
-t8dg_test_expx (const double x[3], const double t)
+t8dg_test_expx (const double x[3], const double t, void *data)
 {
   return exp (x[0]);
 }
@@ -375,7 +375,7 @@ TEST_P (PrecomputedValuesL2norm1D, test_functions)
   double              time = 0;
   double              norm;
 
-  t8dg_values_interpolate_scalar_function_3d_time (values, std::get < 0 > (std::get < 1 > (GetParam ())), time, dof_values);
+  t8dg_values_interpolate_scalar_function_3d_time (values, std::get < 0 > (std::get < 1 > (GetParam ())), time, NULL, dof_values);
 
   norm = t8dg_values_norm_l2 (values, dof_values, sc_MPI_COMM_WORLD);
   EXPECT_NEAR (norm, std::get < 1 > (std::get < 1 > (GetParam ())), exp (-4 * std::get < 0 > (GetParam ())));
