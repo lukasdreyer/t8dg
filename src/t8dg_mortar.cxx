@@ -15,6 +15,7 @@
 #include "t8dg_global_values.h"
 #include "t8dg_values.h"
 #include "t8dg_flux.h"
+#include "t8dg_flux_implementation.h"
 #include "t8dg_sc_array.h"
 #include "t8dg_geometry.h"
 
@@ -494,6 +495,12 @@ t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * do
         u_minus_val = t8dg_face_dof_values_get_value (face_dof_values_minus[isubface], idof);
         u_plus_val = t8dg_face_dof_values_get_value (face_dof_values_plus[isubface], idof);
 
+        int                 reverse_direction;
+        /*How to guarantee that left/right is taken correctly? */
+        if (numerical_flux == t8dg_numerical_flux1D_left || numerical_flux == t8dg_numerical_flux1D_right) {
+          reverse_direction = 1 - (mortar->iface_minus % 2);
+          numerical_flux_data = &reverse_direction;
+        }
         fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data);
         t8dg_debugf ("fluxvalue: %f\n", fluxvalue);
         T8DG_ASSERT (fluxvalue == fluxvalue && fabs (fluxvalue) < 1e200);

@@ -497,7 +497,22 @@ t8dg_element_dof_values_axpy (double a, t8dg_element_dof_values_t * x, t8dg_elem
 void
 t8dg_element_dof_values_axpyz (double a, t8dg_element_dof_values_t * x, t8dg_element_dof_values_t * y, t8dg_element_dof_values_t * z)
 {
-  T8DG_ABORT ("Not implemented \n ");
+  T8DG_ASSERT (t8dg_element_dof_values_is_valid (x));
+  T8DG_ASSERT (t8dg_element_dof_values_is_valid (y));
+  T8DG_ASSERT (t8dg_element_dof_values_is_valid (z));
+  T8DG_ASSERT (y->elem_count == x->elem_count && y->elem_count == z->elem_count);
+  double             *x_double, *y_double, *z_double;
+  int                 double_count, i;
+
+  /*View array as double array */
+  x_double = (double *) x->array;
+  y_double = (double *) y->array;
+  z_double = (double *) z->array;
+  double_count = x->elem_count; /*total number of doubles */
+
+  for (i = 0; i < double_count; i++) {
+    z_double[i] = a * x_double[i] + y_double[i];
+  }
 }
 
 t8dg_dofidx_t

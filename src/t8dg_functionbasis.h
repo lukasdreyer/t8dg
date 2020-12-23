@@ -12,6 +12,7 @@
 #include <sc_containers.h>
 #include "t8dg_dmatrix.h"
 #include "t8dg_dof.h"
+#include "t8dg_common.h"
 
 T8DG_EXTERN_C_BEGIN ();
 

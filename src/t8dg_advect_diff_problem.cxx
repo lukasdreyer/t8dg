@@ -33,11 +33,8 @@ typedef enum
 {
   ADVECT_DIFF_ADAPT = 0,        /* adapt runtime */
   ADVECT_DIFF_PARTITION,        /* partition runtime */
-  ADVECT_DIFF_PARTITION_DATA,   /* data partitioning runtime */
   ADVECT_DIFF_BALANCE,          /* balance runtime */
   ADVECT_DIFF_GHOST,            /* ghost runtime */
-  ADVECT_DIFF_GHOST_EXCHANGE,   /* ghost exchange runtime */
-  ADVECT_DIFF_GHOST_WAIT,       /* ghost exchange waittime */
   ADVECT_DIFF_REPLACE,          /* forest_iterate_replace runtime */
   ADVECT_DIFF_IO,               /* vtk runtime */
   ADVECT_DIFF_INIT,             /* initialization runtime */
@@ -45,9 +42,6 @@ typedef enum
   ADVECT_DIFF_SOLVE,            /* solver runtime */
   ADVECT_DIFF_TOTAL,            /* overall runtime */
 
-  ADVECT_DIFF_PARTITION_PROCS,  /* number of processes sent to in partition */
-  ADVECT_DIFF_BALANCE_ROUNDS,   /* number of rounds in balance */
-  ADVECT_DIFF_GHOST_SENT,       /* number of ghosts sent to other processes */
   ADVECT_DIFF_ELEM_AVG,         /* average global number of elements (per time step) */
   ADVECT_DIFF_ERROR_INF,        /* l_infty error */
   ADVECT_DIFF_ERROR_2,          /* L_2 error */
@@ -61,11 +55,8 @@ typedef enum
 const char         *advect_diff_stat_names[ADVECT_DIFF_NUM_STATS] = {
   "adapt",
   "partition",
-  "partition_data",
   "balance",
   "ghost",
-  "ghost_exchange",
-  "ghost_exchange_wait",
   "replace",
   "vtk_print",
   "init",
@@ -73,9 +64,6 @@ const char         *advect_diff_stat_names[ADVECT_DIFF_NUM_STATS] = {
   "solve",
   "total",
 
-  "partition_procs_sent",
-  "balance_rounds",
-  "ghost_sent",
   "number_elements",
 
   "l_infty_error",
@@ -88,18 +76,16 @@ const char         *advect_diff_stat_names[ADVECT_DIFF_NUM_STATS] = {
 struct t8dg_linear_advection_diffusion_problem
 {
   t8_forest_t         forest;                                   /**< The t8_forest used to adapt the coarse mesh*/
-  int                 dim;      /**< Dimension of the submanifold */
+  int                 dim;                                      /**< Dimension of the submanifold */
 
   t8dg_adapt_data    *adapt_data;
+
   t8dg_linear_advection_diffusion_problem_description_t *description;
 
   t8dg_timestepping_data_t *time_data;
 
   t8dg_vtk_data_t    *vtk_data;
 
-/* The following sc_arrays contain data, that needs to be available for each processorlocal element. To facilitate partitioning, they are
- * saved in a linear array
- */
   t8dg_values_t      *dg_values;
 
   /* The dof_values get ghosted */
@@ -131,12 +117,25 @@ t8dg_advect_diff_problem_accumulate_stat (t8dg_linear_advection_diffusion_proble
 }
 
 t8dg_linear_advection_diffusion_problem_description_t *
-t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_cond_arg, double flow_speed, double diffusion_coefficient)
+t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_cond_arg, double flow_speed, double diffusion_coefficient,
+                                                                  int numerical_flux_arg, int dim)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
   description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
   description->initial_condition_fn = t8dg_common_initial_cond_fn (initial_cond_arg);
+  description->analytical_sol_fn = t8dg_common_analytic_solution_fn (initial_cond_arg, diffusion_coefficient);
   description->diffusion_coefficient = diffusion_coefficient;
+  if (description->analytical_sol_fn == t8dg_scalar3d_sin_product) {
+    t8dg_scalar3d_sin_product_data_t *ana_sol_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
+    ana_sol_data->diffusion_coefficient = diffusion_coefficient;
+    ana_sol_data->dim = dim;
+    description->analytical_sol_data = ana_sol_data;
+
+    t8dg_scalar3d_sin_product_data_t *init_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
+    init_data->diffusion_coefficient = diffusion_coefficient;
+    init_data->dim = dim;
+    description->initial_condition_data = init_data;
+  }
 
   description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
   t8dg_linear_flux3D_constant_flux_data_t *flux_data = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
@@ -145,10 +144,53 @@ t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_co
   flux_data->flow_direction[2] = 0;
   flux_data->flow_velocity = flow_speed;
   description->flux_data = flux_data;
-  description->analytical_sol_fn = NULL;
   description->source_sink_fn = NULL;
+  description->source_sink_data = NULL;
   /*boundary conditions */
+
+  description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
+  description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
+  *(double *) description->numerical_flux_advection_data = flux_data->flow_velocity;
+  switch (numerical_flux_arg) {
+  case 0:
+    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_central;
+    description->numerical_flux_diffusion_concentration_data = NULL;
+    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_central;
+    description->numerical_flux_diffusion_gradient_data = NULL;
+    break;
+  case 1:
+    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_right;
+    description->numerical_flux_diffusion_concentration_data = NULL;
+    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_left;
+    description->numerical_flux_diffusion_gradient_data = NULL;
+    break;
+  case 2:
+    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_left;
+    description->numerical_flux_diffusion_concentration_data = NULL;
+    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_right;
+    description->numerical_flux_diffusion_gradient_data = NULL;
+    break;
+
+  default:
+    break;
+  }
+
   return description;
+}
+
+void
+t8dg_advect_diff_problem_description_destroy (t8dg_linear_advection_diffusion_problem_description_t ** p_description)
+{
+  t8dg_linear_advection_diffusion_problem_description_t *description = *p_description;
+  T8DG_FREE (description->flux_data);
+  T8DG_FREE (description->analytical_sol_data);
+  T8DG_FREE (description->initial_condition_data);
+  T8DG_FREE (description->numerical_flux_advection_data);
+  T8DG_FREE (description->numerical_flux_diffusion_concentration_data);
+  T8DG_FREE (description->numerical_flux_diffusion_gradient_data);
+  T8DG_FREE (description->source_sink_data);
+  T8DG_FREE (description);
+  *p_description = NULL;
 }
 
 t8dg_linear_advection_diffusion_problem_t *
@@ -164,7 +206,8 @@ t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
                                                int time_order,
                                                int min_level,
                                                int max_level,
-                                               int adapt_arg, int adapt_freq, const char *prefix, int vtk_freq, sc_MPI_Comm comm)
+                                               int adapt_arg, int adapt_freq, const char *prefix, int vtk_freq, int numerical_flux_arg,
+                                               sc_MPI_Comm comm)
 {
   int                 dim;
   t8_scheme_cxx_t    *default_scheme;
@@ -177,6 +220,8 @@ t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
   t8dg_values_t      *dg_values;
   t8dg_vtk_data_t    *vtk_data;
   t8dg_linear_advection_diffusion_problem_description_t *description;
+  double              init_time;
+  init_time = -sc_MPI_Wtime ();
 
   default_scheme = t8_scheme_new_default_cxx ();
   cmesh = t8dg_cmesh_new_arg (icmesh, comm);
@@ -188,29 +233,31 @@ t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);
 
-  description = t8dg_linear_advection_diffusion_problem_description_new_constant (initial_cond_arg, flow_speed, diffusion_coefficient);
+  description =
+    t8dg_linear_advection_diffusion_problem_description_new_constant (initial_cond_arg, flow_speed, diffusion_coefficient,
+                                                                      numerical_flux_arg, dim);
   adapt_data = t8dg_adapt_data_new (dg_values, initial_level, min_level, max_level, adapt_arg, adapt_freq);
 
   vtk_data = t8dg_output_vtk_data_new (prefix, vtk_freq);
   time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
+  init_time += sc_MPI_Wtime ();
 
-  return t8dg_advect_diff_problem_init (forest, description, dg_values, time_data, adapt_data, vtk_data, comm);
+  return t8dg_advect_diff_problem_init (forest, description, dg_values, time_data, adapt_data, vtk_data, init_time, comm);
 }
 
 t8dg_linear_advection_diffusion_problem_t *
 t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusion_problem_description_t * description,
                                t8dg_values_t * dg_values, t8dg_timestepping_data_t * time_data,
-                               t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data, sc_MPI_Comm comm)
+                               t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data, double init_time, sc_MPI_Comm comm)
 {
   t8dg_linear_advection_diffusion_problem_t *problem;
   int                 istat;
-  double              init_time;
-  init_time = -sc_MPI_Wtime ();
+  init_time -= sc_MPI_Wtime ();
 
   /* allocate problem */
   problem = T8_ALLOC (t8dg_linear_advection_diffusion_problem_t, 1);
 
-  problem->total_time = -sc_MPI_Wtime ();
+  problem->total_time = init_time;
 
   /*initialize stats */
   for (istat = 0; istat < ADVECT_DIFF_NUM_STATS; istat++) {
@@ -232,7 +279,8 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
   problem->dof_values_adapt = NULL;
 
   t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->initial_condition_fn,
-                                                   t8dg_timestepping_data_get_current_time (problem->time_data), problem->dof_values);
+                                                   t8dg_timestepping_data_get_current_time (problem->time_data),
+                                                   problem->description->initial_condition_data, problem->dof_values);
 
   int                 ilevel;
 
@@ -243,7 +291,8 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
     t8dg_advect_diff_problem_partition (problem, 0);
     /* Re initialize the dof_values */
     t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->initial_condition_fn,
-                                                     t8dg_timestepping_data_get_current_time (problem->time_data), problem->dof_values);
+                                                     t8dg_timestepping_data_get_current_time (problem->time_data),
+                                                     problem->description->initial_condition_data, problem->dof_values);
   }
 
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_INIT, init_time + sc_MPI_Wtime ());
@@ -262,10 +311,9 @@ t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** p
 
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_TOTAL, problem->total_time + sc_MPI_Wtime ());
 
-  if (problem->description->flux_data != NULL) {
-    T8DG_FREE (problem->description->flux_data);
-    T8DG_FREE (problem->description);
-  }
+  t8dg_advect_diff_problem_compute_and_print_stats (problem);
+
+  t8dg_advect_diff_problem_description_destroy (&problem->description);
 
   t8dg_timestepping_data_destroy (&(problem->time_data));
   t8dg_adapt_data_destroy (&problem->adapt_data);
@@ -317,8 +365,6 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
   t8dg_advect_diff_problem_l2_rel (problem);
   t8dg_advect_diff_problem_l_infty_rel (problem);
 
-  t8dg_advect_diff_problem_compute_and_print_stats (problem);
-
   t8dg_debugf ("End Dof values:\n");
   t8dg_advect_diff_problem_printdof (problem);
 }
@@ -357,10 +403,10 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
     int                 icomp;
     for (icomp = 0; icomp < problem->dim; icomp++) {
       t8dg_values_apply_component_stiffness_matrix_dof (problem->dg_values, icomp, bu, gradient_component_stiffness);
-      t8dg_numerical_flux1D_fn central_NF;
-      central_NF = t8dg_numerical_flux1D_central;
 
-      t8dg_values_apply_component_boundary_integrals (problem->dg_values, bu, gradient_component_boundary, icomp, central_NF, NULL, t);
+      t8dg_values_apply_component_boundary_integrals (problem->dg_values, bu, gradient_component_boundary, icomp,
+                                                      problem->description->numerical_flux_diffusion_gradient,
+                                                      problem->description->numerical_flux_diffusion_gradient_data, t);
 
       t8dg_dof_values_axpyz (-1, gradient_component_stiffness, gradient_component_boundary, gradient_component);
 
@@ -368,7 +414,9 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
 
       t8dg_dof_values_ax (gradient_component, sqrt_diffusion_coefficient);
 
-      t8dg_values_apply_component_boundary_integrals (problem->dg_values, gradient_component, dof_summand, icomp, central_NF, NULL, t);
+      t8dg_values_apply_component_boundary_integrals (problem->dg_values, gradient_component, dof_summand, icomp,
+                                                      problem->description->numerical_flux_diffusion_concentration,
+                                                      problem->description->numerical_flux_diffusion_concentration_data, t);
       t8dg_dof_values_add (dof_sum, dof_summand);
 
       t8dg_values_apply_component_stiffness_matrix_dof (problem->dg_values, icomp, gradient_component, dof_summand);
@@ -381,12 +429,9 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
 
   t8dg_dof_values_add (dof_sum, dof_summand);
 
-  t8dg_numerical_linear_flux3D_fn lax_friedrich_NF;
-  lax_friedrich_NF = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
-  double              velocity_bound = 1;
-
   t8dg_values_apply_boundary_integrals (problem->dg_values, dof_values, dof_summand, problem->description->velocity_field,
-                                        problem->description->flux_data, lax_friedrich_NF, &velocity_bound, t);
+                                        problem->description->flux_data, problem->description->numerical_flux_advection,
+                                        problem->description->numerical_flux_advection_data, t);
 
   t8dg_dof_values_subtract (dof_sum, dof_summand);      /*subtract function */
 
@@ -435,11 +480,11 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
       /* Compute the minimum diameter */
       diam = t8_forest_element_diam (problem->forest, itree, element, tree_vertices);
       T8_ASSERT (diam > 0);
-
-      flow_velocity = 1;        /*TODO: element_get_flow_velocity function */
-      /* Compute minimum necessary time step */
-      delta_t = time_left;
-      if (flow_velocity > 0) {
+      if (problem->description->diffusion_coefficient > 0) {
+        delta_t = cfl * diam * diam;
+      }
+      else {
+        flow_velocity = ((t8dg_linear_flux3D_constant_flux_data_t *) problem->description->flux_data)->flow_velocity;   /*TODO: element_get_flow_velocity function */
         delta_t = cfl * diam / flow_velocity;
       }
       min_delta_t = SC_MIN (delta_t, min_delta_t);
@@ -468,7 +513,7 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
     return;
 
   t8_forest_t         forest_adapt;
-  double              adapt_time, ghost_time, balance_time, replace_time;
+  double              adapt_time, ghost_time, balance_time = 0, replace_time;
   int                 did_balance = 0, balance_rounds = 0;
   t8_locidx_t         ghosts_sent;
 
@@ -504,11 +549,8 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
     }
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ADAPT, adapt_time);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST, ghost_time);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST_SENT, ghosts_sent);
-    balance_time = 0;
     if (did_balance) {
       t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_BALANCE, balance_time);
-      t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_BALANCE_ROUNDS, balance_rounds);
     }
   }
 
@@ -562,28 +604,21 @@ t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * 
   t8_forest_set_ghost (forest_partition, 1, T8_GHOST_FACES);
   t8_forest_commit (forest_partition);
 
-  if (measure_time) {
-    partition_time = t8_forest_profile_get_partition_time (forest_partition, &procs_sent);
-    ghost_time = t8_forest_profile_get_ghost_time (forest_partition, &ghosts_sent);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION, partition_time);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST, ghost_time);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST_SENT, ghosts_sent);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION_PROCS, procs_sent);
-  }
-
   t8_debugf ("[ADVECT] partition");
-
+  partition_data_time = -sc_MPI_Wtime ();
   t8dg_values_partition (problem->dg_values, forest_partition);
 
   /* Partition dof_values */
   dof_values_partition = t8dg_dof_values_new (forest_partition, t8dg_values_get_global_values_array (problem->dg_values));
 
-  partition_data_time = -sc_MPI_Wtime ();
   t8dg_dof_values_partition (problem->dof_values, dof_values_partition);
   partition_data_time += sc_MPI_Wtime ();
 
   if (measure_time) {
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION_DATA, partition_data_time);
+    partition_time = t8_forest_profile_get_partition_time (forest_partition, &procs_sent);
+    ghost_time = t8_forest_profile_get_ghost_time (forest_partition, &ghosts_sent);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION, partition_time + partition_data_time);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST, ghost_time);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_AMR, partition_time + ghost_time + partition_data_time);
   }
 
@@ -603,7 +638,8 @@ t8dg_advect_diff_problem_l_infty_rel (t8dg_linear_advection_diffusion_problem_t 
   double              l_infty_rel;
   if (problem->description->analytical_sol_fn != NULL) {
     l_infty_rel = t8dg_values_norm_l_infty_rel (problem->dg_values, problem->dof_values, problem->description->analytical_sol_fn,
-                                                t8dg_timestepping_data_get_current_time (problem->time_data), problem->comm);
+                                                t8dg_timestepping_data_get_current_time (problem->time_data),
+                                                problem->description->analytical_sol_data, problem->comm);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ERROR_INF, l_infty_rel);
 
   }
@@ -616,7 +652,8 @@ t8dg_advect_diff_problem_l2_rel (t8dg_linear_advection_diffusion_problem_t * pro
   double              l2_rel;
   if (problem->description->analytical_sol_fn != NULL) {
     l2_rel = t8dg_values_norm_l2_rel (problem->dg_values, problem->dof_values, problem->description->analytical_sol_fn,
-                                      t8dg_timestepping_data_get_current_time (problem->time_data), problem->comm);
+                                      t8dg_timestepping_data_get_current_time (problem->time_data),
+                                      problem->description->analytical_sol_data, problem->comm);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ERROR_2, l2_rel);
 
   }

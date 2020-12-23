@@ -6,6 +6,7 @@
 #include "t8dg_refcount.h"
 #include "t8dg_tensor.h"
 #include "t8dg_sc_array.h"
+#include "t8dg_common.h"
 
 #include <sc_containers.h>
 

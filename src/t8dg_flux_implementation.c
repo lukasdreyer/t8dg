@@ -42,3 +42,27 @@ t8dg_numerical_flux1D_central (const double u_minus, const double u_plus, const 
   average = (u_minus + u_plus) / 2;
   return average * normal_component;
 }
+
+double
+t8dg_numerical_flux1D_left (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data)
+{
+  double              u_value = u_minus;
+  int                 reverse_factor = 1;
+  if (numerical_flux_data != NULL && *(int *) numerical_flux_data == 1) {
+    reverse_factor = 1;
+    u_value = u_plus;
+  }
+  return reverse_factor * u_value * normal_component;
+}
+
+double
+t8dg_numerical_flux1D_right (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data)
+{
+  double              u_value = u_plus;
+  int                 reverse_factor = 1;
+  if (numerical_flux_data != NULL && *(int *) numerical_flux_data == 1) {
+    reverse_factor = 1;
+    u_value = u_minus;
+  }
+  return reverse_factor * u_value * normal_component;
+}

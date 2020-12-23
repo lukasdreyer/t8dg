@@ -470,6 +470,7 @@ typedef struct t8dg_values_fn_evaluation_data
   t8_locidx_t         iglobaltree;
   t8_element_t       *element;
   t8dg_scalar_function_3d_time_fn function;
+  void               *function_data;
   double              time;
 } t8dg_values_fn_evaluation_data_t;
 
@@ -485,12 +486,12 @@ t8dg_values_transform_reference_vertex_and_evaluate (const double reference_vert
                                                             reference_vertex, image_vertex);
 
   /* apply initial condition function at image vertex and start time */
-  return data->function (image_vertex, data->time);
+  return data->function (image_vertex, data->time, data->function_data);
 }
 
 void
 t8dg_values_interpolate_scalar_function_3d_time (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time,
-                                                 t8dg_dof_values_t * dof_values)
+                                                 void *function_data, t8dg_dof_values_t * dof_values)
 {
   t8dg_values_fn_evaluation_data_t data;
   t8_locidx_t         num_trees, itree, ielement, num_elems_in_tree;
@@ -498,6 +499,7 @@ t8dg_values_interpolate_scalar_function_3d_time (t8dg_values_t * values, t8dg_sc
   data.coarse_geometry = values->coarse_geometry;
   data.forest = values->forest;
   data.function = function;
+  data.function_data = function_data;
   data.time = time;
 
   t8dg_global_values_t *global_values;
@@ -545,7 +547,7 @@ t8dg_values_norm_l2 (t8dg_values_t * values, t8dg_dof_values_t * dof_values, sc_
 
 double
 t8dg_values_norm_l2_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values, t8dg_scalar_function_3d_time_fn analytical_sol_fn,
-                         double time, sc_MPI_Comm comm)
+                         double time, void *analytical_sol_data, sc_MPI_Comm comm)
 {
   t8_locidx_t         num_elements, num_trees;
   t8_locidx_t         ielement, itree, idata;
@@ -557,7 +559,7 @@ t8dg_values_norm_l2_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
 
   analytical_sol_dof = t8dg_dof_values_duplicate (dof_values);
 
-  t8dg_values_interpolate_scalar_function_3d_time (values, analytical_sol_fn, time, analytical_sol_dof);
+  t8dg_values_interpolate_scalar_function_3d_time (values, analytical_sol_fn, time, analytical_sol_data, analytical_sol_dof);
 
   num_trees = t8_forest_get_num_local_trees (values->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
@@ -605,7 +607,7 @@ t8dg_values_element_area (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t
 
 double
 t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
-                              t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm)
+                              t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, void *analytical_sol_data, sc_MPI_Comm comm)
 {
 #if 0
   t8_locidx_t         num_elements, num_trees;

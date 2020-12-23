@@ -40,10 +40,6 @@ T8DG_EXTERN_C_BEGIN ();
 
 typedef t8_locidx_t t8dg_locidx_t;
 
-/**A timedependent scalar function f:R^3 x R^+ -> R*/
-typedef double      (*t8dg_scalar_function_3d_time_fn) (const double x[DIM3], const double t);
-typedef double      (*t8dg_scalar_function_3d_fn) (const double x[DIM3], void *scalar_fn_data);
-
 void               *t8dg_sc_array_index_locidx (const sc_array_t * array, t8dg_locidx_t it);
 t8_locidx_t         t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement);
 void                t8dg_vec_print (double x[3]);

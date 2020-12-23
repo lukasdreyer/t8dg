@@ -25,6 +25,20 @@ double              t8dg_linear_numerical_flux3D_lax_friedrich_fn (const double 
 
 double              t8dg_numerical_flux1D_central (const double u_minus, const double u_plus,
                                                    const double normal_component, const void *numerical_flux_data);
+double
+ 
+ 
+ 
+ 
+     t8dg_numerical_flux1D_left (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data);
+
+double
+ 
+ 
+ 
+ 
+ 
+   t8dg_numerical_flux1D_right (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data);
 
 T8DG_EXTERN_C_END ();
 

@@ -80,12 +80,14 @@ double              t8dg_values_element_area (t8dg_values_t * values, t8_locidx_
 double              t8dg_values_norm_l2 (t8dg_values_t * values, t8dg_dof_values_t * dof_values, sc_MPI_Comm comm);
 
 double              t8dg_values_norm_l2_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
-                                             t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm);
+                                             t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, void *analytical_sol_data,
+                                             sc_MPI_Comm comm);
 double              t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_values,
-                                                  t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, sc_MPI_Comm comm);
+                                                  t8dg_scalar_function_3d_time_fn analytical_sol_fn, double time, void *analytical_sol_data,
+                                                  sc_MPI_Comm comm);
 
 void                t8dg_values_interpolate_scalar_function_3d_time
-  (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time, t8dg_dof_values_t * dof_values);
+  (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time, void *function_data, t8dg_dof_values_t * dof_values);
 
 T8DG_EXTERN_C_END ();
 
