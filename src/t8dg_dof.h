@@ -128,6 +128,9 @@ t8_forest_t         t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values);
 void                t8dg_face_dof_values_orient (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation);
 void                t8dg_face_dof_values_orient_back (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation);
 
+double              t8dg_dof_values_get_max_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement);
+double              t8dg_dof_values_get_min_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement);
+
 T8DG_EXTERN_C_END ();
 
 #endif // SRC_T8DG_DOF_H_

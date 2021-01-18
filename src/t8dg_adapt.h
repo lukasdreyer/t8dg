@@ -35,7 +35,7 @@ void                t8dg_adapt_replace
    t8_locidx_t itree,
    t8_eclass_scheme_c * ts, int num_elems_old, t8_locidx_t first_ielem_old, int num_elems_new, t8_locidx_t first_ielem_new);
 
-int                 t8dg_adapt_gradient
+int                 t8dg_adapt_rel_min_max
   (t8_forest_t forest, t8_forest_t forest_from,
    t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 

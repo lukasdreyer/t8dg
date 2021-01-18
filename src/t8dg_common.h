@@ -24,6 +24,8 @@ t8dg_scalar_function_3d_time_fn t8dg_common_analytic_solution_fn (int initial_co
 
 double              t8dg_scalar1d_hat_function (const double x[3], const double t, void *fn_data);
 
+double              t8dg_scalar1d_step_function (const double x[3], const double t, void *fn_data);
+
 double              t8dg_scalar2d_hat_function (const double x[3], const double t, void *fn_data);
 
 double              t8dg_scalar3d_norm_function (const double x[3], const double t, void *fn_data);

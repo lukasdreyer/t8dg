@@ -12,7 +12,7 @@ t8dg_adapt_fn_arg (int adapt_arg)
     return t8dg_adapt_mass;
     break;
   case 1:
-    return t8dg_adapt_gradient;
+    return t8dg_adapt_rel_min_max;
     break;
 
   default:
@@ -94,60 +94,56 @@ t8dg_adapt_mass (t8_forest_t forest,
 }
 
 int
-t8dg_adapt_gradient (t8_forest_t forest,
-                     t8_forest_t forest_from,
-                     t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+t8dg_adapt_rel_min_max (t8_forest_t forest,
+                        t8_forest_t forest_from,
+                        t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
 {
   t8dg_adapt_data_t  *adapt_data;
-  t8_locidx_t         first_idata;
-  double             *dof_values;
   int                 level;
-  double              diam;
-  double             *tree_vertices;
 
+  double              max_value;
+  double              min_value;
+  double              rel_gradient;
+  /*Move thresholds into adapt_data? */
   double              gradient_threshold_refine = 0.6;
-  double              gradient_threshold_coarsen = 0.2;
+  double              gradient_threshold_coarsen = 0.5;
+  double              min_value_threshold = 0.001;
 
-  int                 num_dof;
-
-  first_idata = t8dg_itree_ielement_to_idata (forest_from, itree, lelement_id);
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
-
-  T8DG_CHECK_ABORT (t8_eclass_to_dimension[t8_forest_get_eclass (forest, itree)] == 1, "Not yet implemented");
-
-  num_dof = t8dg_global_values_get_num_dof (t8dg_values_get_global_values (adapt_data->dg_values, itree, lelement_id));
 
   level = ts->t8_element_level (elements[0]);
 
-  if (level == adapt_data->maximum_refinement_level && num_elements == 1) {
-    /* It is not possible to refine this level */
+  if (level < adapt_data->maximum_refinement_level) {
+    max_value = t8dg_dof_values_get_max_value (adapt_data->dof_values, itree, lelement_id);
+    min_value = t8dg_dof_values_get_min_value (adapt_data->dof_values, itree, lelement_id);
+    if (min_value <= min_value_threshold) {
+      if (max_value > min_value_threshold)
+        return 1;
+    }
+    else {
+      rel_gradient = (max_value - min_value) / min_value;
+      if (rel_gradient > gradient_threshold_refine) {
+        return 1;
+      }
+    }
+  }
+  //not refine, check coarsen
+  if (num_elements == 1 || level <= adapt_data->minimum_refinement_level) {
     return 0;
   }
-  tree_vertices = t8_forest_get_tree_vertices (forest_from, itree);
-
-  if (num_elements == 1) {
-    dof_values = t8dg_dof_values_get_double_pointer (adapt_data->dof_values, first_idata);
-    diam = t8_forest_element_diam (forest_from, itree, elements[0], tree_vertices);
-
-    double              gradient = fabs (dof_values[0] - dof_values[num_dof - 1]) / diam;
-    return gradient > gradient_threshold_refine;
-  }
   else {
-    dof_values = t8dg_dof_values_get_double_pointer (adapt_data->dof_values, first_idata);
-    diam = t8_forest_element_diam (forest_from, itree, elements[0], tree_vertices);
-
-    double              gradient_left = fabs (dof_values[0] - dof_values[num_dof - 1]) / diam;
-
-    dof_values = t8dg_dof_values_get_double_pointer (adapt_data->dof_values, first_idata);
-    diam = t8_forest_element_diam (forest_from, itree, elements[1], tree_vertices);
-
-    double              gradient_right = fabs (dof_values[0] - dof_values[num_dof - 1]) / diam;
-    if (gradient_left > gradient_threshold_refine && level < adapt_data->maximum_refinement_level)
-      return 1;
-    return -(gradient_left < gradient_threshold_coarsen && gradient_right < gradient_threshold_coarsen
-             && level > adapt_data->minimum_refinement_level);
+    int                 ichild;
+    for (ichild = 1; ichild < num_elements; ichild++) {
+      max_value = t8dg_dof_values_get_max_value (adapt_data->dof_values, itree, lelement_id + ichild);
+      min_value = t8dg_dof_values_get_min_value (adapt_data->dof_values, itree, lelement_id + ichild);
+      if (min_value <= min_value_threshold && max_value > min_value_threshold)
+        return 0;
+      rel_gradient = (max_value - min_value) / min_value;
+      if (rel_gradient > gradient_threshold_coarsen)
+        return 0;
+    }
+    return -1;
   }
-  return 0;
 }
 
 void

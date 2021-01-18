@@ -14,7 +14,7 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
   case (1):
     return t8dg_scalar1d_hat_function;
   case (2):
-    return t8dg_scalar3d_step_function;
+    return t8dg_scalar1d_step_function;
   case (3):
     return t8dg_scalar3d_sin_product;
   case (4):
@@ -52,7 +52,7 @@ t8dg_common_analytic_solution_fn (int initial_cond_arg, double diffusion_coeffic
     case (1):
       return t8dg_scalar1d_hat_function;
     case (2):
-      return t8dg_scalar3d_step_function;
+      return t8dg_scalar1d_step_function;
     case (3):
       return t8dg_scalar3d_sin_product;
     case (4):
@@ -110,6 +110,13 @@ double
 t8dg_scalar3d_norm_function (const double x[3], const double t, void *fn_data)
 {
   return t8_vec_norm (x);
+}
+
+double
+t8dg_scalar1d_step_function (const double x[3], const double t, void *fn_data)
+{
+  double              center[3] = { 0.5, 0, 0 };
+  return t8_vec_dist (x, center) < 0.2;
 }
 
 double

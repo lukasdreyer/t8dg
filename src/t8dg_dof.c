@@ -708,3 +708,37 @@ t8dg_face_dof_values_orient_back (t8dg_face_dof_values_t * face_dof_values, t8_e
     break;
   }
 }
+
+double
+t8dg_dof_values_get_max_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement)
+{
+  t8dg_element_dof_values_t *element_dof_values;
+  double              max_value;
+  element_dof_values = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
+  t8dg_dofidx_t       idof, numdof;
+  numdof = t8dg_element_dof_values_get_num_dof (element_dof_values);
+  T8DG_ASSERT (numdof > 0);
+  max_value = t8dg_element_dof_values_get_value (element_dof_values, 0);
+  for (idof = 0; idof < numdof; idof++) {
+    max_value = SC_MAX (max_value, t8dg_element_dof_values_get_value (element_dof_values, idof));
+  }
+  t8dg_element_dof_values_destroy (&element_dof_values);
+  return max_value;
+}
+
+double
+t8dg_dof_values_get_min_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement)
+{
+  t8dg_element_dof_values_t *element_dof_values;
+  double              min_value;
+  element_dof_values = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
+  t8dg_dofidx_t       idof, numdof;
+  numdof = t8dg_element_dof_values_get_num_dof (element_dof_values);
+  T8DG_ASSERT (numdof > 0);
+  min_value = t8dg_element_dof_values_get_value (element_dof_values, 0);
+  for (idof = 0; idof < numdof; idof++) {
+    min_value = SC_MIN (min_value, t8dg_element_dof_values_get_value (element_dof_values, idof));
+  }
+  t8dg_element_dof_values_destroy (&element_dof_values);
+  return min_value;
+}
