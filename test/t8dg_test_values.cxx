@@ -279,7 +279,11 @@ TEST_P (PrecomputedValuesProjectionTest1D, const_one)
   forest = forest_adapt;
   forest_adapt = NULL;
 
+#ifndef T8DG_ENABLE_MPI
+  ASSERT_EQ (t8_forest_get_num_element (forest), 1);
+#else
   ASSERT_EQ_MPI (t8_forest_get_num_element (forest), 1);
+#endif
   element_dof_values_parent = t8dg_dof_values_new_element_dof_values_view (dof_values_adapt, 0, 0);
   num_lgl = GetParam ();
 
