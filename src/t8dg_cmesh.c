@@ -2,6 +2,18 @@
 #include <t8_cmesh.h>
 #include <t8_cmesh_vtk.h>
 
+int
+t8dg_cmesh_dim (int icmesh)
+{
+  if (icmesh >= 0 && icmesh <= 2)
+    return 1;
+  if (icmesh >= 3 && icmesh <= 7)
+    return 2;
+  if (icmesh == 8)
+    return 3;
+  return -1;
+}
+
 t8_cmesh_t
 t8dg_cmesh_new_arg (int icmesh, sc_MPI_Comm comm)
 {

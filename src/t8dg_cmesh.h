@@ -5,6 +5,8 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
+int                 t8dg_cmesh_dim (int icmesh);
+
 t8_cmesh_t          t8dg_cmesh_new_arg (int icmesh, sc_MPI_Comm comm);
 
 t8_cmesh_t          t8dg_cmesh_new_periodic_diagonal_line_more_trees (sc_MPI_Comm comm);

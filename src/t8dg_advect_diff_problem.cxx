@@ -227,7 +227,7 @@ t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
   cmesh = t8dg_cmesh_new_arg (icmesh, comm);
   forest = t8_forest_new_uniform (cmesh, default_scheme, initial_level, 1, comm);
 
-  dim = t8_eclass_to_dimension[t8_forest_get_eclass (forest, 0)];
+  dim = t8dg_cmesh_dim (icmesh);
 
   coarse_geometry = t8dg_coarse_geometry_new_linear (dim);
 
