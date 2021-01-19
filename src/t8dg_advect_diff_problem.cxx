@@ -122,6 +122,7 @@ t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_co
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
   description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
+  description->dim = dim;
   description->initial_condition_fn = t8dg_common_initial_cond_fn (initial_cond_arg);
   description->analytical_sol_fn = t8dg_common_analytic_solution_fn (initial_cond_arg, diffusion_coefficient);
   description->diffusion_coefficient = diffusion_coefficient;
@@ -268,7 +269,7 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
 
   problem->vtk_data = vtk_data;
   problem->adapt_data = adapt_data;
-  problem->dim = t8_eclass_to_dimension[t8_forest_get_eclass (forest, 0)];
+  problem->dim = description->dim;
   problem->description = description;
   problem->time_data = time_data;
   problem->comm = comm;

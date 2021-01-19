@@ -25,6 +25,7 @@ typedef struct t8dg_linear_advection_diffusion_problem t8dg_linear_advection_dif
 
 typedef struct t8dg_linear_advection_diffusion_problem_description
 {
+  int                 dim;
   t8dg_scalar_function_3d_time_fn initial_condition_fn;             /**< Initial condition function */
   void               *initial_condition_data;
   t8dg_scalar_function_3d_time_fn source_sink_fn;
