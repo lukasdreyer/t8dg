@@ -21,6 +21,8 @@ t8_cmesh_t          t8dg_cmesh_new_square_tilted (sc_MPI_Comm comm);
 
 t8_cmesh_t          t8dg_cmesh_new_periodic_line_more_trees (sc_MPI_Comm comm, int num_trees);
 
+t8_cmesh_t          t8dg_cmesh_new_circle_ring (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees);
+
 T8DG_EXTERN_C_END ();
 
 #endif
