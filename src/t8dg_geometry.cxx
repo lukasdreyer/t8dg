@@ -10,8 +10,6 @@ t8dg_geometry_transform_reference_vertex_to_coarse_vertex (const t8dg_coarse_geo
                                                            const t8_gloidx_t iglobaltree, const t8_element_t * element,
                                                            const double reference_vertex[DIM3], double coarse_vertex[DIM3])
 {
-  int                 idim;
-  int                 coarse_vertex_int_translation_coords[3] = { 0, 0, 0 };
   int                 level;
   double              translation_vector[3] = { 0, 0, 0 };
   double              scaling_factor;

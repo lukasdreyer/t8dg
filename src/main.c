@@ -133,9 +133,9 @@ main (int argc, char *argv[])
 
   parsed = sc_options_parse (t8dg_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (max_level == -1)
-    max_level == uniform_level;
+    max_level = uniform_level;
   if (min_level == -1)
-    min_level == uniform_level;
+    min_level = uniform_level;
 
   if (helpme) {
     /* display help message and usage */
