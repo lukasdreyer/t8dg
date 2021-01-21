@@ -12,6 +12,14 @@ t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double
 }
 
 void
+t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data)
+{
+  flux_vec[0] = x_vec[1];
+  flux_vec[1] = -x_vec[0];
+  flux_vec[2] = 0;
+}
+
+void
 t8dg_linear_flux_1D_from_3D_fn (double x_vec[3], double *flux_value, double t, void *flux_data)
 {
   double              flux_vec[3];

@@ -107,7 +107,7 @@ t8dg_adapt_rel_min_max (t8_forest_t forest,
   /*Move thresholds into adapt_data? */
   double              gradient_threshold_refine = 0.6;
   double              gradient_threshold_coarsen = 0.5;
-  double              min_value_threshold = 0.001;
+  double              min_value_threshold = 0.05;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
 

@@ -15,7 +15,6 @@ t8dg_geometry_transform_reference_vertex_to_coarse_vertex (const t8dg_coarse_geo
   int                 level;
   double              translation_vector[3] = { 0, 0, 0 };
   double              scaling_factor;
-  double              length_inv;
 
   t8_eclass_t         eclass;
   t8_eclass_scheme_c *scheme;
@@ -25,12 +24,8 @@ t8dg_geometry_transform_reference_vertex_to_coarse_vertex (const t8dg_coarse_geo
 
   level = scheme->t8_element_level (element);
   scaling_factor = pow (2, -level);
-  length_inv = 1. / scheme->t8_element_root_len (element);
 
-  scheme->t8_element_vertex_coords (element, 0, coarse_vertex_int_translation_coords);
-  for (idim = 0; idim < DIM3; idim++) {
-    translation_vector[idim] = length_inv * coarse_vertex_int_translation_coords[idim];
-  }
+  scheme->t8_element_vertex_reference_coords (element, 0, translation_vector);
 
   /* For triangle reflection about x=y also needed */
 
@@ -115,7 +110,7 @@ t8dg_geometry_calculate_normal_vector (const t8dg_coarse_geometry_t * coarse_geo
                                        double image_normal_vector[3])
 {
   t8_eclass_t         eclass;
-
+  double              coarse_vertex[3] = { 0, 0, 0 };
   double              coarse_normal_vector[3] = { 0, 0, 0 };
   int                 side;
   int                 normal_direction;
@@ -131,8 +126,12 @@ t8dg_geometry_calculate_normal_vector (const t8dg_coarse_geometry_t * coarse_geo
   else {
     T8DG_ABORT ("Not yet implemented");
   }
+
+  t8dg_geometry_transform_reference_vertex_to_coarse_vertex (coarse_geometry, forest, iglobaltree, element, reference_vertex,
+                                                             coarse_vertex);
+
   t8dg_coarse_geometry_transform_normal_vector (coarse_geometry, forest, iglobaltree,
-                                                reference_vertex, coarse_normal_vector, image_normal_vector);
+                                                coarse_vertex, coarse_normal_vector, image_normal_vector);
   t8_vec_ax (image_normal_vector, 1. / t8_vec_norm (image_normal_vector));
 }
 

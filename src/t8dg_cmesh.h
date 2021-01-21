@@ -23,6 +23,8 @@ t8_cmesh_t          t8dg_cmesh_new_periodic_line_more_trees (sc_MPI_Comm comm, i
 
 t8_cmesh_t          t8dg_cmesh_new_circle_ring (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees);
 
+t8_cmesh_t          t8dg_cmesh_new_square_half_periodic (sc_MPI_Comm comm);
+
 T8DG_EXTERN_C_END ();
 
 #endif

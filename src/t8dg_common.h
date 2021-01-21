@@ -42,6 +42,10 @@ double              t8dg_scalar3d_sin_product (const double x[3], const double t
 
 double              t8dg_scalar3d_constant_zero (const double x[3], const double t, void *fn_data);
 
+double              t8dg_circle_ring_step_function (const double x[3], const double t, void *fn_data);
+
+double              t8dg_scalar2d_angle (const double x[3], const double t, void *fn_data);
+
 T8DG_EXTERN_C_END ();
 
 #endif

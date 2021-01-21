@@ -54,7 +54,7 @@ libt8dg_compiled_sources = \
   src/t8dg_common.c \
   src/t8dg_adapt.cxx \
   src/t8dg_output.c \
-  src/t8dg_cmesh.c \
+  src/t8dg_cmesh.cxx \
   src/t8dg_advect_diff_problem.cxx
 
 # this variable is used for headers that are not publicly installed

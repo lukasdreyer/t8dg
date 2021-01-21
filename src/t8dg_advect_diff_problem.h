@@ -46,23 +46,24 @@ typedef struct t8dg_linear_advection_diffusion_problem_description
 
 } t8dg_linear_advection_diffusion_problem_description_t;
 
-t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_linear_geometry (int icmesh,
-                                                                                          int initial_level,
-                                                                                          int number_LGL_points,
-                                                                                          int initial_cond_arg,
-                                                                                          double flow_speed,
-                                                                                          double diffusion_coefficient,
-                                                                                          double start_time,
-                                                                                          double end_time,
-                                                                                          double cfl,
-                                                                                          int time_order,
-                                                                                          int min_level,
-                                                                                          int max_level,
-                                                                                          int adapt_arg,
-                                                                                          int adapt_freq,
-                                                                                          const char *prefix,
-                                                                                          int vtk_freq,
-                                                                                          int numerical_flux_arg, sc_MPI_Comm comm);
+t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_arguments (int icmesh,
+                                                                                    int initial_level,
+                                                                                    int number_LGL_points,
+                                                                                    int initial_cond_arg,
+                                                                                    double flow_speed,
+                                                                                    double diffusion_coefficient,
+                                                                                    double start_time,
+                                                                                    double end_time,
+                                                                                    double cfl,
+                                                                                    int time_order,
+                                                                                    int min_level,
+                                                                                    int max_level,
+                                                                                    int adapt_arg,
+                                                                                    int adapt_freq,
+                                                                                    const char *prefix,
+                                                                                    int vtk_freq,
+                                                                                    int numerical_flux_arg,
+                                                                                    int igeometry, sc_MPI_Comm comm);
 
 t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init (t8_forest_t forest,
                                                                           t8dg_linear_advection_diffusion_problem_description_t *
