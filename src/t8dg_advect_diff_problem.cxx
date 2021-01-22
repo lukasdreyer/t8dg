@@ -117,8 +117,8 @@ t8dg_advect_diff_problem_accumulate_stat (t8dg_linear_advection_diffusion_proble
 }
 
 t8dg_linear_advection_diffusion_problem_description_t *
-t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_cond_arg, double flow_speed, double diffusion_coefficient,
-                                                                  int numerical_flux_arg, int dim)
+t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_field_arg, double flow_velocity, double diffusion_coefficient,
+                                          int numerical_flux_arg, int dim)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
   description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
@@ -137,79 +137,40 @@ t8dg_linear_advection_diffusion_problem_description_new_constant (int initial_co
     init_data->dim = dim;
     description->initial_condition_data = init_data;
   }
-
-  description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
-  t8dg_linear_flux3D_constant_flux_data_t *flux_data = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
-  flux_data->flow_direction[0] = 1;
-  flux_data->flow_direction[1] = 0;
-  flux_data->flow_direction[2] = 0;
-  flux_data->flow_velocity = flow_speed;
-  description->flux_data = flux_data;
-  description->source_sink_fn = NULL;
-  description->source_sink_data = NULL;
-  /*boundary conditions */
-
+  t8dg_linear_flux3D_constant_flux_data_t *flux_data;
   description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
   description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
-  *(double *) description->numerical_flux_advection_data = flux_data->flow_velocity;
-  switch (numerical_flux_arg) {
+
+  switch (velocity_field_arg) {
   case 0:
-    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_central;
-    description->numerical_flux_diffusion_concentration_data = NULL;
-    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_central;
-    description->numerical_flux_diffusion_gradient_data = NULL;
+    description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
+    flux_data = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
+    flux_data->flow_direction[0] = 1;
+    flux_data->flow_direction[1] = 0;
+    flux_data->flow_direction[2] = 0;
+    flux_data->flow_velocity = flow_velocity;
+    *(double *) description->numerical_flux_advection_data = flux_data->flow_velocity;
     break;
+
   case 1:
-    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_right;
-    description->numerical_flux_diffusion_concentration_data = NULL;
-    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_left;
-    description->numerical_flux_diffusion_gradient_data = NULL;
-    break;
+    description->velocity_field = t8dg_rotating_flux_2D_fn;
+    flux_data = NULL;
+    *(double *) description->numerical_flux_advection_data = 1;
+
   case 2:
-    description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_left;
-    description->numerical_flux_diffusion_concentration_data = NULL;
-    description->numerical_flux_diffusion_gradient = t8dg_numerical_flux1D_right;
-    description->numerical_flux_diffusion_gradient_data = NULL;
-    break;
+    description->velocity_field = t8dg_spiral_flux_3D_fn;
+    flux_data = NULL;
+    *(double *) description->numerical_flux_advection_data = 2 * M_PI;
 
   default:
     break;
   }
 
-  return description;
-}
-
-t8dg_linear_advection_diffusion_problem_description_t *
-t8dg_linear_advection_diffusion_problem_description_new_circle_ring (int initial_cond_arg, double flow_speed, double diffusion_coefficient,
-                                                                     int numerical_flux_arg, int dim)
-{
-  t8dg_linear_advection_diffusion_problem_description_t *description;
-  description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
-  description->dim = dim;
-  description->initial_condition_fn = t8dg_common_initial_cond_fn (initial_cond_arg);
-  description->analytical_sol_fn = t8dg_common_analytic_solution_fn (initial_cond_arg, diffusion_coefficient);
-  description->diffusion_coefficient = diffusion_coefficient;
-  if (description->analytical_sol_fn == t8dg_scalar3d_sin_product) {
-    t8dg_scalar3d_sin_product_data_t *ana_sol_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
-    ana_sol_data->diffusion_coefficient = diffusion_coefficient;
-    ana_sol_data->dim = dim;
-    description->analytical_sol_data = ana_sol_data;
-
-    t8dg_scalar3d_sin_product_data_t *init_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
-    init_data->diffusion_coefficient = diffusion_coefficient;
-    init_data->dim = dim;
-    description->initial_condition_data = init_data;
-  }
-
-  description->velocity_field = t8dg_rotating_flux_2D_fn;
-  description->flux_data = NULL;
+  description->flux_data = flux_data;
   description->source_sink_fn = NULL;
   description->source_sink_data = NULL;
   /*boundary conditions */
 
-  description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
-  description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
-  *(double *) description->numerical_flux_advection_data = flow_speed;
   switch (numerical_flux_arg) {
   case 0:
     description->numerical_flux_diffusion_concentration = t8dg_numerical_flux1D_central;
@@ -266,10 +227,11 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          int min_level,
                                          int max_level,
                                          int adapt_arg,
-                                         int adapt_freq,
-                                         const char *prefix, int vtk_freq, int numerical_flux_arg, int igeometry, sc_MPI_Comm comm)
+                                         int adapt_freq, const char *prefix, int vtk_freq, int numerical_flux_arg, sc_MPI_Comm comm)
 {
   int                 dim;
+  int                 geometry_arg;
+  int                 velocity_field_arg;
   t8_scheme_cxx_t    *default_scheme;
   t8_cmesh_t          cmesh;
   t8_forest_t         forest;
@@ -284,25 +246,14 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
   init_time = -sc_MPI_Wtime ();
 
   default_scheme = t8_scheme_new_default_cxx ();
-  cmesh = t8dg_cmesh_new_arg (icmesh, comm);
+  cmesh = t8dg_cmesh_new_arg (icmesh, &dim, &velocity_field_arg, &geometry_arg, comm);
   forest = t8_forest_new_uniform (cmesh, default_scheme, initial_level, 1, comm);
 
-  dim = t8dg_cmesh_dim (icmesh);
+  coarse_geometry = t8dg_coarse_geometry_new_arg (geometry_arg);
 
-  if (igeometry) {
-    coarse_geometry = t8dg_coarse_geometry_new_2D_circle_ring (1, 2);
-    description =
-      t8dg_linear_advection_diffusion_problem_description_new_circle_ring (initial_cond_arg, flow_speed, diffusion_coefficient,
-                                                                           numerical_flux_arg, dim);
-
-  }
-  else {
-    coarse_geometry = t8dg_coarse_geometry_new_linear (dim);
-    description =
-      t8dg_linear_advection_diffusion_problem_description_new_constant (initial_cond_arg, flow_speed, diffusion_coefficient,
-                                                                        numerical_flux_arg, dim);
-
-  }
+  description =
+    t8dg_advect_diff_problem_description_new (initial_cond_arg, velocity_field_arg, flow_speed, diffusion_coefficient, numerical_flux_arg,
+                                              dim);
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);
 
@@ -562,6 +513,9 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
       }
       else if (problem->description->velocity_field == t8dg_rotating_flux_2D_fn) {
         delta_t = cfl * diam;
+      }
+      else if (problem->description->velocity_field == t8dg_spiral_flux_3D_fn) {
+        delta_t = cfl * diam / (2 * M_PI);
       }
       else {
         T8DG_ABORT ("Not implemented \n ");

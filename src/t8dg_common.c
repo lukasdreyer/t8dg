@@ -31,6 +31,10 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
     return t8dg_circle_ring_step_function;
   case (10):
     return t8dg_scalar2d_angle;
+  case (11):
+    return t8dg_cylinder_ring_sin_product_fn;
+  case (12):
+    return t8dg_cylinder_ring_step_function;
   default:
     return NULL;
   }
@@ -73,6 +77,10 @@ t8dg_common_analytic_solution_fn (int initial_cond_arg, double diffusion_coeffic
       return t8dg_circle_ring_step_function;
     case (10):
       return t8dg_scalar2d_angle;
+    case (11):
+      return t8dg_cylinder_ring_sin_product_fn;
+    case (12):
+      return t8dg_cylinder_ring_step_function;
     default:
       return NULL;
     }
@@ -157,6 +165,28 @@ double
 t8dg_circle_ring_step_function (const double x[3], const double t, void *fn_data)
 {
   double              center[3] = { 1.5, 0.0, 0.0 };
+  double              dist = t8_vec_dist (x, center);
+  if (dist < 0.1)
+    return 1;
+  if (dist > 0.2)
+    return 0;
+  dist = (dist - 0.1) * 10;     /* transform to [0,1] */
+  return (cos (dist * M_PI) + 1) / 2;
+}
+
+double
+t8dg_cylinder_ring_sin_product_fn (const double x[3], const double t, void *fn_data)
+{
+  double              angle = atan2 (x[1], x[0]);
+  double              radius = sqrt (x[0] * x[0] + x[1] * x[1]);
+  double              h = x[2];
+  return sin (angle) * sin ((radius - 1.5) * 2 * M_PI) * sin ((h - 0.5) * 2 * M_PI);
+}
+
+double
+t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_data)
+{
+  double              center[3] = { 1.5, 0.0, 0.5 };
   double              dist = t8_vec_dist (x, center);
   if (dist < 0.1)
     return 1;

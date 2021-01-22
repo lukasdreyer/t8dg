@@ -29,6 +29,9 @@ t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_linear ();
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_linear ();
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radius);
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_cylinder_ring_periodic (double inner_radius, double outer_radius);
+
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_arg (int geometry_arg);
 
 /**Destroy a coarse geometry*/
 void                t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry);
