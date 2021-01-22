@@ -591,4 +591,5 @@ t8dg_coarse_geometry_new_arg (int geometry_arg)
   default:
     break;
   }
+  return NULL;
 }

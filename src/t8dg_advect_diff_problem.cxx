@@ -163,6 +163,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
     *(double *) description->numerical_flux_advection_data = 2 * M_PI;
 
   default:
+    flux_data = NULL;
     break;
   }
 
