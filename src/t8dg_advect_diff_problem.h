@@ -61,7 +61,8 @@ t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_argumen
                                                                                     int adapt_arg,
                                                                                     int adapt_freq,
                                                                                     const char *prefix,
-                                                                                    int vtk_freq, int numerical_flux_arg, sc_MPI_Comm comm);
+                                                                                    int vtk_freq, int numerical_flux_arg,
+                                                                                    int source_sink_arg, sc_MPI_Comm comm);
 
 t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init (t8_forest_t forest,
                                                                           t8dg_linear_advection_diffusion_problem_description_t *

@@ -50,6 +50,8 @@ double              t8dg_cylinder_ring_sin_product_fn (const double x[3], const 
 
 double              t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_data);
 
+double              t8dg_cylinder_ring_source_fn (const double x[3], const double t, void *fn_data);
+
 T8DG_EXTERN_C_END ();
 
 #endif

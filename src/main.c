@@ -17,7 +17,7 @@ static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
                     int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq,
-                    int adapt_arg, double diffusion_coefficient, int numerical_flux_arg)
+                    int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
@@ -47,6 +47,8 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(numerical_flux_arg >= 0 && numerical_flux_arg <= 2))
     return 0;
+  if (!(source_sink_arg >= 0 && source_sink_arg <= 1))
+    return 0;
   return 1;
 }
 
@@ -66,6 +68,7 @@ main (int argc, char *argv[])
   int                 adapt_freq;
   int                 adapt_arg;
   int                 icmesh;
+  int                 source_sink_arg;
   double              flow_velocity;
   double              cfl;
   double              start_time;
@@ -129,6 +132,9 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'n', "numerical_flux", &numerical_flux_arg, 0, "Choose numerical fluxes for diffusion:\n"
                       "\t\t0: central\n" "\t\t1: alternating");
 
+  sc_options_add_int (opt, 's', "source_sink_fn", &source_sink_arg, 0, "Choose source/sink function. Default: 0\n"
+                      "\t\t0: no source sink\n" "\t\t1: 3D cylinder ring");
+
   parsed = sc_options_parse (t8dg_get_package_id (), SC_LP_ERROR, opt, argc, argv);
   if (max_level == -1)
     max_level = uniform_level;
@@ -142,13 +148,13 @@ main (int argc, char *argv[])
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
                                               start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, adapt_arg,
-                                              diffusion_coefficient, numerical_flux_arg)) {
+                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
       t8dg_advect_diff_problem_init_arguments (icmesh, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
                                                diffusion_coefficient, start_time, end_time, cfl, time_order,
                                                min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
-                                               numerical_flux_arg, sc_MPI_COMM_WORLD);
+                                               numerical_flux_arg, source_sink_arg, sc_MPI_COMM_WORLD);
 
     t8dg_advect_diff_solve (problem);
 

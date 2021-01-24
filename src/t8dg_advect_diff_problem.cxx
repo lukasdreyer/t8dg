@@ -118,7 +118,7 @@ t8dg_advect_diff_problem_accumulate_stat (t8dg_linear_advection_diffusion_proble
 
 t8dg_linear_advection_diffusion_problem_description_t *
 t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_field_arg, double flow_velocity, double diffusion_coefficient,
-                                          int numerical_flux_arg, int dim)
+                                          int numerical_flux_arg, int source_sink_arg, int dim)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
   description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
@@ -196,6 +196,19 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
     break;
   }
 
+  switch (source_sink_arg) {
+  case 0:
+    description->source_sink_fn = NULL;
+    description->source_sink_data = NULL;
+    break;
+  case 1:
+    description->source_sink_fn = t8dg_cylinder_ring_source_fn;
+    description->source_sink_data = NULL;
+    break;
+  default:
+    break;
+  }
+
   return description;
 }
 
@@ -228,7 +241,8 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          int min_level,
                                          int max_level,
                                          int adapt_arg,
-                                         int adapt_freq, const char *prefix, int vtk_freq, int numerical_flux_arg, sc_MPI_Comm comm)
+                                         int adapt_freq, const char *prefix, int vtk_freq, int numerical_flux_arg, int source_sink_arg,
+                                         sc_MPI_Comm comm)
 {
   int                 dim;
   int                 geometry_arg;
@@ -254,7 +268,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   description =
     t8dg_advect_diff_problem_description_new (initial_cond_arg, velocity_field_arg, flow_speed, diffusion_coefficient, numerical_flux_arg,
-                                              dim);
+                                              source_sink_arg, dim);
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);
 
@@ -461,6 +475,13 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
   t8dg_dof_values_subtract (dof_sum, dof_summand);      /*subtract function */
   t8dg_debugf ("boundary_matrix:\n");
   t8dg_dof_values_debug_print (dof_summand);
+
+  if (problem->description->source_sink_fn != NULL) {
+    t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->source_sink_fn, t,
+                                                     problem->description->source_sink_data, dof_summand);
+    t8dg_values_apply_mass_matrix (problem->dg_values, dof_summand, dof_summand);
+    t8dg_dof_values_add (dof_sum, dof_summand);
+  }
 
   /*apply massinverse */
   t8dg_values_apply_inverse_mass_matrix (problem->dg_values, dof_sum, dof_change);

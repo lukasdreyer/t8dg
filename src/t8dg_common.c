@@ -195,3 +195,9 @@ t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_da
   dist = (dist - 0.1) * 10;     /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
+
+double
+t8dg_cylinder_ring_source_fn (const double x[3], const double t, void *fn_data)
+{
+  return 20 * t8dg_cylinder_ring_step_function (x, t, fn_data);
+}
