@@ -380,12 +380,6 @@ t8dg_coarse_geometry_destroy (t8dg_coarse_geometry_t ** pgeometry)
   *pgeometry = NULL;
 }
 
-typedef struct t8dg_circle_ring_data
-{
-  double              inner_radius;
-  double              outer_radius;
-} t8dg_circle_ring_data_t;
-
 static double
 t8dg_circle_ring_radius (double x, t8dg_circle_ring_data_t * data)
 {
@@ -401,13 +395,43 @@ t8dg_circle_ring_radius_derivative (double x, t8dg_circle_ring_data_t * data)
 static double
 t8dg_circle_ring_angle (double y, t8_gloidx_t iglobaltree, t8dg_circle_ring_data_t * data)
 {
-  return (y + iglobaltree) * M_PI_2;
+  return (y + iglobaltree) * 2 * M_PI / data->num_trees;
 }
 
 static double
 t8dg_circle_ring_angle_derivative (double y, t8_gloidx_t iglobaltree, t8dg_circle_ring_data_t * data)
 {
-  return M_PI_2;
+  return 2 * M_PI / data->num_trees;
+}
+
+static double
+t8dg_cylinder_ring_radius (double x, t8dg_cylinder_ring_data_t * data)
+{
+  return data->inner_radius + x * (data->outer_radius - data->inner_radius);
+}
+
+static double
+t8dg_cylinder_ring_radius_derivative (double x, t8dg_cylinder_ring_data_t * data)
+{
+  return (data->outer_radius - data->inner_radius);
+}
+
+static double
+t8dg_cylinder_ring_angle (double y, t8_gloidx_t iglobaltree, t8dg_cylinder_ring_data_t * data)
+{
+  return (y + iglobaltree) * 2 * M_PI / data->num_trees;
+}
+
+static double
+t8dg_cylinder_ring_angle_derivative (double y, t8_gloidx_t iglobaltree, t8dg_cylinder_ring_data_t * data)
+{
+  return 2 * M_PI / data->num_trees;
+}
+
+static double
+t8dg_cylinder_ring_height (t8dg_cylinder_ring_data_t * data)
+{
+  return data->height;
 }
 
 static void
@@ -472,7 +496,7 @@ t8dg_circle_ring_2D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, con
 }
 
 t8dg_coarse_geometry_t *
-t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radius)
+t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radius, int num_trees)
 {
   t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);
   geometry->geometry = t8dg_circle_ring_2D_geometry_fn;
@@ -484,6 +508,7 @@ t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radiu
   circle_ring_data = T8DG_ALLOC_ZERO (t8dg_circle_ring_data_t, 1);
   circle_ring_data->inner_radius = inner_radius;
   circle_ring_data->outer_radius = outer_radius;
+  circle_ring_data->num_trees = num_trees;
 
   geometry->data = circle_ring_data;
   return geometry;
@@ -493,18 +518,18 @@ static void
 t8dg_cylinder_ring_3D_geometry_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data, const double vertex[DIM3],
                                    double image_vertex[DIM3])
 {
-  image_vertex[0] = t8dg_circle_ring_radius (vertex[0], data) * cos (t8dg_circle_ring_angle (vertex[1], iglobaltree, data));
-  image_vertex[1] = t8dg_circle_ring_radius (vertex[0], data) * sin (t8dg_circle_ring_angle (vertex[1], iglobaltree, data));
-  image_vertex[2] = vertex[2];
+  image_vertex[0] = t8dg_cylinder_ring_radius (vertex[0], data) * cos (t8dg_cylinder_ring_angle (vertex[1], iglobaltree, data));
+  image_vertex[1] = t8dg_cylinder_ring_radius (vertex[0], data) * sin (t8dg_cylinder_ring_angle (vertex[1], iglobaltree, data));
+  image_vertex[2] = vertex[2] * t8dg_cylinder_ring_height (data);
 }
 
 static double
 t8dg_cylinder_ring_3D_sqrt_gram_determinant_fn (const t8_forest_t forest, const t8_gloidx_t iglobaltree, void *data,
                                                 const double coarse_vertex[3])
 {
-  return t8dg_circle_ring_radius (coarse_vertex[0], data) * t8dg_circle_ring_radius_derivative (coarse_vertex[0],
-                                                                                                data) *
-    t8dg_circle_ring_angle_derivative (coarse_vertex[1], iglobaltree, data);
+  return t8dg_cylinder_ring_radius (coarse_vertex[0], data) * t8dg_cylinder_ring_radius_derivative (coarse_vertex[0],
+                                                                                                    data) *
+    t8dg_cylinder_ring_angle_derivative (coarse_vertex[1], iglobaltree, data) * t8dg_cylinder_ring_height (data);
 }
 
 static void
@@ -512,25 +537,25 @@ t8dg_cylinder_ring_3D_differential_invers_transpose_fn (const t8_forest_t forest
                                                         const double coarse_vertex[3], const double coarse_tangential_vector[3],
                                                         double transformed_gradient_tangential_vector[3])
 {
-  double              radius, radius_der, angle, angle_der;
+  double              radius, radius_der, angle, angle_der, height;
   double              a, b, c, d, x, y;
   double              det;
   x = coarse_vertex[0];
   y = coarse_vertex[1];
-  radius_der = t8dg_circle_ring_radius_derivative (x, data);
-  radius = t8dg_circle_ring_radius (x, data);
-  angle = t8dg_circle_ring_angle (y, iglobaltree, data);
-  angle_der = t8dg_circle_ring_angle_derivative (y, iglobaltree, data);
+  radius_der = t8dg_cylinder_ring_radius_derivative (x, data);
+  radius = t8dg_cylinder_ring_radius (x, data);
+  angle = t8dg_cylinder_ring_angle (y, iglobaltree, data);
+  angle_der = t8dg_cylinder_ring_angle_derivative (y, iglobaltree, data);
   a = radius_der * cos (angle);
   b = -radius * sin (angle) * angle_der;
   c = radius_der * sin (angle);
   d = radius * cos (angle) * angle_der;
   det = a * d - b * c;
-  T8DG_ASSERT (fabs (det - t8dg_circle_ring_2D_sqrt_gram_determinant_fn (forest, iglobaltree, data, coarse_vertex)) < 1e-12);
+  height = t8dg_cylinder_ring_height (data);
 
   transformed_gradient_tangential_vector[0] = (d * coarse_tangential_vector[0] - c * coarse_tangential_vector[1]) / det;
   transformed_gradient_tangential_vector[1] = (-b * coarse_tangential_vector[0] + a * coarse_tangential_vector[1]) / det;
-  transformed_gradient_tangential_vector[2] = (coarse_tangential_vector[2]);
+  transformed_gradient_tangential_vector[2] = (coarse_tangential_vector[2]) / height;
 }
 
 static double
@@ -539,14 +564,17 @@ t8dg_cylinder_ring_3D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, c
 {
   switch (iface / 2) {
   case 0:
-    return t8dg_circle_ring_angle_derivative (coarse_vertex[1], iglobaltree, data) * t8dg_circle_ring_radius (coarse_vertex[0], data);
+    return t8dg_cylinder_ring_angle_derivative (coarse_vertex[1], iglobaltree, data) * t8dg_cylinder_ring_radius (coarse_vertex[0], data);
     break;
 
   case 1:
-    return t8dg_circle_ring_radius_derivative (coarse_vertex[0], data);
+    return t8dg_cylinder_ring_height (data) * t8dg_cylinder_ring_radius_derivative (coarse_vertex[0], data);
     break;
   case 2:
-    return t8dg_circle_ring_2D_sqrt_gram_determinant_fn (forest, iglobaltree, data, coarse_vertex);
+    return t8dg_cylinder_ring_height (data) * t8dg_cylinder_ring_radius (coarse_vertex[0],
+                                                                         data) * t8dg_cylinder_ring_radius_derivative (coarse_vertex[0],
+                                                                                                                       data) *
+      t8dg_cylinder_ring_angle_derivative (coarse_vertex[1], iglobaltree, data);
     break;
 
   default:
@@ -556,7 +584,7 @@ t8dg_cylinder_ring_3D_sqrt_face_gram_determinant_fn (const t8_forest_t forest, c
 }
 
 t8dg_coarse_geometry_t *
-t8dg_coarse_geometry_new_3D_cylinder_ring (double inner_radius, double outer_radius)
+t8dg_coarse_geometry_new_3D_cylinder_ring (double inner_radius, double outer_radius, int num_trees, double height)
 {
   t8dg_coarse_geometry_t *geometry = T8_ALLOC (t8dg_coarse_geometry_t, 1);
   geometry->geometry = t8dg_cylinder_ring_3D_geometry_fn;
@@ -564,12 +592,13 @@ t8dg_coarse_geometry_new_3D_cylinder_ring (double inner_radius, double outer_rad
   geometry->sqrt_face_gram_det = t8dg_cylinder_ring_3D_sqrt_face_gram_determinant_fn;
   geometry->differential_invers_transpose = t8dg_cylinder_ring_3D_differential_invers_transpose_fn;
   geometry->attribute_data_type = T8DG_TREE_VERTICES;
-  t8dg_circle_ring_data_t *circle_ring_data;
-  circle_ring_data = T8DG_ALLOC_ZERO (t8dg_circle_ring_data_t, 1);
-  circle_ring_data->inner_radius = inner_radius;
-  circle_ring_data->outer_radius = outer_radius;
-
-  geometry->data = circle_ring_data;
+  t8dg_cylinder_ring_data_t *cylinder_ring_data;
+  cylinder_ring_data = T8DG_ALLOC_ZERO (t8dg_cylinder_ring_data_t, 1);
+  cylinder_ring_data->inner_radius = inner_radius;
+  cylinder_ring_data->outer_radius = outer_radius;
+  cylinder_ring_data->num_trees = num_trees;
+  cylinder_ring_data->height = height;
+  geometry->data = cylinder_ring_data;
   return geometry;
 }
 
@@ -584,9 +613,9 @@ t8dg_coarse_geometry_new_arg (int geometry_arg)
   case 2:
     return t8dg_coarse_geometry_new_3D_linear ();
   case 3:
-    return t8dg_coarse_geometry_new_2D_circle_ring (1, 2);
+    return t8dg_coarse_geometry_new_2D_circle_ring (1, 2, 4);
   case 4:
-    return t8dg_coarse_geometry_new_3D_cylinder_ring (1, 2);
+    return t8dg_coarse_geometry_new_3D_cylinder_ring (1, 2, 4, 2);
 
   default:
     break;

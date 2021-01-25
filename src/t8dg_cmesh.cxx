@@ -1,6 +1,8 @@
 #include "t8dg_cmesh.h"
+#include "t8dg_coarse_geometry.h"
 #include <t8_cmesh.h>
 #include <t8_cmesh_vtk.h>
+#include <t8_vec.h>
 #include <t8_geometry/t8_geometry_implementations/t8_geometry_analytic.hxx>
 #include <t8_geometry/t8_geometry_implementations/t8_geometry_linear.h>
 #include <t8_geometry/t8_geometry_helpers.h>
@@ -77,7 +79,7 @@ t8dg_cmesh_new_arg (int icmesh, int *dim, int *velocity_field_arg, int *geometry
     *geometry_arg = 1;
     break;
   case 11:
-    cmesh = t8dg_cmesh_new_cylinder_ring_periodic (comm, 1, 2, 4);
+    cmesh = t8dg_cmesh_new_cylinder_ring_periodic (comm, 1, 2, 4, 2);
     *dim = 3;
     *velocity_field_arg = 2;
     *geometry_arg = 4;
@@ -330,13 +332,14 @@ t8dg_analytic_circle_ring (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   double              radius;
   double              angle;
 
-  radius = 1 + ref_coords[0];
-  angle = ref_coords[1] * M_PI_2 + gtreeid * M_PI_2;
+  t8dg_cylinder_ring_data_t *geometry_data;
+
+  radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
+  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
 
   out_coords[0] = radius * cos (angle);
   out_coords[1] = radius * sin (angle);
   out_coords[2] = 0;
-
 }
 
 t8_cmesh_t
@@ -391,18 +394,21 @@ t8dg_analytic_cylinder_ring (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   double              radius;
   double              angle;
 
-  radius = 1 + ref_coords[0];
-  angle = ref_coords[1] * M_PI_2 + gtreeid * M_PI_2;
+  t8dg_cylinder_ring_data_t *geometry_data = (t8dg_cylinder_ring_data_t *) user_data;
+
+  radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
+  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
 
   out_coords[0] = radius * cos (angle);
   out_coords[1] = radius * sin (angle);
-  out_coords[2] = ref_coords[2];
+  out_coords[2] = geometry_data->height * ref_coords[2];
 
 }
 
 t8_cmesh_t
-t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees)
+t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees, double height)
 {
+  t8dg_cylinder_ring_data_t *geometry_data;
   t8_cmesh_t          cmesh;
   t8_geometry_c      *geometry;
 
@@ -427,16 +433,16 @@ t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, do
     vertices[11] = 0;
     vertices[12] = cos (itree * angle) * inner_radius;
     vertices[13] = sin (itree * angle) * inner_radius;
-    vertices[14] = 1;
+    vertices[14] = height;
     vertices[15] = cos (itree * angle) * outer_radius;
     vertices[16] = sin (itree * angle) * outer_radius;
-    vertices[17] = 1;
+    vertices[17] = height;
     vertices[18] = cos ((itree + 1) * angle) * inner_radius;
     vertices[19] = sin ((itree + 1) * angle) * inner_radius;
-    vertices[20] = 1;
+    vertices[20] = height;
     vertices[21] = cos ((itree + 1) * angle) * outer_radius;
     vertices[22] = sin ((itree + 1) * angle) * outer_radius;
-    vertices[23] = 1;
+    vertices[23] = height;
 
     t8_cmesh_set_tree_class (cmesh, itree, T8_ECLASS_HEX);
     t8_cmesh_set_tree_vertices (cmesh, itree, vertices, 8);
@@ -448,10 +454,82 @@ t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, do
   }
   t8_cmesh_set_join (cmesh, num_trees - 1, 0, 3, 2, 0);
 
+  geometry_data = T8DG_ALLOC_ZERO (t8dg_cylinder_ring_data_t, 1);
+  geometry_data->inner_radius = inner_radius;
+  geometry_data->outer_radius = outer_radius;
+  geometry_data->num_trees = num_trees;
+  geometry_data->height = height;
+
   geometry =
-    new t8_geometry_analytic (2, "analytic cylinder ring", t8dg_analytic_cylinder_ring, NULL, t8_geom_load_tree_data_vertices, NULL);
+    new t8_geometry_analytic (2, "analytic cylinder ring", t8dg_analytic_cylinder_ring, NULL, t8_geom_load_tree_data_vertices,
+                              geometry_data);
   t8_cmesh_register_geometry (cmesh, geometry);
 
   t8_cmesh_commit (cmesh, comm);
   return cmesh;
 }
+
+static void
+t8dg_analytic_sphere_extruded (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
+                               const double *ref_coords, double out_coords[3], const void *tree_vertices, const void *user_data)
+{
+
+  const double       *tree_v = (const double *) tree_vertices;
+  t8_locidx_t         ltreeid = t8_cmesh_get_local_id (cmesh, gtreeid);
+  t8_eclass_t         tree_class = t8_cmesh_get_tree_class (cmesh, ltreeid);
+  t8_geom_compute_linear_geometry (tree_class, tree_v, ref_coords, out_coords);
+
+  int                 direction = gtreeid / 2;
+  double              radius = out_coords[direction];
+  out_coords[direction] = (gtreeid % 2) * 2 - 1;        /*first of two faces in one direction maps to -1, the other to 1 */
+  double              norm = t8_vec_norm (out_coords);
+  int                 idim;
+  for (idim = 0; idim < DIM3; idim++) {
+    out_coords[idim] *= radius / norm;
+  }
+}
+
+#if 0
+t8_cmesh_t
+t8dg_cmesh_new_sphere_extruded (sc_MPI_Comm comm, void *t8dg_sphere_extruded_data)
+{
+  t8_cmesh_t          cmesh;
+  t8_geometry_c      *geometry;
+
+  double              vertices[24] = { 0 };
+  int                 itree, num_trees = 6;
+  int                 distance_coordinate, x_coordinate, y_coordinate, distance_factor, ivertex;
+
+  double              inner_radius;
+  double              outer_radius;     // get from user_data
+
+  t8_cmesh_init (&cmesh);
+
+  for (itree = 0; itree < num_trees; itree++) {
+/* TODO:
+    distance_coordinate = itree/2;
+    x_coordinate = ;
+    y_coordinate = ;
+    distance_factor = 2* itree -1;
+*/
+    for (ivertex = 0; ivertex < 8; ivertex++) {
+      vertices[ivertex * 3 + x_coordinate] = 2 * (ivertex % 2) - 1;
+      vertices[ivertex * 3 + y_coordinate] = 2 * (ivertex % 4) - 1;
+      vertices[ivertex * 3 + distance_coordinate] = (ivertex % 8) ? inner_radius : outer_radius;
+      vertices[ivertex * 3 + distance_coordinate] *= distance_factor;
+    }
+    t8_cmesh_set_tree_class (cmesh, itree, T8_ECLASS_HEX);
+    t8_cmesh_set_tree_vertices (cmesh, itree, vertices, 8);
+  }
+
+  t8_cmesh_set_join (cmesh, 0, 1, 1, 0, 0);
+
+  geometry =
+    new t8_geometry_analytic (2, "analytic cylinder ring", t8dg_analytic_cylinder_ring, NULL, t8_geom_load_tree_data_vertices,
+                              t8dg_sphere_extruded_data);
+  t8_cmesh_register_geometry (cmesh, geometry);
+
+  t8_cmesh_commit (cmesh, comm);
+  return cmesh;
+}
+#endif

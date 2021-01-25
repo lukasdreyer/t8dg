@@ -19,6 +19,21 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
+typedef struct t8dg_circle_ring_data
+{
+  double              inner_radius;
+  double              outer_radius;
+  int                 num_trees;
+} t8dg_circle_ring_data_t;
+
+typedef struct t8dg_cylinder_ring_data
+{
+  double              inner_radius;
+  double              outer_radius;
+  double              height;
+  int                 num_trees;
+} t8dg_cylinder_ring_data_t;
+
 typedef struct t8dg_coarse_geometry t8dg_coarse_geometry_t;
 
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_linear (int dim);
@@ -28,8 +43,8 @@ t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_1D_linear ();
 /**Create a new coarse geometry for the linear 2D case*/
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_linear ();
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_linear ();
-t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radius);
-t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_cylinder_ring_periodic (double inner_radius, double outer_radius);
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_2D_circle_ring (double inner_radius, double outer_radius, int num_trees);
+t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_3D_cylinder_ring (double inner_radius, double outer_radius, int num_trees, double height);
 
 t8dg_coarse_geometry_t *t8dg_coarse_geometry_new_arg (int geometry_arg);
 

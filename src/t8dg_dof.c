@@ -439,7 +439,6 @@ t8dg_element_dof_values_is_valid (t8dg_element_dof_values_t * element_dof_values
 {
   T8DG_ASSERT (element_dof_values->elem_size == sizeof (double));
   t8dg_dofidx_t       iarray;
-  return 1;                     //TODO: delete!
   for (iarray = 0; iarray < element_dof_values->elem_count; iarray++) {
     if (*(double *) sc_array_index (element_dof_values, iarray) != *(double *) sc_array_index (element_dof_values, iarray)) {
       return 0;

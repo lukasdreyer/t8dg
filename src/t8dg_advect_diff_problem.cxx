@@ -318,9 +318,13 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
                                                    t8dg_timestepping_data_get_current_time (problem->time_data),
                                                    problem->description->initial_condition_data, problem->dof_values);
 
-  int                 ilevel;
+  int                 iadapt, adapt_steps;
 
-  for (ilevel = problem->adapt_data->initial_refinement_level; ilevel < problem->adapt_data->maximum_refinement_level; ilevel++) {
+  adapt_steps =
+    SC_MAX (problem->adapt_data->maximum_refinement_level - problem->adapt_data->initial_refinement_level,
+            problem->adapt_data->initial_refinement_level - problem->adapt_data->minimum_refinement_level);
+
+  for (iadapt = 0; iadapt < adapt_steps; iadapt++) {
     /* initial adapt */
     t8dg_advect_diff_problem_adapt (problem, 0);
     /* repartition */
@@ -358,6 +362,7 @@ t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** p
   t8dg_dof_values_destroy (&problem->dof_values);
   t8dg_values_destroy (&problem->dg_values);
   /* Unref the forest */
+
   t8_forest_unref (&problem->forest);   /*unrefs coarse mesh as well */
   /* Free the problem and set pointer to NULL */
   T8_FREE (problem);

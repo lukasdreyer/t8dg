@@ -23,7 +23,8 @@ t8_cmesh_t          t8dg_cmesh_new_circle_ring (sc_MPI_Comm comm, double inner_r
 
 t8_cmesh_t          t8dg_cmesh_new_square_half_periodic (sc_MPI_Comm comm);
 
-t8_cmesh_t          t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees);
+t8_cmesh_t          t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees,
+                                                           double height);
 
 T8DG_EXTERN_C_END ();
 
