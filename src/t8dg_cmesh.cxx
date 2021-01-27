@@ -333,7 +333,7 @@ t8dg_analytic_circle_ring (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   double              angle;
 
   t8dg_cylinder_ring_data_t *geometry_data;
-
+  geometry_data = (t8dg_cylinder_ring_data_t *) user_data;
   radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
   angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
 
@@ -469,6 +469,7 @@ t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, do
   return cmesh;
 }
 
+#if 0
 static void
 t8dg_analytic_sphere_extruded (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
                                const double *ref_coords, double out_coords[3], const void *tree_vertices, const void *user_data)
@@ -489,7 +490,6 @@ t8dg_analytic_sphere_extruded (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   }
 }
 
-#if 0
 t8_cmesh_t
 t8dg_cmesh_new_sphere_extruded (sc_MPI_Comm comm, void *t8dg_sphere_extruded_data)
 {

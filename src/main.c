@@ -16,8 +16,8 @@
 static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
-                    int number_LGL_points, double start_time, double end_time, double cfl, int time_order, int vtk_freq, int adapt_freq,
-                    int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
+                    int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_order, int vtk_freq,
+                    int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
@@ -33,7 +33,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(start_time < end_time))
     return 0;
-  if (!(cfl > 0 && cfl <= 1))
+  if (!((cfl > 0 && cfl <= 1) || (cfl == 0 && delta_t > 0)))
     return 0;
   if (!(time_order >= 1 && time_order <= 4))
     return 0;
@@ -73,6 +73,7 @@ main (int argc, char *argv[])
   double              cfl;
   double              start_time;
   double              end_time;
+  double              delta_t;
   double              diffusion_coefficient;
   const char         *prefix;
   int                 numerical_flux_arg;
@@ -128,6 +129,7 @@ main (int argc, char *argv[])
   sc_options_add_double (opt, 'C', "CFL", &cfl, 1.0, "The CFL number used to determine the timestep. Default: 1.0");
   sc_options_add_double (opt, 't', "start_time", &start_time, 0.0, "The start time of the solve. Default: 0.0");
   sc_options_add_double (opt, 'T', "end_time", &end_time, 1.0, "The end time of the solve. Default: 1.0");
+  sc_options_add_double (opt, 'D', "delta_t", &delta_t, 0.1, "If CFL=0 is given, you can enter the constant timestep. Default 0.1");
 
   sc_options_add_int (opt, 'n', "numerical_flux", &numerical_flux_arg, 0, "Choose numerical fluxes for diffusion:\n"
                       "\t\t0: central\n" "\t\t1: alternating");
@@ -147,12 +149,12 @@ main (int argc, char *argv[])
     sc_options_print_usage (t8dg_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
-                                              start_time, end_time, cfl, time_order, vtk_freq, adapt_freq, adapt_arg,
+                                              start_time, end_time, cfl, delta_t, time_order, vtk_freq, adapt_freq, adapt_arg,
                                               diffusion_coefficient, numerical_flux_arg, source_sink_arg)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
       t8dg_advect_diff_problem_init_arguments (icmesh, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
-                                               diffusion_coefficient, start_time, end_time, cfl, time_order,
+                                               diffusion_coefficient, start_time, end_time, cfl, delta_t, time_order,
                                                min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
                                                numerical_flux_arg, source_sink_arg, sc_MPI_COMM_WORLD);
 

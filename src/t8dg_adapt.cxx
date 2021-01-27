@@ -22,7 +22,8 @@ t8dg_adapt_fn_arg (int adapt_arg)
 }
 
 t8dg_adapt_data_t  *
-t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level, int max_level, int adapt_fn_arg, int adapt_freq)
+t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level, int max_level, int adapt_fn_arg,
+                     int adapt_freq, t8dg_scalar_function_3d_time_fn source_sink_fn, void *source_sink_data)
 {
   t8dg_adapt_data_t  *adapt_data;
   adapt_data = T8DG_ALLOC_ZERO (t8dg_adapt_data_t, 1);
@@ -32,7 +33,21 @@ t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level
   adapt_data->maximum_refinement_level = max_level;
   adapt_data->adapt_fn = t8dg_adapt_fn_arg (adapt_fn_arg);
   adapt_data->adapt_freq = adapt_freq;
+  adapt_data->source_sink_fn = source_sink_fn;
+  adapt_data->source_sink_data = source_sink_data;
+
   return adapt_data;
+}
+
+void
+t8dg_adapt_data_interpolate_source_fn (t8dg_adapt_data_t * adapt_data)
+{
+  double              time = 0;
+   /*TODO*/
+    adapt_data->source_sink_dof =
+    t8dg_dof_values_new (t8dg_values_get_forest (adapt_data->dg_values), t8dg_values_get_global_values_array (adapt_data->dg_values));
+  t8dg_values_interpolate_scalar_function_3d_time (adapt_data->dg_values, adapt_data->source_sink_fn, time, adapt_data->source_sink_data,
+                                                   adapt_data->source_sink_dof);
 }
 
 void
@@ -73,6 +88,7 @@ t8dg_adapt_mass (t8_forest_t forest,
   if (norm / area > 0.2) {
     return level < adapt_data->maximum_refinement_level;
   }
+
   if (num_elements > 1) {
     if (level == adapt_data->minimum_refinement_level) {
       return 0;                 /* It is not possible to coarsen this element. If this is wanted, balance is needed outside */
@@ -126,7 +142,16 @@ t8dg_adapt_rel_min_max (t8_forest_t forest,
         return 1;
       }
     }
+    if (adapt_data->source_sink_fn != NULL) {
+      //Check source and sink function
+      max_value = t8dg_dof_values_get_max_value (adapt_data->source_sink_dof, itree, lelement_id);
+      min_value = t8dg_dof_values_get_min_value (adapt_data->source_sink_dof, itree, lelement_id);
+      if (min_value != 0 || max_value != 0) {
+        return 1;
+      }
+    }
   }
+
   //not refine, check coarsen
   if (num_elements == 1 || level <= adapt_data->minimum_refinement_level) {
     return 0;

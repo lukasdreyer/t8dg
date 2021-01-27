@@ -35,7 +35,9 @@ void
 
 void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
 
-t8dg_timestepping_data_t *t8dg_timestepping_data_new (int time_order, double start_time, double end_time, double cfl);
+t8dg_timestepping_data_t *t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl);
+
+t8dg_timestepping_data_t *t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t);
 
 void                t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data);
 

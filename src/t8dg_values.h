@@ -73,6 +73,8 @@ t8dg_global_values_t *t8dg_values_get_global_values_adapt (t8dg_values_t * value
 
 t8dg_global_values_t **t8dg_values_get_global_values_array (t8dg_values_t * values);
 
+t8_forest_t         t8dg_values_get_forest (t8dg_values_t * values);
+
 double              t8dg_values_element_norm_l2_squared (t8dg_values_t * values, t8dg_element_dof_values_t * element_dof, t8_locidx_t itree,
                                                          t8_locidx_t ielement);
 double              t8dg_values_element_area (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement);

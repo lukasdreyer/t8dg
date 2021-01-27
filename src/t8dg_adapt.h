@@ -21,12 +21,19 @@ typedef struct t8dg_adapt_data
   t8dg_values_t      *dg_values;
 
   t8_forest_adapt_t   adapt_fn;
+
+  t8dg_scalar_function_3d_time_fn source_sink_fn;
+  void               *source_sink_data;
+  t8dg_dof_values_t  *source_sink_dof;
+
 } t8dg_adapt_data_t;
 
 t8_forest_adapt_t   t8dg_adapt_fn_arg (int adapt_arg);
 
 t8dg_adapt_data_t  *t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level, int max_level, int adapt_fn_arg,
-                                         int adapt_freq);
+                                         int adapt_freq, t8dg_scalar_function_3d_time_fn source_sink_fn, void *source_sink_data);
+
+void                t8dg_adapt_data_interpolate_source_fn (t8dg_adapt_data_t * adapt_data);
 
 void                t8dg_adapt_data_destroy (t8dg_adapt_data_t ** p_adapt_data);
 

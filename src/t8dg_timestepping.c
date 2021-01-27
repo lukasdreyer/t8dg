@@ -110,7 +110,7 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
 }
 
 t8dg_timestepping_data_t *
-t8dg_timestepping_data_new (int time_order, double start_time, double end_time, double cfl)
+t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -120,6 +120,20 @@ t8dg_timestepping_data_new (int time_order, double start_time, double end_time, 
   time_data->cfl = cfl;
   time_data->step_number = 0;
   time_data->delta_t = -1;
+  return time_data;
+}
+
+t8dg_timestepping_data_t *
+t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t)
+{
+  T8DG_ASSERT (time_order > 0);
+  t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
+  time_data->time_order = time_order;
+  time_data->t = start_time;
+  time_data->T = end_time;
+  time_data->cfl = 0;
+  time_data->step_number = 0;
+  time_data->delta_t = delta_t;
   return time_data;
 }
 

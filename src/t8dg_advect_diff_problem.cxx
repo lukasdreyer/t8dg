@@ -237,6 +237,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          double start_time,
                                          double end_time,
                                          double cfl,
+                                         double delta_t,
                                          int time_order,
                                          int min_level,
                                          int max_level,
@@ -272,10 +273,17 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);
 
-  adapt_data = t8dg_adapt_data_new (dg_values, initial_level, min_level, max_level, adapt_arg, adapt_freq);
+  adapt_data =
+    t8dg_adapt_data_new (dg_values, initial_level, min_level, max_level, adapt_arg, adapt_freq, description->source_sink_fn,
+                         description->source_sink_data);
 
   vtk_data = t8dg_output_vtk_data_new (prefix, vtk_freq);
-  time_data = t8dg_timestepping_data_new (time_order, start_time, end_time, cfl);
+  if (cfl > 0) {
+    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl);
+  }
+  else {
+    time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t);
+  }
   init_time += sc_MPI_Wtime ();
 
   return t8dg_advect_diff_problem_init (forest, description, dg_values, time_data, adapt_data, vtk_data, init_time, comm);
@@ -522,6 +530,13 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
   min_delta_t = time_left;
   cfl = t8dg_timestepping_data_get_cfl (problem->time_data);
 
+  if (cfl <= 0) {
+    /*No CFL criterion given, constant timestep used except in last step */
+    delta_t = SC_MAX (t8dg_timestepping_data_get_time_step (problem->time_data), min_delta_t);
+    t8dg_timestepping_data_set_time_step (problem->time_data, delta_t);
+    return;
+  }
+
   num_trees = t8_forest_get_num_local_trees (problem->forest);
   for (itree = 0; itree < num_trees; itree++) {
     num_elems_in_tree = t8_forest_get_tree_num_elements (problem->forest, itree);
@@ -585,6 +600,7 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   t8_forest_set_profiling (forest_adapt, 1);
 
   problem->adapt_data->dof_values = problem->dof_values;
+  t8dg_adapt_data_interpolate_source_fn (problem->adapt_data);
 
   /* Set the user data pointer of the new forest */
   t8_forest_set_user_data (forest_adapt, problem->adapt_data);
@@ -600,6 +616,8 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   t8_forest_set_ghost (forest_adapt, 1, T8_GHOST_FACES);
   /* Commit the forest, adaptation and balance happens here */
   t8_forest_commit (forest_adapt);
+
+  t8dg_dof_values_destroy (&problem->adapt_data->source_sink_dof);
 
   if (measure_time) {
     adapt_time = t8_forest_profile_get_adapt_time (forest_adapt);

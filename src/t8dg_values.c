@@ -651,3 +651,9 @@ t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_va
 #endif
   return -1;
 }
+
+t8_forest_t
+t8dg_values_get_forest (t8dg_values_t * values)
+{
+  return values->forest;
+}
