@@ -193,7 +193,7 @@ t8dg_element_dof_values_get_value (t8dg_element_dof_values_t * element_dof_value
 void
 t8dg_element_dof_values_set_value (t8dg_element_dof_values_t * element_dof_values, t8dg_dofidx_t idof, double value)
 {
-  T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dof_values));
+  T8DG_ASSERT (t8dg_element_dof_values_is_init (element_dof_values));
   T8DG_ASSERT (idof >= 0 && idof < element_dof_values->elem_count);
   *(double *) sc_array_index (element_dof_values, idof) = value;
 }
@@ -408,7 +408,7 @@ t8dg_element_dof_values_clone (t8dg_element_dof_values_t * element_dof_values)
 void
 t8dg_element_dof_values_copy (t8dg_element_dof_values_t * src, t8dg_element_dof_values_t * dest)
 {
-  T8DG_ASSERT (t8dg_element_dof_values_is_valid (src) && t8dg_element_dof_values_is_valid (dest));
+  T8DG_ASSERT (t8dg_element_dof_values_is_valid (src) && t8dg_element_dof_values_is_init (dest));
   memcpy (dest->array, src->array, src->elem_count * src->elem_size);
 }
 
@@ -445,7 +445,16 @@ t8dg_element_dof_values_is_valid (t8dg_element_dof_values_t * element_dof_values
     }
   }
   return 1;
+}
 
+int
+t8dg_element_dof_values_is_init (t8dg_element_dof_values_t * element_dof_values)
+{
+  T8DG_ASSERT (element_dof_values != NULL);
+  T8DG_ASSERT (element_dof_values->elem_size == sizeof (double));
+  T8DG_ASSERT (element_dof_values->elem_size >= 0);
+  T8DG_ASSERT (element_dof_values->array != NULL);
+  return 1;
 }
 
 double

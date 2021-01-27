@@ -33,6 +33,9 @@ t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level
   adapt_data->maximum_refinement_level = max_level;
   adapt_data->adapt_fn = t8dg_adapt_fn_arg (adapt_fn_arg);
   adapt_data->adapt_freq = adapt_freq;
+  if (min_level == max_level) {
+    adapt_data->adapt_freq = 0;
+  }
   adapt_data->source_sink_fn = source_sink_fn;
   adapt_data->source_sink_data = source_sink_data;
 

@@ -131,6 +131,8 @@ void                t8dg_face_dof_values_orient_back (t8dg_face_dof_values_t * f
 double              t8dg_dof_values_get_max_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement);
 double              t8dg_dof_values_get_min_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement);
 
+int                 t8dg_element_dof_values_is_init (t8dg_element_dof_values_t * element_dof_values);
+
 T8DG_EXTERN_C_END ();
 
 #endif // SRC_T8DG_DOF_H_

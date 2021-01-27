@@ -16,7 +16,7 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
   case (2):
     return t8dg_scalar1d_step_function;
   case (3):
-    return t8dg_scalar3d_sin_product;
+    return t8dg_scalar3d_cos_product;
   case (4):
     return t8dg_scalar3d_norm_function;
   case (5):
@@ -48,7 +48,7 @@ t8dg_common_analytic_solution_fn (int initial_cond_arg, double diffusion_coeffic
     case (0):
       return t8dg_scalar3d_constant_one;
     case (3):
-      return t8dg_scalar3d_sin_product;
+      return t8dg_scalar3d_cos_product;
     default:
       return NULL;
     }
@@ -62,7 +62,7 @@ t8dg_common_analytic_solution_fn (int initial_cond_arg, double diffusion_coeffic
     case (2):
       return t8dg_scalar1d_step_function;
     case (3):
-      return t8dg_scalar3d_sin_product;
+      return t8dg_scalar3d_cos_product;
     case (4):
       return t8dg_scalar3d_norm_function;
     case (5):
@@ -100,11 +100,11 @@ t8dg_scalar2d_angle (const double x[3], const double t, void *fn_data)
 }
 
 double
-t8dg_scalar3d_sin_product (const double x[3], const double t, void *fn_data)
+t8dg_scalar3d_cos_product (const double x[3], const double t, void *fn_data)
 {
-  t8dg_scalar3d_sin_product_data_t *sin_data = fn_data;
-  int                 dimension = sin_data->dim;
-  double              diffusion_coefficient = sin_data->diffusion_coefficient;
+  t8dg_scalar3d_cos_product_data_t *cos_data = fn_data;
+  int                 dimension = cos_data->dim;
+  double              diffusion_coefficient = cos_data->diffusion_coefficient;
   return exp (-diffusion_coefficient * dimension * 4 * M_PI * M_PI * t) * cos (2 * M_PI * x[0]) * cos (2 * M_PI * x[1]) * cos (2 * M_PI *
                                                                                                                                x[2]);
 }
@@ -199,5 +199,5 @@ t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_da
 double
 t8dg_cylinder_ring_source_fn (const double x[3], const double t, void *fn_data)
 {
-  return 20 * t8dg_cylinder_ring_step_function (x, t, fn_data);
+  return 30 * t8dg_cylinder_ring_step_function (x, t, fn_data);
 }

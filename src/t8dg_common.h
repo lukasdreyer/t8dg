@@ -10,11 +10,11 @@
 typedef double      (*t8dg_scalar_function_3d_time_fn) (const double x[DIM3], const double t, void *fn_data);
 typedef double      (*t8dg_scalar_function_3d_fn) (const double x[DIM3], void *scalar_fn_data);
 
-typedef struct t8dg_scalar3d_sin_product_data
+typedef struct t8dg_scalar3d_cos_product_data
 {
   int                 dim;
   double              diffusion_coefficient;
-} t8dg_scalar3d_sin_product_data_t;
+} t8dg_scalar3d_cos_product_data_t;
 
 T8DG_EXTERN_C_BEGIN ();
 
@@ -38,7 +38,7 @@ double              t8dg_scalar3d_step_function (const double x[3], const double
 
 double              t8dg_scalar3d_constant_one (const double x[3], const double t, void *fn_data);
 
-double              t8dg_scalar3d_sin_product (const double x[3], const double t, void *fn_data);
+double              t8dg_scalar3d_cos_product (const double x[3], const double t, void *fn_data);
 
 double              t8dg_scalar3d_constant_zero (const double x[3], const double t, void *fn_data);
 

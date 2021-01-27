@@ -38,13 +38,14 @@ typedef enum
   ADVECT_DIFF_REPLACE,          /* forest_iterate_replace runtime */
   ADVECT_DIFF_IO,               /* vtk runtime */
   ADVECT_DIFF_INIT,             /* initialization runtime */
-  ADVECT_DIFF_AMR,              /* AMR runtime (adapt+partition+ghost+balance) including data exchange (partition/ghost) */
-  ADVECT_DIFF_SOLVE,            /* solver runtime */
+  ADVECT_DIFF_AMR,              /* AMR runtime (adapt+partition+ghost+balance) */
+  ADVECT_DIFF_SOLVE,            /* solver runtime, including ghost_data when needed for boundaryfluxes */
   ADVECT_DIFF_TOTAL,            /* overall runtime */
 
   ADVECT_DIFF_ELEM_AVG,         /* average global number of elements (per time step) */
   ADVECT_DIFF_ERROR_INF,        /* l_infty error */
   ADVECT_DIFF_ERROR_2,          /* L_2 error */
+  ADVECT_DIFF_ERROR_TV,         /* Total Variation error */
   ADVECT_DIFF_VOL_LOSS,         /* The loss in volume in percent */
 
   ADVECT_DIFF_NUM_STATS,        /* The number of statistics that we measure */
@@ -68,6 +69,7 @@ const char         *advect_diff_stat_names[ADVECT_DIFF_NUM_STATS] = {
 
   "l_infty_error",
   "l_2_error",
+  "tv_error",
   "mass_loss_[%]"
 };
 
@@ -126,13 +128,13 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
   description->initial_condition_fn = t8dg_common_initial_cond_fn (initial_cond_arg);
   description->analytical_sol_fn = t8dg_common_analytic_solution_fn (initial_cond_arg, diffusion_coefficient);
   description->diffusion_coefficient = diffusion_coefficient;
-  if (description->analytical_sol_fn == t8dg_scalar3d_sin_product) {
-    t8dg_scalar3d_sin_product_data_t *ana_sol_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
+  if (description->analytical_sol_fn == t8dg_scalar3d_cos_product) {
+    t8dg_scalar3d_cos_product_data_t *ana_sol_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_cos_product_data_t, 1);
     ana_sol_data->diffusion_coefficient = diffusion_coefficient;
     ana_sol_data->dim = dim;
     description->analytical_sol_data = ana_sol_data;
 
-    t8dg_scalar3d_sin_product_data_t *init_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_sin_product_data_t, 1);
+    t8dg_scalar3d_cos_product_data_t *init_data = T8DG_ALLOC_ZERO (t8dg_scalar3d_cos_product_data_t, 1);
     init_data->diffusion_coefficient = diffusion_coefficient;
     init_data->dim = dim;
     description->initial_condition_data = init_data;
@@ -532,7 +534,7 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
 
   if (cfl <= 0) {
     /*No CFL criterion given, constant timestep used except in last step */
-    delta_t = SC_MAX (t8dg_timestepping_data_get_time_step (problem->time_data), min_delta_t);
+    delta_t = SC_MIN (t8dg_timestepping_data_get_time_step (problem->time_data), min_delta_t);
     t8dg_timestepping_data_set_time_step (problem->time_data, delta_t);
     return;
   }
@@ -600,7 +602,9 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   t8_forest_set_profiling (forest_adapt, 1);
 
   problem->adapt_data->dof_values = problem->dof_values;
-  t8dg_adapt_data_interpolate_source_fn (problem->adapt_data);
+  if (problem->adapt_data->source_sink_fn != NULL) {
+    t8dg_adapt_data_interpolate_source_fn (problem->adapt_data);
+  }
 
   /* Set the user data pointer of the new forest */
   t8_forest_set_user_data (forest_adapt, problem->adapt_data);
@@ -617,7 +621,9 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   /* Commit the forest, adaptation and balance happens here */
   t8_forest_commit (forest_adapt);
 
-  t8dg_dof_values_destroy (&problem->adapt_data->source_sink_dof);
+  if (problem->adapt_data->source_sink_fn != NULL) {
+    t8dg_dof_values_destroy (&problem->adapt_data->source_sink_dof);
+  }
 
   if (measure_time) {
     adapt_time = t8_forest_profile_get_adapt_time (forest_adapt);
@@ -713,14 +719,17 @@ t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * 
 double
 t8dg_advect_diff_problem_l_infty_rel (t8dg_linear_advection_diffusion_problem_t * problem)
 {
+#if 0
   double              l_infty_rel;
   if (problem->description->analytical_sol_fn != NULL) {
+
     l_infty_rel = t8dg_values_norm_l_infty_rel (problem->dg_values, problem->dof_values, problem->description->analytical_sol_fn,
                                                 t8dg_timestepping_data_get_current_time (problem->time_data),
                                                 problem->description->analytical_sol_data, problem->comm);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ERROR_INF, l_infty_rel);
 
   }
+#endif
   return -1;
 }
 

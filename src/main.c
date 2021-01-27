@@ -115,9 +115,10 @@ main (int argc, char *argv[])
 
   sc_options_add_int (opt, 'i', "initial_cond", &initial_cond_arg, 0, "Choose initial condition function. Default: 0\n"
                       "\t\t0: constant function\n" "\t\t1: 1D hat function\n" "\t\t2: 1D step function\n"
-                      "\t\t3: 3D sine product function\n" "\t\t4: norm\n" "\t\t5: 2D hat\n" "\t\t6: 2D circle step function\n"
-                      "\t\t7: 2D triangle step function\n" "\t\t8: 3D sphere step function\n" "\t\t9: circle ring sphere step function\n"
-                      "\t\t10: circle ring sin angle\n" "\t\t11: cylinder ring sin product\n" "\t\t11: cylinder ring smooth ball\n");
+                      "\t\t3: cosine product function(can be used in all dimensions)\n" "\t\t4: norm\n" "\t\t5: 2D hat\n"
+                      "\t\t6: 2D circle step function\n" "\t\t7: 2D triangle step function\n" "\t\t8: 3D sphere step function\n"
+                      "\t\t9: circle ring sphere step function\n" "\t\t10: circle ring sin angle\n" "\t\t11: cylinder ring sin product\n"
+                      "\t\t12: cylinder ring smooth ball\n");
 
   sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\t (0 means no adapt)");
   sc_options_add_int (opt, 'A', "adapt_fn", &adapt_arg, 0,
