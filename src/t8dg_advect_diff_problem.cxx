@@ -414,8 +414,9 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
       t8dg_advect_diff_problem_partition (problem, 1);
     }
   }
-
-  t8dg_advect_diff_problem_write_vtk (problem);
+  if (problem->vtk_data->vtk_freq) {
+    t8dg_advect_diff_problem_write_vtk (problem);
+  }
 
   t8dg_advect_diff_problem_l2_rel (problem);
   t8dg_advect_diff_problem_l_infty_rel (problem);
