@@ -16,8 +16,8 @@
 static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
-                    int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order, int vtk_freq,
-                    int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
+                    int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order,
+                    int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
@@ -77,7 +77,7 @@ main (int argc, char *argv[])
   double              diffusion_coefficient;
   const char         *prefix;
   int                 numerical_flux_arg;
-  int time_steps;
+  int                 time_steps;
   /* brief help message */
 
   /* long help message */

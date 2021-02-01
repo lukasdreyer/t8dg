@@ -285,8 +285,8 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
     time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl);
   }
   else {
-    if(delta_t <= 0){
-      delta_t = (end_time - start_time)/time_steps;
+    if (delta_t <= 0) {
+      delta_t = (end_time - start_time) / time_steps;
     }
     time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t);
   }
