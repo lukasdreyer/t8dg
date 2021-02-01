@@ -8,7 +8,12 @@
 #include "t8dg.h"
 #include "t8dg_dmatrix.h"
 #include <sc_containers.h>
+
+#ifdef T8DG_MKL_BLAS
+#include <mkl.h>
+#else
 #include <cblas.h>
+#endif
 
 struct t8dg_dmatrix
 {
