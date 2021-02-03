@@ -183,7 +183,7 @@ double
 t8dg_smooth_indicator1Dfn (const double x[3], const double t, void *fn_data)
 {
   double              radius = 0.2;
-  double              center[3] = { 0.0, 0.0, 0.5 };
+  double              center[3] = { 0.5, 0.0, 0.0 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
     return 1;
@@ -197,7 +197,7 @@ double
 t8dg_smooth_indicator2Dfn (const double x[3], const double t, void *fn_data)
 {
   double              radius = 0.2;
-  double              center[3] = { 0.0, 0.5, 0.5 };
+  double              center[3] = { 0.5, 0.5, 0.0 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
     return 1;
