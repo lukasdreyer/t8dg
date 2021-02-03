@@ -564,12 +564,18 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
       /* Compute the minimum diameter */
       diam = t8_forest_element_diam (problem->forest, itree, element);
       T8_ASSERT (diam > 0);
-      if (problem->description->diffusion_coefficient > 0) {
-        delta_t = cfl * diam * diam;
-      }
-      else if (problem->description->velocity_field == t8dg_linear_flux3D_constant_flux_fn) {
+
+      if (problem->description->velocity_field == t8dg_linear_flux3D_constant_flux_fn) {
         flow_velocity = ((t8dg_linear_flux3D_constant_flux_data_t *) problem->description->flux_data)->flow_velocity;   /*TODO: element_get_flow_velocity function */
-        delta_t = cfl * diam / flow_velocity;
+        if (flow_velocity > 0) {
+          delta_t = cfl * diam / flow_velocity; /*Assumption here that advection dominates */
+        }
+        else if (problem->description->diffusion_coefficient > 0) {
+          delta_t = cfl * diam * sqrt (diam);   /*Only diffusion, thus more restrictive cfl proportional to sqrt(del x) */
+        }
+        else {
+          delta_t = min_delta_t;        /* No movement at all */
+        }
       }
       else if (problem->description->velocity_field == t8dg_rotating_flux_2D_fn) {
         delta_t = cfl * diam;
