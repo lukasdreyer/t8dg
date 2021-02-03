@@ -94,6 +94,7 @@ struct t8dg_linear_advection_diffusion_problem
   t8dg_dof_values_t  *dof_values;              /**< The Value of u at the nodal basis vertices */
   t8dg_dof_values_t  *dof_values_adapt;
 
+  int                 refine_error;
   double              total_time;       /* used for measuring the total time the struct is in existence */
   sc_statinfo_t       stats[ADVECT_DIFF_NUM_STATS]; /**< Runtimes and other statistics. */
   sc_MPI_Comm         comm; /**< MPI Communicator */
@@ -246,7 +247,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          int max_level,
                                          int adapt_arg,
                                          int adapt_freq, const char *prefix, int vtk_freq, int numerical_flux_arg, int source_sink_arg,
-                                         sc_MPI_Comm comm)
+                                         int refine_error, sc_MPI_Comm comm)
 {
   int                 dim;
   int                 geometry_arg;
@@ -292,13 +293,14 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
   }
   init_time += sc_MPI_Wtime ();
 
-  return t8dg_advect_diff_problem_init (forest, description, dg_values, time_data, adapt_data, vtk_data, init_time, comm);
+  return t8dg_advect_diff_problem_init (forest, description, dg_values, time_data, adapt_data, vtk_data, init_time, refine_error, comm);
 }
 
 t8dg_linear_advection_diffusion_problem_t *
 t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusion_problem_description_t * description,
                                t8dg_values_t * dg_values, t8dg_timestepping_data_t * time_data,
-                               t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data, double init_time, sc_MPI_Comm comm)
+                               t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data, double init_time, int refine_error,
+                               sc_MPI_Comm comm)
 {
   t8dg_linear_advection_diffusion_problem_t *problem;
   int                 istat;
@@ -348,7 +350,7 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
                                                      t8dg_timestepping_data_get_current_time (problem->time_data),
                                                      problem->description->initial_condition_data, problem->dof_values);
   }
-
+  problem->refine_error = refine_error;
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_INIT, init_time + sc_MPI_Wtime ());
   return problem;
 }
@@ -420,13 +422,15 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
   t8dg_debugf ("End Dof values:\n");
   t8dg_advect_diff_problem_printdof (problem);
 
-  int                 level;
-  int                 high_level = 10;
-  for (level = problem->adapt_data->minimum_refinement_level; level < high_level; level++) {
-    t8dg_advect_diff_problem_adapt_uniform (problem, high_level);       /*refine to high level for error calculation */
-    t8dg_advect_diff_problem_partition (problem, 0);
+  if (problem->refine_error) {
+    int                 level;
+    int                 high_level = 10;
+    for (level = problem->adapt_data->minimum_refinement_level; level < high_level; level++) {
+      t8dg_advect_diff_problem_adapt_uniform (problem, high_level);     /*refine to high level for error calculation */
+      t8dg_advect_diff_problem_partition (problem, 0);
+    }
+    /*The solution is now interpolated to a high resolution grid */
   }
-  /*The solution is now interpolated to a high resolution grid */
 
   t8dg_advect_diff_problem_l2_rel (problem);
   t8dg_advect_diff_problem_l_infty_rel (problem);

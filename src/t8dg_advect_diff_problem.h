@@ -64,14 +64,15 @@ t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_argumen
                                                                                     int adapt_freq,
                                                                                     const char *prefix,
                                                                                     int vtk_freq, int numerical_flux_arg,
-                                                                                    int source_sink_arg, sc_MPI_Comm comm);
+                                                                                    int source_sink_arg, int refine_error,
+                                                                                    sc_MPI_Comm comm);
 
 t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init (t8_forest_t forest,
                                                                           t8dg_linear_advection_diffusion_problem_description_t *
                                                                           description, t8dg_values_t * dg_values,
                                                                           t8dg_timestepping_data_t * time_data,
                                                                           t8dg_adapt_data_t * adapt_data, t8dg_vtk_data_t * vtk_data,
-                                                                          double init_time, sc_MPI_Comm comm);
+                                                                          double init_time, int refine_error, sc_MPI_Comm comm);
 
 void                t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** pproblem);
 
