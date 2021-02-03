@@ -183,13 +183,14 @@ double
 t8dg_smooth_indicator1Dfn (const double x[3], const double t, void *fn_data)
 {
   double              radius = 0.2;
+  double              smoothing_factor = 0.1;
   double              center[3] = { 0.5, 0.0, 0.0 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
     return 1;
-  if (dist > 2 * radius)
+  if (dist > (1 + smoothing_factor) * radius)
     return 0;
-  dist = (dist - radius) / radius;      /* transform to [0,1] */
+  dist = (dist - radius) / (radius * smoothing_factor); /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
 
@@ -197,13 +198,14 @@ double
 t8dg_smooth_indicator2Dfn (const double x[3], const double t, void *fn_data)
 {
   double              radius = 0.2;
+  double              smoothing_factor = 0.1;
   double              center[3] = { 0.5, 0.5, 0.0 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
     return 1;
-  if (dist > 2 * radius)
+  if (dist > (1 + smoothing_factor) * radius)
     return 0;
-  dist = (dist - radius) / radius;      /* transform to [0,1] */
+  dist = (dist - radius) / (radius * smoothing_factor); /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
 
@@ -211,12 +213,13 @@ double
 t8dg_smooth_indicator3Dfn (const double x[3], const double t, void *fn_data)
 {
   double              radius = 0.2;
+  double              smoothing_factor = 0.1;
   double              center[3] = { 0.5, 0.5, 0.5 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
     return 1;
-  if (dist > 2 * radius)
+  if (dist > (1 + smoothing_factor) * radius)
     return 0;
-  dist = (dist - radius) / radius;      /* transform to [0,1] */
+  dist = (dist - radius) / (radius * smoothing_factor); /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }

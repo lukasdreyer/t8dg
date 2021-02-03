@@ -137,7 +137,7 @@ t8dg_adapt_smooth_indicator (t8_forest_t forest,
   int                 level;
   double              norm, area, ratio;
   int                 ifamilyelement;
-  double              threshold = 0.0000;
+  double              threshold = 0.00000005;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
   level = ts->t8_element_level (elements[0]);
