@@ -189,7 +189,7 @@ t8dg_smooth_indicator1Dfn (const double x[3], const double t, void *fn_data)
     return 1;
   if (dist > 2 * radius)
     return 0;
-  dist = (dist - radius) * radius;      /* transform to [0,1] */
+  dist = (dist - radius) / radius;      /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
 
@@ -203,7 +203,7 @@ t8dg_smooth_indicator2Dfn (const double x[3], const double t, void *fn_data)
     return 1;
   if (dist > 2 * radius)
     return 0;
-  dist = (dist - radius) * radius;      /* transform to [0,1] */
+  dist = (dist - radius) / radius;      /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
 
@@ -217,6 +217,6 @@ t8dg_smooth_indicator3Dfn (const double x[3], const double t, void *fn_data)
     return 1;
   if (dist > 2 * radius)
     return 0;
-  dist = (dist - radius) * radius;      /* transform to [0,1] */
+  dist = (dist - radius) / radius;      /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
 }
