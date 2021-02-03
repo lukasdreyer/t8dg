@@ -14,6 +14,9 @@ t8dg_adapt_fn_arg (int adapt_arg)
   case 1:
     return t8dg_adapt_rel_min_max;
     break;
+  case 2:
+    return t8dg_adapt_smooth_indicator;
+    break;
 
   default:
     T8DG_ABORT ("Wrong adapt fn arg");
@@ -116,6 +119,59 @@ t8dg_adapt_mass (t8_forest_t forest,
       sc_array_destroy (element_dof);
 
       if (norm / area > 0.1) {
+        return 0;
+      }
+    }
+    return -1;
+  }
+  return 0;
+}
+
+int
+t8dg_adapt_smooth_indicator (t8_forest_t forest,
+                             t8_forest_t forest_from,
+                             t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+{
+  t8dg_adapt_data_t  *adapt_data;
+  sc_array_t         *element_dof;
+  int                 level;
+  double              norm, area, ratio;
+  int                 ifamilyelement;
+  double              threshold = 0.0000;
+
+  adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+  level = ts->t8_element_level (elements[0]);
+
+  if (level == adapt_data->maximum_refinement_level && num_elements == 1) {
+    /* It is not possible to refine this level */
+    return 0;
+  }
+
+  element_dof = t8dg_dof_values_new_element_dof_values_view (adapt_data->dof_values, itree, ielement);
+
+  norm = t8dg_values_element_norm_l2_squared (adapt_data->dg_values, element_dof, itree, ielement);
+  area = t8dg_values_element_area (adapt_data->dg_values, itree, ielement);
+  ratio = norm / area;
+
+  sc_array_destroy (element_dof);
+
+  if (ratio > 2 * threshold && ratio < 1 - 2 * threshold) {
+    return level < adapt_data->maximum_refinement_level;
+  }
+
+  if (num_elements > 1) {
+    if (level == adapt_data->minimum_refinement_level) {
+      return 0;                 /* It is not possible to coarsen this element. If this is wanted, balance is needed outside */
+    }
+
+    for (ifamilyelement = 0; ifamilyelement < num_elements; ifamilyelement++) {
+      element_dof = t8dg_dof_values_new_element_dof_values_view (adapt_data->dof_values, itree, ielement + ifamilyelement);
+      norm = t8dg_values_element_norm_l2_squared (adapt_data->dg_values, element_dof, itree, ielement + ifamilyelement);
+      area = t8dg_values_element_area (adapt_data->dg_values, itree, ielement + ifamilyelement);
+      ratio = norm / area;
+      sc_array_destroy (element_dof);
+
+      if (ratio > threshold && ratio < 1 - threshold) {
         return 0;
       }
     }
