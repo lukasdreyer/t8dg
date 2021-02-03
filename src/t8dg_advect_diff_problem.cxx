@@ -417,12 +417,19 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
   if (problem->vtk_data->vtk_freq) {
     t8dg_advect_diff_problem_write_vtk (problem);
   }
+  t8dg_debugf ("End Dof values:\n");
+  t8dg_advect_diff_problem_printdof (problem);
+
+  int                 level;
+  int                 high_level = 10;
+  for (level = problem->adapt_data->minimum_refinement_level; level < high_level; level++) {
+    t8dg_advect_diff_problem_adapt_uniform (problem, high_level);       /*refine to high level for error calculation */
+    t8dg_advect_diff_problem_partition (problem, 0);
+  }
+  /*The solution is now interpolated to a high resolution grid */
 
   t8dg_advect_diff_problem_l2_rel (problem);
   t8dg_advect_diff_problem_l_infty_rel (problem);
-
-  t8dg_debugf ("End Dof values:\n");
-  t8dg_advect_diff_problem_printdof (problem);
 }
 
 static void
@@ -673,6 +680,99 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   /* Set the phi values to the adapted phi values */
   problem->dof_values = problem->dof_values_adapt;
   problem->dof_values_adapt = NULL;
+}
+
+void
+t8dg_advect_diff_problem_adapt_uniform (t8dg_linear_advection_diffusion_problem_t * problem, int uniform_level)
+{
+  t8_forest_t         forest_adapt;
+  double              adapt_time, ghost_time, balance_time = 0, replace_time;
+  int                 did_balance = 0, balance_rounds = 0;
+  t8_locidx_t         ghosts_sent;
+  int                 initial_refinement_level;
+
+  t8_debugf ("Into advect adapt\n");
+  /* Adapt the forest, but keep the old one */
+  t8_forest_ref (problem->forest);
+  t8_forest_init (&forest_adapt);
+  /* Enable profiling to measure the runtime */
+  t8_forest_set_profiling (forest_adapt, 1);
+
+  problem->adapt_data->dof_values = problem->dof_values;
+  if (problem->adapt_data->source_sink_fn != NULL) {
+    t8dg_adapt_data_interpolate_source_fn (problem->adapt_data);
+  }
+
+  initial_refinement_level = problem->adapt_data->initial_refinement_level;
+  problem->adapt_data->initial_refinement_level = uniform_level;
+
+  /* Set the user data pointer of the new forest */
+  t8_forest_set_user_data (forest_adapt, problem->adapt_data);
+  /* Set the adapt function */
+  t8_forest_set_adapt (forest_adapt, problem->forest, t8dg_adapt_uniform, 0);
+  if (problem->adapt_data->maximum_refinement_level - problem->adapt_data->minimum_refinement_level > 1) {
+    /* We also want to balance the forest if there is a possibility of elements
+     * with difference in refinement levels greater 1 */
+    t8_forest_set_balance (forest_adapt, NULL, 1);
+    did_balance = 1;
+  }
+  /* We also want ghost elements in the new forest */
+  t8_forest_set_ghost (forest_adapt, 1, T8_GHOST_FACES);
+  /* Commit the forest, adaptation and balance happens here */
+  t8_forest_commit (forest_adapt);
+
+  if (problem->adapt_data->source_sink_fn != NULL) {
+    t8dg_dof_values_destroy (&problem->adapt_data->source_sink_dof);
+  }
+
+#if 0
+  if (measure_time) {
+    adapt_time = t8_forest_profile_get_adapt_time (forest_adapt);
+    ghost_time = t8_forest_profile_get_ghost_time (forest_adapt, &ghosts_sent);
+    if (did_balance) {
+      balance_time = t8_forest_profile_get_balance_time (forest_adapt, &balance_rounds);
+    }
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ADAPT, adapt_time);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST, ghost_time);
+    if (did_balance) {
+      t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_BALANCE, balance_time);
+    }
+  }
+#endif
+
+  t8dg_values_allocate_adapt (problem->dg_values, forest_adapt);
+
+  problem->dof_values_adapt = t8dg_dof_values_new (forest_adapt, t8dg_values_get_global_values_array (problem->dg_values));
+
+  problem->adapt_data->dof_values_adapt = problem->dof_values_adapt;
+
+  /* We now call iterate_replace in which we interpolate the new element data.
+   * It is necessary that the old and new forest only differ by at most one level.
+   * We guarantee this by calling adapt non-recursively and calling balance without
+   * repartitioning. */
+  replace_time = -sc_MPI_Wtime ();
+  t8_forest_iterate_replace (forest_adapt, problem->forest, t8dg_adapt_replace);
+  replace_time += sc_MPI_Wtime ();
+#if 0
+  if (measure_time) {
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_REPLACE, replace_time);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_AMR, ghost_time + adapt_time + balance_time + replace_time);
+  }
+#endif
+  t8dg_values_cleanup_adapt (problem->dg_values);
+
+  /* Free memory for the forest */
+  t8_forest_unref (&problem->forest);
+  /* Set the forest to the adapted one */
+  problem->forest = forest_adapt;
+  forest_adapt = NULL;
+
+  t8dg_dof_values_destroy (&problem->dof_values);
+  /* Set the phi values to the adapted phi values */
+  problem->dof_values = problem->dof_values_adapt;
+  problem->dof_values_adapt = NULL;
+
+  problem->adapt_data->initial_refinement_level = initial_refinement_level;
 }
 
 void

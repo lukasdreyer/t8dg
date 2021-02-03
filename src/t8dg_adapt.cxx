@@ -63,6 +63,18 @@ t8dg_adapt_data_destroy (t8dg_adapt_data_t ** p_adapt_data)
 }
 
 int
+t8dg_adapt_uniform (t8_forest_t forest,
+                    t8_forest_t forest_from,
+                    t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])
+{
+  t8dg_adapt_data_t  *adapt_data;
+  int                 level;
+  adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+  level = ts->t8_element_level (elements[0]);
+  return level < adapt_data->initial_refinement_level;
+}
+
+int
 t8dg_adapt_mass (t8_forest_t forest,
                  t8_forest_t forest_from,
                  t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[])

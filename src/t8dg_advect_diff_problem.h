@@ -82,6 +82,8 @@ void                t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advec
 
 void                t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * problem, int measure_time);
 
+void                t8dg_advect_diff_problem_adapt_uniform (t8dg_linear_advection_diffusion_problem_t * problem, int uniform_level);
+
 void                t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * problem, int measure_time);
 
 /*stats*/
