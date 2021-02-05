@@ -394,21 +394,23 @@ t8dg_analytic_cylinder_ring (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   double              radius;
   double              angle;
 
-  t8dg_cylinder_ring_data_t *geometry_data = (t8dg_cylinder_ring_data_t *) user_data;
+//  t8dg_cylinder_ring_data_t *geometry_data = (t8dg_cylinder_ring_data_t *) user_data;
 
-  radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
-  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
+//  radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
+  radius = 1 + ref_coords[0];
+//  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
+  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / 4;
 
   out_coords[0] = radius * cos (angle);
   out_coords[1] = radius * sin (angle);
-  out_coords[2] = geometry_data->height * ref_coords[2];
-
+  out_coords[2] = ref_coords[2];
+//  out_coords[2] = geometry_data->height * ref_coords[2];
 }
 
 t8_cmesh_t
 t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, double outer_radius, int num_trees, double height)
 {
-  t8dg_cylinder_ring_data_t *geometry_data;
+//  t8dg_cylinder_ring_data_t *geometry_data;
   t8_cmesh_t          cmesh;
   t8_geometry_c      *geometry;
 
@@ -454,15 +456,18 @@ t8dg_cmesh_new_cylinder_ring_periodic (sc_MPI_Comm comm, double inner_radius, do
   }
   t8_cmesh_set_join (cmesh, num_trees - 1, 0, 3, 2, 0);
 
-  geometry_data = T8DG_ALLOC_ZERO (t8dg_cylinder_ring_data_t, 1);
+/*  geometry_data = T8DG_ALLOC_ZERO (t8dg_cylinder_ring_data_t, 1);
   geometry_data->inner_radius = inner_radius;
   geometry_data->outer_radius = outer_radius;
   geometry_data->num_trees = num_trees;
   geometry_data->height = height;
+*/
 
   geometry =
+    new t8_geometry_analytic (2, "analytic cylinder ring", t8dg_analytic_cylinder_ring, NULL, t8_geom_load_tree_data_vertices, NULL);
+/*  geometry =
     new t8_geometry_analytic (2, "analytic cylinder ring", t8dg_analytic_cylinder_ring, NULL, t8_geom_load_tree_data_vertices,
-                              geometry_data);
+                              geometry_data);*/
   t8_cmesh_register_geometry (cmesh, geometry);
 
   t8_cmesh_commit (cmesh, comm);

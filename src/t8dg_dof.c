@@ -507,7 +507,7 @@ t8dg_element_dof_values_axpyz (double a, t8dg_element_dof_values_t * x, t8dg_ele
 {
   T8DG_ASSERT (t8dg_element_dof_values_is_valid (x));
   T8DG_ASSERT (t8dg_element_dof_values_is_valid (y));
-  T8DG_ASSERT (t8dg_element_dof_values_is_valid (z));
+  T8DG_ASSERT (t8dg_element_dof_values_is_init (z));
   T8DG_ASSERT (y->elem_count == x->elem_count && y->elem_count == z->elem_count);
   double             *x_double, *y_double, *z_double;
   int                 double_count, i;

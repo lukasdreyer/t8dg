@@ -171,6 +171,7 @@ t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_da
     return 0;
   dist = (dist - 0.1) * 10;     /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
+  //return t8dg_smooth_g(dist);
 }
 
 double
