@@ -615,7 +615,7 @@ t8dg_coarse_geometry_new_arg (int geometry_arg)
   case 3:
     return t8dg_coarse_geometry_new_2D_circle_ring (1, 2, 4);
   case 4:
-    return t8dg_coarse_geometry_new_3D_cylinder_ring (1, 2, 4, 2);
+    return t8dg_coarse_geometry_new_3D_cylinder_ring (1, 2, 4, 1);
 
   default:
     break;

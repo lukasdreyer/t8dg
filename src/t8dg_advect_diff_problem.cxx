@@ -33,8 +33,10 @@ typedef enum
 {
   ADVECT_DIFF_ADAPT = 0,        /* adapt runtime */
   ADVECT_DIFF_PARTITION,        /* partition runtime */
+  ADVECT_DIFF_PARTITION_DATA,
   ADVECT_DIFF_BALANCE,          /* balance runtime */
   ADVECT_DIFF_GHOST,            /* ghost runtime */
+  ADVECT_DIFF_GHOST_DATA,
   ADVECT_DIFF_REPLACE,          /* forest_iterate_replace runtime */
   ADVECT_DIFF_IO,               /* vtk runtime */
   ADVECT_DIFF_INIT,             /* initialization runtime */
@@ -56,8 +58,10 @@ typedef enum
 const char         *advect_diff_stat_names[ADVECT_DIFF_NUM_STATS] = {
   "adapt",
   "partition",
+  "partition_data",
   "balance",
   "ghost",
+  "ghost_data",
   "replace",
   "vtk_print",
   "init",
@@ -93,6 +97,8 @@ struct t8dg_linear_advection_diffusion_problem
   /* The dof_values get ghosted */
   t8dg_dof_values_t  *dof_values;              /**< The Value of u at the nodal basis vertices */
   t8dg_dof_values_t  *dof_values_adapt;
+
+  void               *t8_geometry_data;
 
   int                 refine_error;
   double              total_time;       /* used for measuring the total time the struct is in existence */
@@ -262,6 +268,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
   t8dg_values_t      *dg_values;
   t8dg_vtk_data_t    *vtk_data;
   t8dg_linear_advection_diffusion_problem_description_t *description;
+
   double              init_time;
   init_time = -sc_MPI_Wtime ();
 
@@ -304,7 +311,7 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
 {
   t8dg_linear_advection_diffusion_problem_t *problem;
   int                 istat;
-  init_time -= sc_MPI_Wtime ();
+  init_time -= sc_MPI_Wtime (); /*add to previous init time */
 
   /* allocate problem */
   problem = T8_ALLOC (t8dg_linear_advection_diffusion_problem_t, 1);
@@ -365,6 +372,11 @@ t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** p
     return;
   }
 
+  double              ghost_exchange_time = t8dg_values_get_ghost_exchange_time (problem->dg_values);
+  t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST_DATA, ghost_exchange_time);
+  t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_AMR, ghost_exchange_time);
+  t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_SOLVE, -ghost_exchange_time);  /*ghost exchange is not part of the solver */
+
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_TOTAL, problem->total_time + sc_MPI_Wtime ());
 
   t8dg_advect_diff_problem_compute_and_print_stats (problem);
@@ -378,7 +390,6 @@ t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** p
   t8dg_dof_values_destroy (&problem->dof_values);
   t8dg_values_destroy (&problem->dg_values);
   /* Unref the forest */
-
   t8_forest_unref (&problem->forest);   /*unrefs coarse mesh as well */
   /* Free the problem and set pointer to NULL */
   T8_FREE (problem);
@@ -623,6 +634,7 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   /* Enable profiling to measure the runtime */
   t8_forest_set_profiling (forest_adapt, 1);
 
+  t8dg_adapt_data_set_time (problem->adapt_data, t8dg_timestepping_data_get_current_time (problem->time_data));
   problem->adapt_data->dof_values = problem->dof_values;
   if (problem->adapt_data->source_sink_fn != NULL) {
     t8dg_adapt_data_interpolate_source_fn (problem->adapt_data);
@@ -660,6 +672,8 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
     }
   }
 
+  replace_time = -sc_MPI_Wtime ();
+
   t8dg_values_allocate_adapt (problem->dg_values, forest_adapt);
 
   problem->dof_values_adapt = t8dg_dof_values_new (forest_adapt, t8dg_values_get_global_values_array (problem->dg_values));
@@ -670,15 +684,15 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
    * It is necessary that the old and new forest only differ by at most one level.
    * We guarantee this by calling adapt non-recursively and calling balance without
    * repartitioning. */
-  replace_time = -sc_MPI_Wtime ();
   t8_forest_iterate_replace (forest_adapt, problem->forest, t8dg_adapt_replace);
+  t8dg_values_cleanup_adapt (problem->dg_values);
+
   replace_time += sc_MPI_Wtime ();
+
   if (measure_time) {
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_REPLACE, replace_time);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_AMR, ghost_time + adapt_time + balance_time + replace_time);
   }
-
-  t8dg_values_cleanup_adapt (problem->dg_values);
 
   /* Free memory for the forest */
   t8_forest_unref (&problem->forest);
@@ -692,6 +706,7 @@ t8dg_advect_diff_problem_adapt (t8dg_linear_advection_diffusion_problem_t * prob
   problem->dof_values_adapt = NULL;
 }
 
+/*For error calculation on uniform grid*/
 void
 t8dg_advect_diff_problem_adapt_uniform (t8dg_linear_advection_diffusion_problem_t * problem, int uniform_level)
 {
@@ -789,7 +804,8 @@ t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * 
   if (measure_time) {
     partition_time = t8_forest_profile_get_partition_time (forest_partition, &procs_sent);
     ghost_time = t8_forest_profile_get_ghost_time (forest_partition, &ghosts_sent);
-    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION, partition_time + partition_data_time);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION, partition_time);
+    t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_PARTITION_DATA, partition_data_time);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_GHOST, ghost_time);
     t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_AMR, partition_time + ghost_time + partition_data_time);
   }

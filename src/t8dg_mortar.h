@@ -39,6 +39,8 @@ void                t8dg_mortar_array_invalidate_all (t8dg_mortar_array_t * mort
 
 void                t8dg_mortar_array_destroy (t8dg_mortar_array_t ** pmortar_array);
 
+double              t8dg_mortar_array_get_ghost_exchange_time (t8dg_mortar_array_t * mortar_array);
+
 /*TODO!!!!!*/
 sc_array_t         *t8dg_mortar_array_get_oriented_flux (t8dg_mortar_array_t * mortar_array, t8_locidx_t idata, int iface);
 

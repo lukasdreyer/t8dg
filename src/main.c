@@ -41,7 +41,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(adapt_freq >= 0))
     return 0;
-  if (!(adapt_arg >= 0 && adapt_arg <= 2))
+  if (!(adapt_arg >= 0 && adapt_arg <= 3))
     return 0;
   if (diffusion_coefficient < 0)
     return 0;
@@ -126,7 +126,8 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'a', "adapt_freq", &adapt_freq, 1, "The number of steps until adapt. Default: 1\t (0 means no adapt)");
   sc_options_add_int (opt, 'A', "adapt_fn", &adapt_arg, 0,
                       "Choose Adapt Function. Default: 0\n" "\t\t0: mass-crit\n" "\t\t1: relative minmax-crit\n"
-                      "\t\t2: criterion for smoothed indicator functions");
+                      "\t\t2: criterion for smoothed indicator functions\n"
+                      "\t\t3: criterion for smoothed indicator functions on hypercubes\n");
 
   sc_options_add_int (opt, 'v', "vkt_freq", &vtk_freq, 1, "The number of steps until new vtk output. Default: 1\t (0 means no vtk)");
   sc_options_add_string (opt, 'p', "vtk_prefix", &prefix, "t8dg_advect_diff", "prefix to the vtk output");

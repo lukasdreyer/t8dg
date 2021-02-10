@@ -160,6 +160,20 @@ t8dg_cylinder_ring_sin_product_fn (const double x[3], const double t, void *fn_d
   return sin (angle) * sin ((radius - 1.5) * 2 * M_PI) * sin ((h - 0.5) * 2 * M_PI);
 }
 
+static double
+t8dg_smooth_h (const double x)
+{
+  if (x <= 0)
+    return 0;
+  return exp (-1 / x);
+}
+
+static double
+t8dg_smooth_g (const double x)
+{
+  return t8dg_smooth_h (1 - x) / (t8dg_smooth_h (x) + t8dg_smooth_h (1 - x));
+}
+
 double
 t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_data)
 {
@@ -170,8 +184,7 @@ t8dg_cylinder_ring_step_function (const double x[3], const double t, void *fn_da
   if (dist > 0.2)
     return 0;
   dist = (dist - 0.1) * 10;     /* transform to [0,1] */
-  return (cos (dist * M_PI) + 1) / 2;
-  //return t8dg_smooth_g(dist);
+  return t8dg_smooth_g (dist);
 }
 
 double
@@ -223,20 +236,6 @@ t8dg_cos_indicator3Dfn (const double x[3], const double t, void *fn_data)
     return 0;
   dist = (dist - radius) / (radius * smoothing_factor); /* transform to [0,1] */
   return (cos (dist * M_PI) + 1) / 2;
-}
-
-static double
-t8dg_smooth_h (const double x)
-{
-  if (x <= 0)
-    return 0;
-  return exp (-1 / x);
-}
-
-static double
-t8dg_smooth_g (const double x)
-{
-  return t8dg_smooth_h (1 - x) / (t8dg_smooth_h (x) + t8dg_smooth_h (1 - x));
 }
 
 double

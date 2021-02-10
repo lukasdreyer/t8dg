@@ -79,7 +79,7 @@ t8dg_cmesh_new_arg (int icmesh, int *dim, int *velocity_field_arg, int *geometry
     *geometry_arg = 1;
     break;
   case 11:
-    cmesh = t8dg_cmesh_new_cylinder_ring_periodic (comm, 1, 2, 4, 2);
+    cmesh = t8dg_cmesh_new_cylinder_ring_periodic (comm, 1, 2, 4, 1);
     *dim = 3;
     *velocity_field_arg = 2;
     *geometry_arg = 4;

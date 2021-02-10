@@ -22,6 +22,8 @@ struct t8dg_values
 
   t8_forest_t         forest;
   t8_forest_t         forest_adapt;
+
+  double              ghost_exchange_data_time;
 };
 
 t8dg_values_t      *
@@ -331,6 +333,12 @@ t8dg_values_ghost_exchange (t8dg_values_t * values)
   t8dg_local_values_ghost_exchange (values->local_values);
 }
 
+double
+t8dg_values_get_ghost_exchange_time (t8dg_values_t * values)
+{
+  return values->ghost_exchange_data_time;
+}
+
 t8dg_global_values_t *
 t8dg_values_get_global_values (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement)
 {
@@ -429,9 +437,10 @@ t8dg_values_cleanup_adapt (t8dg_values_t * values)
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
-  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*local elements get set during replace */
+  t8dg_local_values_set_all_ghost_elements (values->local_values);      /*local elements get set during replace, these could also be communicated */
 
   /*Create new mortar arrays */
+  values->ghost_exchange_data_time += t8dg_mortar_array_get_ghost_exchange_time (values->mortar_array);
   t8dg_mortar_array_destroy (&values->mortar_array);
   values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
 }
@@ -452,6 +461,7 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
   t8_debugf ("[VALUES] Done partition local_data\n");
 
   t8_debugf (" [ADVECT] begin mortars destroy\n");
+  values->ghost_exchange_data_time += t8dg_mortar_array_get_ghost_exchange_time (values->mortar_array); /*Add ghost exchange time from mortars, before they are destroyed */
   t8dg_mortar_array_destroy (&values->mortar_array);
 
   t8_forest_unref (&values->forest);
@@ -460,7 +470,6 @@ t8dg_values_partition (t8dg_values_t * values, t8_forest_t forest_partition)
 
   values->mortar_array = t8dg_mortar_array_new_empty (forest_partition, values->local_values);
   t8_debugf (" [ADVECT] Done partition\n");
-
 }
 
 typedef struct t8dg_values_fn_evaluation_data
@@ -656,4 +665,10 @@ t8_forest_t
 t8dg_values_get_forest (t8dg_values_t * values)
 {
   return values->forest;
+}
+
+int
+t8dg_values_get_dim (t8dg_values_t * values)
+{
+  return values->dim;
 }

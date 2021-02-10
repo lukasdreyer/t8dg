@@ -67,6 +67,7 @@ struct t8dg_mortar_array
   int                 max_num_faces;
   /*for hybrid the number of faces for each tree has to be known */
   t8dg_local_values_t *local_values;
+  double              ghost_exchange_time;
 };
 
 void
@@ -645,8 +646,12 @@ t8dg_mortar_array_calculate_flux_dof1D (t8dg_mortar_array_t * mortar_array, t8dg
   t8_locidx_t         num_trees, num_elems_in_tree;
   int                 iface;
   t8dg_mortar_t      *mortar;
+  double              ghost_exchange_time;
 
+  ghost_exchange_time = -sc_MPI_Wtime ();
   t8dg_dof_values_ghost_exchange (dof_values);
+  ghost_exchange_time += sc_MPI_Wtime ();
+  mortar_array->ghost_exchange_time += ghost_exchange_time;
 
   num_trees = t8_forest_get_num_local_trees (mortar_array->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
@@ -681,8 +686,12 @@ t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t
   t8_locidx_t         num_trees, num_elems_in_tree;
   int                 iface;
   t8dg_mortar_t      *mortar;
+  double              ghost_exchange_time;
 
+  ghost_exchange_time = -sc_MPI_Wtime ();
   t8dg_dof_values_ghost_exchange (dof_values);
+  ghost_exchange_time += sc_MPI_Wtime ();
+  mortar_array->ghost_exchange_time += ghost_exchange_time;
 
   num_trees = t8_forest_get_num_local_trees (mortar_array->forest);
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
@@ -828,4 +837,10 @@ t8dg_mortar_array_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_
     sc_array_destroy (face_dof);
   }
   sc_array_destroy (summand);
+}
+
+double
+t8dg_mortar_array_get_ghost_exchange_time (t8dg_mortar_array_t * mortar_array)
+{
+  return mortar_array->ghost_exchange_time;
 }

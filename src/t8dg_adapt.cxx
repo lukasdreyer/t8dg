@@ -3,6 +3,7 @@
 #include "t8dg_values.h"
 #include "t8dg_adapt.h"
 #include <t8_element_cxx.hxx>
+#include <t8_vec.h>
 
 t8_forest_adapt_t
 t8dg_adapt_fn_arg (int adapt_arg)
@@ -16,6 +17,9 @@ t8dg_adapt_fn_arg (int adapt_arg)
     break;
   case 2:
     return t8dg_adapt_smooth_indicator;
+    break;
+  case 3:
+    return t8dg_adapt_smooth_indicator_hypercube;
     break;
 
   default:
@@ -41,7 +45,7 @@ t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level
   }
   adapt_data->source_sink_fn = source_sink_fn;
   adapt_data->source_sink_data = source_sink_data;
-
+  adapt_data->dim = t8dg_values_get_dim (dg_values);
   return adapt_data;
 }
 
@@ -63,6 +67,12 @@ t8dg_adapt_data_destroy (t8dg_adapt_data_t ** p_adapt_data)
   adapt_data = *p_adapt_data;
   T8DG_FREE (adapt_data);
   p_adapt_data = NULL;
+}
+
+void
+t8dg_adapt_data_set_time (t8dg_adapt_data_t * adapt_data, double time)
+{
+  adapt_data->time = time;
 }
 
 int
@@ -172,6 +182,71 @@ t8dg_adapt_smooth_indicator (t8_forest_t forest,
       sc_array_destroy (element_dof);
 
       if (ratio > threshold && ratio < 1 - threshold) {
+        return 0;
+      }
+    }
+    return -1;
+  }
+  return 0;
+}
+
+int
+t8dg_adapt_smooth_indicator_hypercube (t8_forest_t forest,
+                                       t8_forest_t forest_from,
+                                       t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements,
+                                       t8_element_t * elements[])
+{
+  t8dg_adapt_data_t  *adapt_data;
+  int                 level;
+  double              element_midpoint[3];
+  int                 ifamilyelement;
+
+  double              radius = 0.2, smoothing_factor = 0.5;
+  double              indicator_midpoint[3] = { 0, 0, 0 };
+  double              indicator_left_midpoint[3] = { 0, 0, 0 };
+  double              indicator_right_midpoint[3] = { 0, 0, 0 };
+  double              dist, dist_left, dist_middle, dist_right;
+  double              threshold = 0.01;
+
+  adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+  level = ts->t8_element_level (elements[0]);
+
+  if (level == adapt_data->maximum_refinement_level && num_elements == 1) {
+    /* It is not possible to refine this level */
+    return 0;
+  }
+  int                 dim = adapt_data->dim;
+  int                 idim;
+  for (idim = 0; idim < dim; idim++) {
+    indicator_midpoint[idim] = 0.5;
+    indicator_left_midpoint[idim] = 0.5;
+    indicator_right_midpoint[idim] = 0.5;
+  }
+  indicator_midpoint[0] = 0.5 + adapt_data->time;
+  indicator_left_midpoint[0] = indicator_midpoint[0] - 1;
+  indicator_right_midpoint[0] = indicator_midpoint[0] + 1;
+
+  t8_forest_element_centroid (forest, itree, elements[0], element_midpoint);
+
+  dist_middle = t8_vec_dist (indicator_midpoint, element_midpoint);
+  dist_left = t8_vec_dist (indicator_left_midpoint, element_midpoint);
+  dist_right = t8_vec_dist (indicator_right_midpoint, element_midpoint);
+  dist = SC_MIN (dist_left, dist_middle);
+  dist = SC_MIN (dist, dist_right);
+
+  if (dist > radius - threshold && dist < radius * (1 + smoothing_factor) + threshold) {
+    return level < adapt_data->maximum_refinement_level;
+  }
+
+  if (num_elements > 1) {
+    if (level == adapt_data->minimum_refinement_level) {
+      return 0;                 /* It is not possible to coarsen this element. If this is wanted, balance is needed outside */
+    }
+
+    for (ifamilyelement = 0; ifamilyelement < num_elements; ifamilyelement++) {
+      t8_forest_element_centroid (forest, itree, elements[ifamilyelement], element_midpoint);
+      dist = t8_vec_dist (indicator_midpoint, element_midpoint);
+      if (dist > radius - threshold && dist < radius * (1 + smoothing_factor) + threshold) {
         return 0;
       }
     }
