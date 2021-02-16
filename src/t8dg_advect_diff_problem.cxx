@@ -356,6 +356,7 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
     t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->initial_condition_fn,
                                                      t8dg_timestepping_data_get_current_time (problem->time_data),
                                                      problem->description->initial_condition_data, problem->dof_values);
+//    t8dg_advect_diff_problem_write_vtk (problem);
   }
   problem->refine_error = refine_error;
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_INIT, init_time + sc_MPI_Wtime ());
@@ -544,7 +545,7 @@ t8dg_advect_diff_problem_get_apx_total_steps (t8dg_linear_advection_diffusion_pr
 {
   double              timestep = t8dg_timestepping_data_get_time_step (problem->time_data);
   double              timelenght = t8dg_timestepping_data_get_time_left (problem->time_data);
-  return (int) timelenght / timestep;
+  return (int) (timelenght / timestep);
 }
 
 void
