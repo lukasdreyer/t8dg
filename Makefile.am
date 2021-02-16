@@ -59,7 +59,7 @@ DIST_SUBDIRS = $(SUBDIRS)
 
 # handle toplevel directory
 EXTRA_DIST += \
-  bootstrap build-aux/git-version-gen build-aux/git2cl scripts doc
+  bootstrap build-aux/git-version-gen build-aux/git2cl doc
 DISTCLEANFILES += \
         _configs.sed src/t8dg_config.h @T8DG_DISTCLEAN@
 .PHONY: ChangeLog
