@@ -41,6 +41,8 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
     return t8dg_smooth_indicator2Dfn;
   case (15):
     return t8dg_smooth_indicator3Dfn;
+  case (16):
+    return t8dg_scalar3d_constant_zero;
   default:
     return NULL;
   }
