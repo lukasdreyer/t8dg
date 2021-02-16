@@ -113,8 +113,21 @@ t8dg_adapt_mass (t8_forest_t forest,
 
   sc_array_destroy (element_dof);
 
-  if (norm / area > 0.2) {
-    return level < adapt_data->maximum_refinement_level;
+  if (level < adapt_data->maximum_refinement_level) {
+
+    if (norm / area > 0.2) {
+      return 1;
+    }
+    if (adapt_data->source_sink_fn != NULL) {
+      //Check source and sink function
+      double              max_value, min_value;
+      max_value = t8dg_dof_values_get_max_value (adapt_data->source_sink_dof, itree, ielement);
+      min_value = t8dg_dof_values_get_min_value (adapt_data->source_sink_dof, itree, ielement);
+      if (min_value != 0 || max_value != 0) {
+        return 1;
+      }
+    }
+
   }
 
   if (num_elements > 1) {
