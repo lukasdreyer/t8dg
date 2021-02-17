@@ -336,7 +336,7 @@ t8dg_values_ghost_exchange (t8dg_values_t * values)
 double
 t8dg_values_get_ghost_exchange_time (t8dg_values_t * values)
 {
-  return values->ghost_exchange_data_time;
+  return values->ghost_exchange_data_time + t8dg_mortar_array_get_ghost_exchange_time (values->mortar_array);
 }
 
 t8dg_global_values_t *
