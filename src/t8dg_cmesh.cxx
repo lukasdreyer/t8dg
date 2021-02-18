@@ -332,10 +332,14 @@ t8dg_analytic_circle_ring (t8_cmesh_t cmesh, t8_gloidx_t gtreeid,
   double              radius;
   double              angle;
 
+/*
   t8dg_cylinder_ring_data_t *geometry_data;
   geometry_data = (t8dg_cylinder_ring_data_t *) user_data;
   radius = geometry_data->inner_radius + ref_coords[0] * (geometry_data->outer_radius - geometry_data->inner_radius);
   angle = (ref_coords[1] + gtreeid) * 2 * M_PI / geometry_data->num_trees;
+*/
+  radius = 1 + ref_coords[0];
+  angle = (ref_coords[1] + gtreeid) * 2 * M_PI / 4;
 
   out_coords[0] = radius * cos (angle);
   out_coords[1] = radius * sin (angle);
