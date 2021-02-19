@@ -43,6 +43,8 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
     return t8dg_smooth_indicator3Dfn;
   case (16):
     return t8dg_scalar3d_constant_zero;
+  case (17):
+    return t8dg_circle_ring_sin_product_fn;
   default:
     return NULL;
   }
@@ -160,6 +162,14 @@ t8dg_cylinder_ring_sin_product_fn (const double x[3], const double t, void *fn_d
   double              radius = sqrt (x[0] * x[0] + x[1] * x[1]);
   double              h = x[2];
   return sin (angle) * sin ((radius - 1.5) * 2 * M_PI) * sin ((h - 0.5) * 2 * M_PI);
+}
+
+double
+t8dg_circle_ring_sin_product_fn (const double x[3], const double t, void *fn_data)
+{
+  double              angle = atan2 (x[1], x[0]);
+  double              radius = sqrt (x[0] * x[0] + x[1] * x[1]);
+  return sin (angle) * sin ((radius - 1.5) * 2 * M_PI);
 }
 
 static double

@@ -21,7 +21,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
-  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 16))
+  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 17))
     return 0;
   if (!(uniform_level >= 0 && uniform_level <= 30))
     return 0;
