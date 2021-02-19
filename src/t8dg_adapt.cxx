@@ -97,6 +97,8 @@ t8dg_adapt_mass (t8_forest_t forest,
   int                 level;
   double              norm, area;
   int                 ifamilyelement;
+  double              refinement_threshold = 0.01;
+  double              coarsening_threshold = 0.0025;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
   level = ts->t8_element_level (elements[0]);
@@ -115,7 +117,7 @@ t8dg_adapt_mass (t8_forest_t forest,
 
   if (level < adapt_data->maximum_refinement_level) {
 
-    if (norm / area > 0.2) {
+    if (norm / area > refinement_threshold) {
       return 1;
     }
     if (adapt_data->source_sink_fn != NULL) {
@@ -141,7 +143,7 @@ t8dg_adapt_mass (t8_forest_t forest,
       area = t8dg_values_element_area (adapt_data->dg_values, itree, ielement + ifamilyelement);
       sc_array_destroy (element_dof);
 
-      if (norm / area > 0.1) {
+      if (norm / area > coarsening_threshold) {
         return 0;
       }
     }
@@ -280,8 +282,8 @@ t8dg_adapt_rel_min_max (t8_forest_t forest,
   double              min_value;
   double              rel_gradient;
   /*Move thresholds into adapt_data? */
-  double              gradient_threshold_refine = 0.6;
-  double              gradient_threshold_coarsen = 0.5;
+  double              gradient_threshold_refine = 0.1;
+  double              gradient_threshold_coarsen = 0.01;
   double              min_value_threshold = 0.05;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
