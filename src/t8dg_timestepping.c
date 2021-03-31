@@ -6,7 +6,7 @@
  */
 
 #include<sc_containers.h>
-#include "t8dg_sc_array.h"
+#include "t8dg_dof.h"
 #include "t8dg.h"
 #include "t8dg_timestepping.h"
 
@@ -60,14 +60,14 @@ t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk
 
 void
 t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative,
-                                    t8dg_timestepping_data_t * time_data, sc_array_t ** pdof_array, void *user_data)
+                                    t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data)
 {
   int                 istep;
   double             *rk_a, *rk_b, *rk_c;
-  sc_array_t         *element_dof_beginning;
-  sc_array_t         *element_dof_change;
-  sc_array_t         *element_dof_new;
-  sc_array_t         *element_dof_step;
+  t8dg_dof_values_t  *dof_beginning;
+  t8dg_dof_values_t  *dof_change;
+  t8dg_dof_values_t  *dof_new;
+  t8dg_dof_values_t  *dof_step;
   double              time_beginning, time_current, time_step;
   int                 time_order = t8dg_timestepping_data_get_time_order (time_data);
 
@@ -77,41 +77,40 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
 
   t8dg_runge_kutta_fill_coefficients (time_order, &rk_a, &rk_b, &rk_c);
 
-  element_dof_beginning = t8dg_sc_array_clone (*pdof_array);
-  element_dof_new = t8dg_sc_array_duplicate (element_dof_beginning);
-  element_dof_step = t8dg_sc_array_duplicate (element_dof_beginning);
-  element_dof_change = t8dg_sc_array_duplicate (element_dof_beginning);
+  dof_beginning = t8dg_dof_values_clone (*pdof_array);
+  dof_new = t8dg_dof_values_duplicate (dof_beginning);
+  dof_step = t8dg_dof_values_duplicate (dof_beginning);
+  dof_change = t8dg_dof_values_duplicate (dof_beginning);
 
-  time_derivative (*pdof_array, element_dof_change, time_current, user_data);
-  t8dg_sc_array_block_double_axpyz (rk_b[0] * time_step, element_dof_change, element_dof_beginning, element_dof_new);
+  time_derivative (*pdof_array, dof_change, time_current, user_data);
+  t8dg_dof_values_axpyz (rk_b[0] * time_step, dof_change, dof_beginning, dof_new);
 
   for (istep = 0; istep < time_order - 1; istep++) {
     /*calculate the y-value for which the derivative needs to be evaluated
      * since a has only values on the first minor diagonal, only the k from the step before and the original y is needed*/
 
-    t8dg_sc_array_block_double_axpyz (rk_a[istep] * time_step, element_dof_change, element_dof_beginning, element_dof_step);
-    t8dg_sc_array_swap (pdof_array, &element_dof_step);
+    t8dg_dof_values_axpyz (rk_a[istep] * time_step, dof_change, dof_beginning, dof_step);
+    t8dg_dof_values_swap (pdof_array, &dof_step);
     /* calculate the derivative at the step time and y value */
 
     time_current = time_beginning + rk_c[istep] * time_step;
     t8dg_timestepping_data_set_current_time (time_data, time_current);
-    time_derivative (*pdof_array, element_dof_change, time_current, user_data);
+    time_derivative (*pdof_array, dof_change, time_current, user_data);
     /*add weighted summand to result */
-    t8dg_sc_array_block_double_axpy (rk_b[istep + 1] * time_step, element_dof_change, element_dof_new);
+    t8dg_dof_values_axpy (rk_b[istep + 1] * time_step, dof_change, dof_new);
   }
 
   t8dg_timestepping_data_set_current_time (time_data, time_beginning + time_step);
-  t8dg_sc_array_swap (pdof_array, &element_dof_new);
+  t8dg_dof_values_swap (pdof_array, &dof_new);
 
-  sc_array_destroy (element_dof_beginning);
-  sc_array_destroy (element_dof_change);
-  sc_array_destroy (element_dof_new);
-  sc_array_destroy (element_dof_step);
-
+  t8dg_dof_values_destroy (&dof_beginning);
+  t8dg_dof_values_destroy (&dof_change);
+  t8dg_dof_values_destroy (&dof_new);
+  t8dg_dof_values_destroy (&dof_step);
 }
 
 t8dg_timestepping_data_t *
-t8dg_timestepping_data_new (int time_order, double start_time, double end_time, double cfl)
+t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -121,6 +120,20 @@ t8dg_timestepping_data_new (int time_order, double start_time, double end_time, 
   time_data->cfl = cfl;
   time_data->step_number = 0;
   time_data->delta_t = -1;
+  return time_data;
+}
+
+t8dg_timestepping_data_t *
+t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t)
+{
+  T8DG_ASSERT (time_order > 0);
+  t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
+  time_data->time_order = time_order;
+  time_data->t = start_time;
+  time_data->T = end_time;
+  time_data->cfl = 0;
+  time_data->step_number = 0;
+  time_data->delta_t = delta_t;
   return time_data;
 }
 

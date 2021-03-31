@@ -14,31 +14,25 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
-typedef struct t8dg_geometry_transformation_data
-{
-  const t8dg_coarse_geometry_t *coarse_geometry;
-  const t8_forest_t   forest;
-  t8_locidx_t         itree;
-  t8_locidx_t         ielement;
-
-} t8dg_geometry_transformation_data_t;
-
 void                t8dg_geometry_transform_reference_vertex_to_image_vertex
-  (const t8dg_geometry_transformation_data_t * geometry_data, const double reference_vertex[3], double image_vertex[3]);
+  (const t8dg_coarse_geometry_t * coarse_geometry, t8_forest_t forest, const t8_gloidx_t itree, const t8_element_t * element,
+   const double reference_vertex[3], double image_vertex[3]);
 
 double              t8dg_geometry_calculate_sqrt_gram_determinant
-  (const t8dg_geometry_transformation_data_t * geometry_data, const double reference_vertex[3]);
+  (const t8dg_coarse_geometry_t * coarse_geometry, t8_forest_t forest, const t8_gloidx_t itree, const t8_element_t * element,
+   const double reference_vertex[3]);
 
 void                t8dg_geometry_calculate_transformed_gradient_tangential_vector
-  (const t8dg_geometry_transformation_data_t * geometry_data,
+  (const t8dg_coarse_geometry_t * coarse_geometry, t8_forest_t forest, const t8_gloidx_t itree, const t8_element_t * element,
    const double reference_vertex[3], const double reference_tangential_vector[3], double transformed_gradient_tangential_vector[3]);
 
 void                t8dg_geometry_calculate_normal_vector
-  (const t8dg_geometry_transformation_data_t * geometry_data, const int iface,
-   const double reference_vertex[3], double image_normal_vector[3]);
+  (const t8dg_coarse_geometry_t * coarse_geometry, t8_forest_t forest, const t8_gloidx_t itree, const t8_element_t * element,
+   const int iface, const double reference_vertex[3], double image_normal_vector[3]);
 
 double              t8dg_geometry_calculate_face_sqrt_gram_determinant
-  (const t8dg_geometry_transformation_data_t * geometry_data, const int iface, const double reference_vertex[3]);
+  (const t8dg_coarse_geometry_t * coarse_geometry, t8_forest_t forest, const t8_gloidx_t itree, const t8_element_t * element,
+   const int iface, const double reference_vertex[3]);
 
 T8DG_EXTERN_C_END ();
 

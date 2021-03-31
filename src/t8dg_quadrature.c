@@ -15,7 +15,7 @@ struct t8dg_quadrature
   int                 embedded_dimension;
 
   t8dg_quadrature_t **face_quadrature;
-  int                 num_face_quads;
+  int                 num_face_quads; /**< the number of face quadratures */
 
   /*Those are only allocated for line, tri and tet and pyramid */
   t8dg_vertexset_t   *vertexset;                       /**< quadrature vertices, for LGL also gives lookup table for face vertices*/

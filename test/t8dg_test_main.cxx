@@ -1,4 +1,6 @@
+#ifdef T8DG_ENABLE_MPI
 #include <mpi.h>
+#endif
 #include <gtest/gtest.h>
 #include "t8dg.h"
 
@@ -22,7 +24,7 @@ main (int argc, char **argv)
   int                 retval = RUN_ALL_TESTS ();
 
   sc_finalize ();
-  MPI_Finalize ();
+  sc_MPI_Finalize ();
 
   return retval;
 }

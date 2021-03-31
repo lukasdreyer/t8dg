@@ -11,6 +11,7 @@
 #include "t8dg.h"
 #include "t8dg_vertexset.h"
 #include <sc_containers.h>
+#include "t8dg_common.h"
 
 T8DG_EXTERN_C_BEGIN ();
 
