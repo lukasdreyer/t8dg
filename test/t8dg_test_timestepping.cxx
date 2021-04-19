@@ -68,8 +68,7 @@ TEST (timestepping, ode_x0_times_tsquared)
       }
     }
 
-    time_data = t8dg_timestepping_data_new (order, 1, 2, -1);
-    t8dg_timestepping_data_set_time_step (time_data, 1. / N);
+    time_data = t8dg_timestepping_data_new_constant_timestep (order, 1, 2, 1. / N);
 
     for (step = 0; step < N; step++) {
       t8dg_timestepping_runge_kutta_step (square_derivative, time_data, &y, forest);
