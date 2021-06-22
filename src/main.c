@@ -12,6 +12,9 @@
 
 #include <sc_options.h>
 #include <sc.h>
+#if T8_WITH_PETSC
+#include <petscsys.h>
+#endif
 
 static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
@@ -79,6 +82,9 @@ main (int argc, char *argv[])
   int                 numerical_flux_arg;
   int                 time_steps;
   int                 refine_error;
+#if T8_WITH_PETSC
+  PetscErrorCode      ierr;
+#endif
   /* brief help message */
 
   /* long help message */
@@ -94,6 +100,12 @@ main (int argc, char *argv[])
 #else
   t8dg_init (SC_LP_ESSENTIAL);
   t8_init (SC_LP_ESSENTIAL);
+#endif
+
+#if T8_WITH_PETSC
+  ierr = PetscInitialize (&argc, &argv, (char *) 0, NULL);
+  if (ierr)
+    return ierr;
 #endif
 
   /* initialize command line argument parser */
@@ -182,5 +194,8 @@ main (int argc, char *argv[])
   sc_finalize ();
   mpiret = sc_MPI_Finalize ();
   SC_CHECK_MPI (mpiret);
+#if T8_WITH_PETSC
+  PetscFinalize ();
+#endif
   return 0;
 }
