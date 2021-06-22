@@ -12,12 +12,94 @@
 #include "t8dg.h"
 #include "t8dg_dof.h"
 
+#if T8_WITH_PETSC
+#include <petscksp.h>
+#include <petscdmda.h>
+#include <petscdm.h>
+#endif
+
 T8DG_EXTERN_C_BEGIN ();
 
 typedef struct t8dg_timestepping_data t8dg_timestepping_data_t;
 
 typedef void        (*t8dg_time_matrix_application) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
                                                      const void *application_data);
+
+/* Struct which keeps information regarding the matrix-free application of system matrix resulting from the implicit Euler-Method */
+#if T8_WITH_PETSC
+typedef struct
+{
+  PetscScalar         timestep;
+  PetscInt           *global_indexing;
+  double              next_time_point;
+  size_t              num_local_dofs;
+  t8dg_time_matrix_application time_derivative_func;
+  t8dg_dof_values_t  *future_local_dofs;
+  t8dg_dof_values_t  *future_local_dofs_derivative;
+  t8dg_timestepping_data_t *time_data;
+  void               *user_data;
+} t8dg_timestepping_impl_euler_ctx_t;
+#endif
+
+/* Struct that keeps the information needed by the matrix-free application of the DIRK methods */
+#if T8_WITH_PETSC
+typedef struct
+{
+  int                 num_local_dofs;
+  double              timestep;
+  double              next_time_point;
+  int                 dirk_current_step;
+  int                 step_number;
+  double              dirk_current_a_coeff;
+  PetscInt           *global_indexing;
+  t8dg_time_matrix_application time_derivative_func;
+  t8dg_dof_values_t  *future_local_dofs;
+  t8dg_dof_values_t  *future_local_dofs_derivative;
+  t8dg_dof_values_t  *future_local_dofs_step;
+  t8dg_dof_values_t  *current_local_dofs;
+  t8dg_dof_values_t  *local_derivation_degrees;
+  t8dg_timestepping_data_t *time_data;
+  void               *user_data;
+} t8dg_timestepping_dirk_ctx_t;
+#endif
+
+/** Advances a timestep using the implicit Euler method 
+* \param[in] time_derivative The function that describes the derivation of the dofs of the current problem which has to be solved (u_{t} = R(u, t))
+* \param[in] time_data       Keeps the information regarding the time, e.g. current time, timetep
+* \param[in] pdof_array      Pointer to the dofs of the given problem
+* \param[in] user_data       Contains the complete information regarding the problem, in fact it is a pointer to the initial problem 
+* The former dofs (from the last time step) \a pdof_array will be directly exchanged with the calculated dofs of the next time step
+*/
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
+                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data);
+
+/** Advances a timestep using a DIRK method  
+* \param[in] time_derivative The function that describes the derivation of the dofs of the current problem which has to be solved (u_{t} = R(u, t))
+* \param[in] time_data       Keeps the information regarding the time, e.g. current time, timetep
+* \param[in] pdof_array      Pointer to the dofs of the given problem
+* \param[in] user_data       Contains the complete information regarding the problem, in fact it is a pointer to the initial problem 
+* \param[in] num_order_steps The of order/stages of the DIRK methods
+* The former dofs (from the last time step) \a pdof_array will be directly exchanged with the calculated dofs of the next time step
+* The only DIRK methods implemented are DIRK(2,2) of order 2 using 2 steps and DIRK(3,3) of order 3 using 3 steps. Therefore, \a num_order_stages got to equal 2 or 3
+*/
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
+                         t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_steps);
 
 /** implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal
  * The time derivative application is given by time_derivative
