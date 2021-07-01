@@ -611,7 +611,8 @@ t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_probl
   double              solve_time = -sc_MPI_Wtime ();
   t8dg_advect_diff_problem_set_time_step (problem);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
-  t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
+  //t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
+  t8dg_timestepping_dirk(t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem, 2);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_SOLVE, solve_time + sc_MPI_Wtime ());
 }

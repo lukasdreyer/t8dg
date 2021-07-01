@@ -48,12 +48,9 @@ typedef struct
   int                 num_local_dofs;
   double              timestep;
   double              next_time_point;
-  int                 dirk_current_step;
-  int                 step_number;
   double              dirk_current_a_coeff;
   PetscInt           *global_indexing;
   t8dg_time_matrix_application time_derivative_func;
-  t8dg_dof_values_t  *future_local_dofs;
   t8dg_dof_values_t  *future_local_dofs_derivative;
   t8dg_dof_values_t  *future_local_dofs_step;
   t8dg_dof_values_t  *current_local_dofs;

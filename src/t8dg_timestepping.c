@@ -527,8 +527,6 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   /* Duplicate the other t8dg_dof_values_t */
   appctx.future_local_dofs_derivative = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
   appctx.future_local_dofs_step = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
-  appctx.future_local_dofs = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
-  t8dg_dof_values_set_zero (appctx.future_local_dofs);
 
   /* Select whether the order 2 or order 3 DIRK method has been choosen */
   if (num_order_stages == 2) {
@@ -544,15 +542,17 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   /* Calculate the process-local number of degrees of freedom */
   appctx.num_local_dofs =
-    (size_t) (t8dg_dof_get_num_local_elements (appctx.future_local_dofs) * t8dg_dof_get_max_num_element_dof (appctx.future_local_dofs));
+    (size_t) (t8dg_dof_get_num_local_elements (appctx.local_derivation_degrees) *
+              t8dg_dof_get_max_num_element_dof (appctx.local_derivation_degrees));
 
   /* Allocate space for an array which holds the global indices of the degrees of freedom */
   ierr = PetscMalloc1 (appctx.num_local_dofs, &vec_global_index);
 
   /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
-  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (appctx.future_local_dofs));
+  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (appctx.local_derivation_degrees));
   if (global_offset_to_first_local_elem != 0) {
-    global_offset_to_first_local_elem = global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (appctx.future_local_dofs);
+    global_offset_to_first_local_elem =
+      global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (appctx.local_derivation_degrees);
   }
 
   /* Fill the process-local array of global indices */
@@ -569,8 +569,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   ierr = VecCreateMPI (PETSC_COMM_WORLD, (PetscInt) appctx.num_local_dofs, PETSC_DETERMINE, &f);
   CHKERRQ (ierr);
   /* Fill the vector with the current degrees of freedom resulting from the former time step */
-  //ierr = VecSetValues(f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array(*pdof_array), INSERT_VALUES); CHKERRQ(ierr);
-  ierr = VecSet (f, 0.0);
+  ierr = VecSetValues (f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array (*pdof_array), INSERT_VALUES);
   CHKERRQ (ierr);
   ierr = VecAssemblyBegin (f);
   CHKERRQ (ierr);
@@ -583,15 +582,13 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   /* Use the size and allocation similar to the right-hand-side (-> f) */
   ierr = VecDuplicate (f, &u);
   CHKERRQ (ierr);
-  ierr = VecSet (u, 1.0);
+  /* Copy the entries of f to u -> u is used as an initial guess; otherwise u will be overwitten with zeros during KSPSolve (if non_zero_guess is false) */
+  ierr = VecCopy (f, u);
   CHKERRQ (ierr);
   ierr = VecAssemblyBegin (u);
   CHKERRQ (ierr);
   ierr = VecAssemblyEnd (u);
   CHKERRQ (ierr);
-  /* Copy the entries of f to u - u is used as an initial guess; otherwise u will be overwitten with zeros during KSPSolve */
-  //ierr = VecCopy (f, u);
-  //CHKERRQ (ierr);
   ierr = PetscObjectSetName ((PetscObject) u, "Approximation");
   CHKERRQ (ierr);
 
@@ -637,19 +634,20 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   /* In every RKV step a LS has to be solved in order to obtain an intermediate solution which is than further processed */
   for (step_iter = 0; step_iter < num_order_stages; ++step_iter) {
+
     /* Set the next time point of the upcoming RKV step */
-    appctx.next_time_point = current_time + ((*dirk_c_coeff)[step_iter]) * appctx.timestep;
+    appctx.next_time_point = current_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
     t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
 
-    /* Set the current coefficients needed in the matrix-free application for the next step */
+    /* Set the current coefficient needed in the matrix-free application for the next step */
     appctx.dirk_current_a_coeff = (*dirk_a_coeff)[step_iter][step_iter];
-    //appctx.dirk_current_b_coeff = (*dirk_b_coeff)[step_iter];
 
-    /* Assemble the (pre) degrees of freedom which will be derivated in the MatVec product */
-    //t8dg_dof_values_set_zero (appctx.future_local_dofs_step);
-    t8dg_dof_values_copy (appctx.current_local_dofs, appctx.future_local_dofs_step);
+    /* Fill the future_local_dofs_step with zeros, so that the axpy product will not be irritated */
+    t8dg_dof_values_set_zero (appctx.future_local_dofs_step);
+
+    /* Subtract the (weighted) derivations of the degrees of freedom of the former stages */
     for (iter = 0; iter < step_iter; ++iter) {
-      t8dg_dof_values_axpy (appctx.timestep * ((*dirk_a_coeff)[step_iter][iter]), local_dofs_step[iter], appctx.future_local_dofs_step);
+      t8dg_dof_values_axpy (-(appctx.timestep * ((*dirk_a_coeff)[step_iter][iter])), local_dofs_step[iter], appctx.future_local_dofs_step);
     }
 
     /* Solve the Linear System */
@@ -666,7 +664,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     CHKERRQ (ierr);
 
     /* Get a double pointer to the data inside the sc_array_t of t8dg_dof_values_t */
-    dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx.future_local_dofs_step);
+    dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx.local_derivation_degrees);
 
     /* Overwrite the dof_problem_new with the newly calculated degrees of freedom */
     for (iter = 0; iter < appctx.num_local_dofs; ++iter) {
@@ -678,14 +676,14 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     CHKERRQ (ierr);
 
     /* Create a new empty t8dg_dof_values_t and swap with the current solution */
-    local_dofs_step[step_iter] = t8dg_dof_values_duplicate (appctx.future_local_dofs_step);
+    local_dofs_step[step_iter] = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
 
-    /* Store the approximation of the degrees of freedom of the current step; they are the k_{j} of the different steps */
-    t8dg_dof_values_swap (&(appctx.future_local_dofs_step), &local_dofs_step[step_iter]);
+    /* Store the derivation of degrees of freedom calculated in the current step in local_dofs_step */
+    (appctx.time_derivative_func) (appctx.local_derivation_degrees, local_dofs_step[step_iter], appctx.next_time_point, appctx.user_data);
 
   }
 
-  /* Add the values of the stpes to the former approximation to obtain the degrees of freedom of the next step */
+  /* Add the values of the staged to the former approximation to obtain the degrees of freedom of the next step */
   for (iter = 0; iter < num_order_stages; ++iter) {
     t8dg_dof_values_axpy ((appctx.timestep * (*dirk_b_coeff)[iter]), local_dofs_step[iter], appctx.current_local_dofs);
   }
@@ -696,7 +694,6 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   t8dg_debugf ("\nDIRK Method completed\n");
 
   /* Free used resources */
-  t8dg_dof_values_destroy (&(appctx.future_local_dofs));
   t8dg_dof_values_destroy (&(appctx.future_local_dofs_derivative));
   t8dg_dof_values_destroy (&(appctx.future_local_dofs_step));
   t8dg_dof_values_destroy (&(appctx.current_local_dofs));
@@ -741,7 +738,7 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
   CHKERRQ (ierr);
 
   /* Get a pointer to the original degrees of freedom of the probblem */
-  dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx->future_local_dofs);
+  dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx->local_derivation_degrees);
 
   /* Overwrite them with the 'in' Vector of the Matrix Multiplication */
   for (dof_iter = 0; dof_iter < appctx->num_local_dofs; ++dof_iter) {
@@ -752,22 +749,24 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
   ierr = VecRestoreArrayRead (in, &current_local_approx);
   CHKERRQ (ierr);
 
-  /* Overwrite the degrees of freedom in the problem to obtain the derivation of the degrees of freedom of the 'in' Vector */
-  t8dg_dof_values_axpyz ((appctx->timestep * appctx->dirk_current_a_coeff), appctx->future_local_dofs, appctx->future_local_dofs_step,
-                         appctx->local_derivation_degrees);
-
   /* Get the derivation of the degrees of freedom of the current RKV step and store them in appctx->future_local_dofs_derivative */
   (appctx->time_derivative_func) (appctx->local_derivation_degrees, appctx->future_local_dofs_derivative, appctx->next_time_point,
                                   appctx->user_data);
 
   /* Subtract the derivation of the degrees from the dofs of the 'in' Vector */
-  t8dg_dof_values_axpy (-1.0, appctx->future_local_dofs_derivative, appctx->future_local_dofs);
+  t8dg_dof_values_axpy (-(appctx->timestep * appctx->dirk_current_a_coeff), appctx->future_local_dofs_derivative,
+                        appctx->local_derivation_degrees);
+
+  /* Subtract the (weighted) derivations of the degrees of freedom calculated in the former stages which are stored in future_local_dofs_step */
+  t8dg_dof_values_axpy (1.0, appctx->future_local_dofs_step, appctx->local_derivation_degrees);
 
   /* Write the result of the matrix-application to the 'in' Vector in the 'out' Vector */
   ierr =
-    VecSetValues (out, appctx->num_local_dofs, appctx->global_indexing, t8dg_dof_get_double_pointer_to_array (appctx->future_local_dofs),
-                  INSERT_VALUES);
+    VecSetValues (out, appctx->num_local_dofs, appctx->global_indexing,
+                  t8dg_dof_get_double_pointer_to_array (appctx->local_derivation_degrees), INSERT_VALUES);
   CHKERRQ (ierr);
+
+  /* Assemble the output vector */
   ierr = VecAssemblyBegin (out);
   CHKERRQ (ierr);
   ierr = VecAssemblyEnd (out);
