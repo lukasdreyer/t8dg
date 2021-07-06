@@ -249,6 +249,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          double delta_t,
                                          int time_steps,
                                          int time_order,
+                                         int use_implicit_timestepping,
                                          int min_level,
                                          int max_level,
                                          int adapt_arg,
@@ -290,13 +291,13 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   vtk_data = t8dg_output_vtk_data_new (prefix, vtk_freq);
   if (cfl > 0) {
-    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl);
+    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl, use_implicit_timestepping);
   }
   else {
     if (delta_t <= 0) {
       delta_t = (end_time - start_time) / time_steps;
     }
-    time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t);
+    time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t, use_implicit_timestepping);
   }
   init_time += sc_MPI_Wtime ();
 
@@ -611,8 +612,9 @@ t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_probl
   double              solve_time = -sc_MPI_Wtime ();
   t8dg_advect_diff_problem_set_time_step (problem);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
+  t8dg_timestepping_choose_impl_expl_method (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
   //t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
-  t8dg_timestepping_dirk(t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem, 2);
+  //t8dg_timestepping_dirk(t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem, 2);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_SOLVE, solve_time + sc_MPI_Wtime ());
 }

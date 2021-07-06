@@ -20,7 +20,8 @@ static int
 t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
                     int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order,
-                    int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
+                    int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg,
+                    int use_implicit_timestepping)
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
@@ -36,7 +37,9 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(start_time < end_time))
     return 0;
-  if (!((cfl > 0 && cfl <= 1) || (cfl == 0 && (delta_t > 0 || time_steps > 0))))
+  if (!
+      ((cfl > 0 && ((cfl <= 1 && use_implicit_timestepping == 0) || (use_implicit_timestepping != 0)))
+       || (cfl == 0 && (delta_t > 0 || time_steps > 0))))
     return 0;
   if (!(time_order >= 1 && time_order <= 4))
     return 0;
@@ -52,6 +55,8 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(source_sink_arg >= 0 && source_sink_arg <= 1))
     return 0;
+  if (!(use_implicit_timestepping == 0 || use_implicit_timestepping == 1))
+    return 0;
   return 1;
 }
 
@@ -66,6 +71,7 @@ main (int argc, char *argv[])
   int                 initial_cond_arg;
   int                 uniform_level, max_level, min_level;
   int                 time_order;
+  int                 use_implicit_timestepping;
   int                 number_LGL_points;
   int                 vtk_freq;
   int                 adapt_freq;
@@ -119,11 +125,14 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'L', "LGL", &number_LGL_points, 2, "The number of LGL basis points/basisfunctions in 1D. Default: 2");
   sc_options_add_int (opt, 'o', "time_order", &time_order, 2,
                       "The order used for the runge Kutta timestepping (1<= order <=4). Default: 2");
-
-  sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n"
-                      "\t\t2: diagonal line more trees\n" "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n"
-                      "\t\t6: moebius more tree\n" "\t\t7: parallelogram\n" "\t\t8: cube\n" "\t\t9: circle ring\n"
-                      "\t\t10: square half periodic\n" "\t\t11: cylinder ring\n");
+  sc_options_add_int (opt, 'I', "use_implicit_timestepping", &use_implicit_timestepping, 0,
+                      "Whether implicit or explicit time stepping Runge Kutta should be used. Default: 0.\n" "\t\t0: explicit RKV\n"
+                      "\t\t1: implicit DIRK (max. time_order <= 3\n");
+  sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0,
+                      "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n" "\t\t2: diagonal line more trees\n"
+                      "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n" "\t\t6: moebius more tree\n"
+                      "\t\t7: parallelogram\n" "\t\t8: cube\n" "\t\t9: circle ring\n" "\t\t10: square half periodic\n"
+                      "\t\t11: cylinder ring\n");
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
   sc_options_add_double (opt, 'd', "diff_coeff", &diffusion_coefficient, 0, "The diffusion coefficient. Default: 0");
 
@@ -172,12 +181,12 @@ main (int argc, char *argv[])
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
                                               start_time, end_time, cfl, delta_t, time_steps, time_order, vtk_freq, adapt_freq, adapt_arg,
-                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg)) {
+                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg, use_implicit_timestepping)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
       t8dg_advect_diff_problem_init_arguments (icmesh, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
                                                diffusion_coefficient, start_time, end_time, cfl, delta_t, time_steps, time_order,
-                                               min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
+                                               use_implicit_timestepping, min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
                                                numerical_flux_arg, source_sink_arg, refine_error, sc_MPI_COMM_WORLD);
 
     t8dg_advect_diff_solve (problem);

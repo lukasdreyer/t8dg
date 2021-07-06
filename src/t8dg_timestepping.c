@@ -18,6 +18,7 @@ struct t8dg_timestepping_data
   double              T;        /**< end time */
   double              cfl;      /**< cfl number*/
   int                 step_number;
+  int                 use_implicit_timestepping;
 };
 
 #if T8_WITH_PETSC
@@ -121,7 +122,7 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
 }
 
 t8dg_timestepping_data_t *
-t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl)
+t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl, int use_implicit_timestepping)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -131,11 +132,13 @@ t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_ti
   time_data->cfl = cfl;
   time_data->step_number = 0;
   time_data->delta_t = -1;
+  time_data->use_implicit_timestepping = use_implicit_timestepping;
   return time_data;
 }
 
 t8dg_timestepping_data_t *
-t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t)
+t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t,
+                                              int use_implicit_timestepping)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -145,6 +148,7 @@ t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time,
   time_data->cfl = 0;
   time_data->step_number = 0;
   time_data->delta_t = delta_t;
+  time_data->use_implicit_timestepping = use_implicit_timestepping;
   return time_data;
 }
 
@@ -157,6 +161,7 @@ t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data)
   time_data->T = -1;
   time_data->cfl = -1;
   time_data->delta_t = -1;
+  time_data->use_implicit_timestepping = -1;
   T8_FREE (time_data);
   *ptime_data = NULL;
 }
@@ -256,9 +261,6 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   PetscInt           *vec_global_index;
   t8_gloidx_t         global_offset_to_first_local_elem;
 
-  //t8dg_debugf("\n\nInitial dofs passed to implicit Euler:\n\n");
-  //t8dg_dof_values_debug_print(*pdof_array);
-
   /* Store the current timestep */
   appctx.timestep = t8dg_timestepping_data_get_time_step (time_data);
 
@@ -328,9 +330,6 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   ierr = PetscObjectSetName ((PetscObject) u, "Approximation");
   CHKERRQ (ierr);
 
-  //t8dg_debugf("\n Right Hand Side f:\n");
-  //ierr = VecView(f, PETSC_VIEWER_STDOUT_WORLD);
-
   /* Setting up matrix-free Matrix */
   /* Create a matrix shell with local dimensions equal to the dimension of the Vec containing the process-local degrees of freedom and add an application context needed by the matrix-free MatVec multiplication */
   ierr =
@@ -374,9 +373,6 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   CHKERRQ (ierr);
 
   t8dg_debugf ("\nGMRES solve completed\n");
-
-  /* KSPGetSolution will most likely not be required in this case */
-  //ierr = KSPGetSolution(ksp, &u); CHKERRQ(ierr);
 
   /* View whether or not the GMRES did converge */
   ierr = KSPConvergedRateView (ksp, PETSC_VIEWER_STDOUT_WORLD);
@@ -775,3 +771,34 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
   return 0;
 }
 #endif
+
+/* Select either an implicit or an explicit Runge Kutta method */
+void
+t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_derivative,
+                                           t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data)
+{
+  if (time_data->use_implicit_timestepping == 0) {
+    /* An explicit time stepping method has been chosen */
+    t8dg_debugf ("Explicit RKV of order %d has been called.\n", time_data->time_order);
+    t8dg_timestepping_runge_kutta_step (time_derivative, time_data, pdof_array, user_data);
+  }
+  else if (time_data->use_implicit_timestepping == 1) {
+    /* An implicit time stepping method has been chosen */
+    switch (time_data->time_order) {
+    case 1:
+      t8dg_debugf ("The implicit Euler method has been called.\n");
+      t8dg_timestepping_implicit_euler (time_derivative, time_data, pdof_array, user_data);
+      break;
+    case 2:
+      t8dg_debugf ("The DIRK(2,2) method has been called.\n");
+      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 2);
+      break;
+    case 3:
+      t8dg_debugf ("The DIRK(3,3) method has been called.\n");
+      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 3);
+      break;
+    default:
+      t8dg_debugf ("An implicit DIRK method of order %d has been called, which is not implemented.\n", time_data->time_order);
+    }
+  }
+}

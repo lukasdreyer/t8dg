@@ -58,6 +58,7 @@ t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_argumen
                                                                                     double delta_t,
                                                                                     int time_steps,
                                                                                     int time_order,
+                                                                                    int use_implicit_timestepping,
                                                                                     int min_level,
                                                                                     int max_level,
                                                                                     int adapt_arg,
@@ -87,6 +88,7 @@ void                t8dg_advect_diff_problem_adapt_uniform (t8dg_linear_advectio
 
 void                t8dg_advect_diff_problem_partition (t8dg_linear_advection_diffusion_problem_t * problem, int measure_time);
 
+//void                t8dg_advect_diff_problem_choose_timestepping_method(t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data);
 /*stats*/
 void                t8dg_advect_diff_problem_compute_and_print_stats (t8dg_linear_advection_diffusion_problem_t * problem);
 

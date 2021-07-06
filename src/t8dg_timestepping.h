@@ -25,6 +25,10 @@ typedef struct t8dg_timestepping_data t8dg_timestepping_data_t;
 typedef void        (*t8dg_time_matrix_application) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
                                                      const void *application_data);
 
+void                t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_derivative,
+                                                               t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array,
+                                                               void *user_data);
+
 /* Struct which keeps information regarding the matrix-free application of system matrix resulting from the implicit Euler-Method */
 #if T8_WITH_PETSC
 typedef struct
@@ -114,9 +118,11 @@ void
 
 void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
 
-t8dg_timestepping_data_t *t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl);
+t8dg_timestepping_data_t *t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl,
+                                                          int use_implicit_timestepping);
 
-t8dg_timestepping_data_t *t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t);
+t8dg_timestepping_data_t *t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t,
+                                                                        int use_implicit_timestepping);
 
 void                t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data);
 
