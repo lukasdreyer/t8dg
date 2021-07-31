@@ -28,6 +28,7 @@ libt8dg_installed_headers = \
   src/t8dg_adapt.h \
   src/t8dg_output.h \
   src/t8dg_cmesh.h \
+  src/t8dg_preconditioner.h \
   src/t8dg_advect_diff_problem.h
 
 libt8dg_internal_headers =
@@ -57,6 +58,7 @@ libt8dg_compiled_sources = \
   src/t8dg_adapt.cxx \
   src/t8dg_output.c \
   src/t8dg_cmesh.cxx \
+  src/t8dg_preconditioner.c \
   src/t8dg_advect_diff_problem.cxx
 
 # this variable is used for headers that are not publicly installed

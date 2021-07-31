@@ -29,6 +29,16 @@ void                t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_
                                                                t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array,
                                                                void *user_data);
 
+/* Struct that provides a context for matrix-free preconditioning */
+#if T8_WITH_PETSC
+typedef struct
+{
+  Vec                 matrix_diagonal;
+  PetscScalar         timestep;
+  PetscScalar         current_b_coeff;
+} t8dg_timestepping_precon_jacobi_ctx_t;
+#endif
+
 /* Struct which keeps information regarding the matrix-free application of system matrix resulting from the implicit Euler-Method */
 #if T8_WITH_PETSC
 typedef struct
@@ -38,7 +48,7 @@ typedef struct
   double              next_time_point;
   size_t              num_local_dofs;
   t8dg_time_matrix_application time_derivative_func;
-  t8dg_dof_values_t  *future_local_dofs;
+  t8dg_dof_values_t **future_local_dofs;
   t8dg_dof_values_t  *future_local_dofs_derivative;
   t8dg_timestepping_data_t *time_data;
   void               *user_data;

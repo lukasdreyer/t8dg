@@ -102,6 +102,20 @@ t8dg_adapt_uniform (t8_forest_t forest,
                     t8_forest_t forest_from,
                     t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
+int
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
+                                           t8_forest_t forest_from,
+                                           t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
+                                           t8_element_t * elements[]);
+
 T8DG_EXTERN_C_END ();
 
 #endif

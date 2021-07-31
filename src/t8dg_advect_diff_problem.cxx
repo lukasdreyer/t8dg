@@ -509,16 +509,16 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
 
   t8dg_dof_values_add (dof_sum, dof_summand);
 
-  t8dg_debugf ("stiffnessmatrix:\n");
-  t8dg_dof_values_debug_print (dof_summand);
+  //t8dg_debugf ("stiffnessmatrix:\n");
+  //t8dg_dof_values_debug_print (dof_summand);
 
   t8dg_values_apply_boundary_integrals (problem->dg_values, dof_values, dof_summand, problem->description->velocity_field,
                                         problem->description->flux_data, problem->description->numerical_flux_advection,
                                         problem->description->numerical_flux_advection_data, t);
 
   t8dg_dof_values_subtract (dof_sum, dof_summand);      /*subtract function */
-  t8dg_debugf ("boundary_matrix:\n");
-  t8dg_dof_values_debug_print (dof_summand);
+  //t8dg_debugf ("boundary_matrix:\n");
+  //t8dg_dof_values_debug_print (dof_summand);
 
   if (problem->description->source_sink_fn != NULL) {
     t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->source_sink_fn, t,
@@ -530,8 +530,8 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
   /*apply massinverse */
   t8dg_values_apply_inverse_mass_matrix (problem->dg_values, dof_sum, dof_change);
 
-  t8_debugf ("du/dt = ");
-  t8dg_dof_values_debug_print (dof_change);
+  //t8_debugf ("du/dt = ");
+  //t8dg_dof_values_debug_print (dof_change);
 
   t8dg_dof_values_destroy (&gradient_component);
   t8dg_dof_values_destroy (&gradient_component_stiffness);
@@ -881,4 +881,102 @@ int
 t8dg_advect_diff_problem_endtime_reached (t8dg_linear_advection_diffusion_problem_t * problem)
 {
   return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
+}
+
+t8dg_adapt_data_t **
+t8dg_advect_diff_problem_get_adapt_data (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->adapt_data);
+}
+
+t8dg_dof_values_t **
+t8dg_advect_diff_problem_get_dof_values (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dof_values);
+}
+
+t8dg_dof_values_t **
+t8dg_advect_diff_problem_get_dof_values_adapt (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dof_values_adapt);
+}
+
+t8dg_values_t     **
+t8dg_advect_diff_problem_get_dg_values (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dg_values);
+}
+
+t8_forest_t        *
+t8dg_advect_diff_problem_get_forest (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->forest);
+}
+
+t8dg_timestepping_data_t *
+t8dg_advect_diff_problem_get_time_data (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return problem->time_data;
+}
+
+#if 0
+void
+t8dg_advect_diff_problem_swap_from_restriction_to_prolongation (t8dg_linear_advection_diffusion_problem_t * problem,
+                                                                t8dg_mortar_array_t ** mortar_array_coarse_lvl)
+{
+  t8dg_dof_values_swap (&(problem->dof_values), &(problem->dof_values_adapt));
+  t8dg_values_swap_to_adapt_data (problem->dg_values, mortar_array_coarse_lvl);
+}
+
+void                t8dg_advect_diff_problem_swap_from_prolongation_to_intitial (t8dg_linear_advection_diffusion_problem_t * problem;
+                                                                                 t8dg_mortar_array_t ** mortar_array_coarse_lvl) {
+  t8dg_advect_diff_problem_swap_to_adapt_data (problem, mortar_array_coarse_lvl);
+}
+
+void
+t8dg_advect_diff_problem_swap_to_adapt_data (t8dg_linear_advection_diffusion_problem_t * problem,
+                                             t8dg_mortar_array_t ** mortar_array_coarse_lvl)
+{
+  t8dg_dof_values_swap (&(problem->dof_values), &(problem->dof_values_adapt));
+  //t8dg_dof_values_swap(&(problem->adapt_data->dof_values), &(problem->adapt_data->dof_values_adapt));
+  t8dg_values_swap_to_adapt_data (problem->dg_values, mortar_array_coarse_lvl);
+}
+#endif
+void
+t8dg_advect_diff_problem_jacobi_precon (t8dg_linear_advection_diffusion_problem_t * problem, t8dg_dof_values_t * src_dof,
+                                        t8dg_dof_values_t * dest_dof, double timestep, size_t num_local_elements, size_t num_total_elements)
+{
+  t8dg_dof_values_t  *dof_values_current_copy;
+  t8dg_dof_values_t  *help_dof;
+  double             *dof_pointer;
+  double             *dof_help_pointer;
+  double             *dof_dest_pointer;
+
+  dof_values_current_copy = t8dg_dof_values_clone (src_dof);
+  help_dof = t8dg_dof_values_duplicate (src_dof);
+  dof_pointer = t8dg_dof_get_double_pointer_to_array (src_dof);
+  dof_help_pointer = t8dg_dof_get_double_pointer_to_array (help_dof);
+  dof_dest_pointer = t8dg_dof_get_double_pointer_to_array (dest_dof);
+
+  for (int i = 0; i < num_total_elements; ++i) {
+    dof_pointer[i] = 0.0;
+  }
+
+  for (int i = 0; i < num_local_elements; ++i) {
+    dof_pointer[i] = 1.0;
+
+    for (int j = 0; j < problem->dim; ++j) {
+      t8dg_values_apply_component_stiffness_matrix_dof (problem->dg_values, j, src_dof, help_dof);
+    }
+    t8dg_values_apply_inverse_mass_matrix (problem->dg_values, help_dof, help_dof);
+
+    dof_dest_pointer[i] = (1.0 - timestep * dof_help_pointer[i]);
+
+    dof_pointer[i] = 0.0;
+  }
+
+  t8dg_dof_values_swap (&src_dof, &dof_values_current_copy);
+  t8dg_dof_values_destroy (&src_dof);
+  t8dg_dof_values_destroy (&help_dof);
+
 }

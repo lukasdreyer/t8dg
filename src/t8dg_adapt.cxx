@@ -343,24 +343,32 @@ t8dg_adapt_replace (t8_forest_t forest_old,
   int                 ichild, num_children;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest_new);
-
+  t8dg_debugf ("forest new user data wurde abgerufen\n");
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, itree, first_ielem_old);
   first_idata_new = t8dg_itree_ielement_to_idata (forest_new, itree, first_ielem_new);
-
+  t8dg_debugf ("idataold: %d\n", first_idata_old);
+  t8dg_debugf ("idatanew: %d\n", first_idata_new);
+  t8dg_debugf ("nach data zuweisung\n");
   if (num_elems_old == num_elems_new && num_elems_old == 1) {
+    t8dg_debugf ("case1\n");
     t8dg_values_copy_element_values (adapt_data->dg_values, first_idata_old, first_idata_new);
     t8dg_dof_values_copy_from_index_to_index (adapt_data->dof_values, first_idata_old, adapt_data->dof_values_adapt, first_idata_new);
   }
   else if (num_elems_old == 1) {
+    t8dg_debugf ("case2\n");
     num_children = t8dg_global_values_get_num_children (t8dg_values_get_global_values (adapt_data->dg_values, itree, first_ielem_old));
+    t8dg_debugf ("nach num_children\n");
     T8DG_ASSERT (num_children == num_elems_new);
     for (ichild = 0; ichild < num_children; ichild++) {
       t8dg_values_set_element_adapt (adapt_data->dg_values, itree, first_ielem_new + ichild);
+      t8dg_debugf ("nach element adapt\n");
       t8dg_values_transform_parent_dof_to_child_dof (adapt_data->dg_values, adapt_data->dof_values, adapt_data->dof_values_adapt, itree,
                                                      first_ielem_old, first_ielem_new + ichild, ichild);
+      t8dg_debugf ("nach tranformation\n");
     }
   }
   else {
+    t8dg_debugf ("case3\n");
     num_children =
       t8dg_global_values_get_num_children (t8dg_values_get_global_values_adapt (adapt_data->dg_values, itree, first_ielem_new));
     T8DG_ASSERT (num_children == num_elems_old && num_elems_new == 1);
@@ -369,4 +377,32 @@ t8dg_adapt_replace (t8_forest_t forest_old,
     t8dg_values_transform_child_dof_to_parent_dof (adapt_data->dg_values, adapt_data->dof_values, adapt_data->dof_values_adapt, itree,
                                                    num_children, first_ielem_old, first_ielem_new);
   }
+}
+
+/* Coarsens the mesh in order to apply a multigrid preconditioner */
+/* This functions only coarsens the finest elements on level back down */
+int
+t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
+                                           t8_forest_t forest_from,
+                                           t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
+                                           t8_element_t * elements[])
+{
+  t8dg_adapt_data_t  *adapt_data;
+  adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+
+  /* Right now: just refine every element, the balance property might be lost, if it is not a uniformly grid */
+  if (ts->t8_element_level (elements[0]) > adapt_data->minimum_refinement_level) {
+    return -1;
+  }
+#if 0
+  /* Check if coarsening is possible */
+  if (forest_from->maxlevel_exisiting > adapt_data->minimum_refinement_level) {
+    /* If the element is currently refined to the highest level, it along with it's siblings get coarsened to it's parent element */
+    if (ts->t8_element_level (elements[0]) == forest_from->maxlevel_exisiting) {
+      return -1;
+    }
+  }
+#endif
+  /* In case the element should not be coarsened and stays the same */
+  return 0;
 }

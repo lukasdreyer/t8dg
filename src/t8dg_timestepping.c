@@ -10,6 +10,12 @@
 #include "t8dg.h"
 #include "t8dg_timestepping.h"
 #include "t8dg_timestepping_dirk_coefficients.h"
+#include "t8dg_values.h"
+#include "t8dg_advect_diff_problem.h"
+#include "t8dg_preconditioner.h"
+
+#define TRY_MG_PRECONDITIONER 1
+
 struct t8dg_timestepping_data
 {
   int                 time_order;/**< time order of the Runge-kutta timestepping*/
@@ -32,6 +38,13 @@ extern PetscErrorCode MatMult_MF_Impl_Euler (Mat, Vec, Vec);
 extern PetscErrorCode MatMult_MF_DIRK (Mat, Vec, Vec);
 #endif
 
+#if T8_WITH_PETSC
+/* Jacobi-Preconditioner for matrix-free operations */
+extern PetscErrorCode JacobiShellPCCreate (t8dg_timestepping_precon_jacobi_ctx_t **, double, double);
+extern PetscErrorCode JacobiShellPCSetUp (PC, Mat, Vec, t8dg_dof_values_t *, size_t);
+extern PetscErrorCode JacobiShellPCApply (PC, Vec x, Vec y);
+extern PetscErrorCode JacobiShellPCDestroy (PC);
+#endif
 /*pre computed butcher tableau values for rk with values only on first diagonal*/
 double              rk1_b[1] = { 1 };
 
@@ -256,10 +269,24 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   PetscScalar        *new_local_approx;
   PetscErrorCode      ierr;
   t8dg_timestepping_impl_euler_ctx_t appctx;
+  t8dg_timestepping_precon_jacobi_ctx_t *pcshell_ctx;
   t8dg_dof_values_t  *dof_problem_new;
   PetscInt            its;
   PetscInt           *vec_global_index;
   t8_gloidx_t         global_offset_to_first_local_elem;
+
+  /* Trial of a two-level multigrid preconditioner */
+#if TRY_MG_PRECONDITIONER
+  KSP                 coarse_solver;
+  KSP                 smoother;
+  PC                  coarse_pc;
+  PC                  smoother_pc;
+  Mat                 Restriction, Prolongation;
+  t8dg_coarse_matrix_ctx_t cmat_ctx;
+  Mat                 A_coarse;
+  t8dg_mg_interpolating_ctx_t res_prol_ctx;
+  t8dg_mg_coarse_lvl_t coarse_lvl;
+#endif
 
   /* Store the current timestep */
   appctx.timestep = t8dg_timestepping_data_get_time_step (time_data);
@@ -273,12 +300,12 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   appctx.user_data = user_data;
 
   /* Store the degrees of freedom in the matrix-free application context (the current (original) degrees of freedom will be directly overwritten) */
-  appctx.future_local_dofs = *pdof_array;
+  appctx.future_local_dofs = pdof_array;
   /* Is going to store the derivation of the degrees of freedom -> the evaluation of the time_derivative function */
-  appctx.future_local_dofs_derivative = t8dg_dof_values_duplicate (appctx.future_local_dofs);
+  appctx.future_local_dofs_derivative = t8dg_dof_values_duplicate (*(appctx.future_local_dofs));
 
   /* the degrees of freedom (of the next time step) which will be filled with the solution */
-  dof_problem_new = t8dg_dof_values_duplicate (appctx.future_local_dofs);
+  dof_problem_new = t8dg_dof_values_duplicate (*(appctx.future_local_dofs));
 
   /* Advance a time step */
   t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
@@ -289,15 +316,16 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
 
   /* Calculate the process-local number of degrees of freedom */
   appctx.num_local_dofs =
-    (size_t) (t8dg_dof_get_num_local_elements (appctx.future_local_dofs) * t8dg_dof_get_max_num_element_dof (appctx.future_local_dofs));
+    (size_t) (t8dg_dof_get_num_local_elements (*(appctx.future_local_dofs)) *
+              t8dg_dof_get_max_num_element_dof (*(appctx.future_local_dofs)));
 
   /* Allocate space for an array which holds the global indices of the degrees of freedom */
   ierr = PetscMalloc1 (appctx.num_local_dofs, &vec_global_index);
 
   /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
-  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (appctx.future_local_dofs));
+  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (*(appctx.future_local_dofs)));
   if (global_offset_to_first_local_elem != 0) {
-    global_offset_to_first_local_elem = global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (appctx.future_local_dofs);
+    global_offset_to_first_local_elem = global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (*(appctx.future_local_dofs));
   }
 
   /* Fill the array of global indices */
@@ -352,16 +380,98 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   ierr = KSPGetPC (ksp, &pc);
   CHKERRQ (ierr);
   /* Select GMRES as Solver; default: Restarted GMRES(30) */
-  ierr = KSPSetType (ksp, KSPGMRES);
+  /* If GMRES is used as smoother -> KSPFGMRES muste be used */
+  ierr = KSPSetType (ksp, KSPFGMRES);
   CHKERRQ (ierr);
+  /* Set error tolerances in the (outer) GMRES iteration */
+  ierr = KSPSetTolerances (ksp, 1.0e-9, 1.0e-9, PETSC_DEFAULT, PETSC_DEFAULT);
+  CHKERRQ (ierr);
+  t8dg_debugf ("KSPFGMRES was selected\n");
+#if 0
   /* Select a Preconditioner - without Preconditioning */
   ierr = PCSetType (pc, PCNONE);
   CHKERRQ (ierr);
-  ierr = KSPSetTolerances (ksp, 1.0e-9, 1.0e-9, PETSC_DEFAULT, PETSC_DEFAULT);
+#endif
+#if 0
+  /* Select Jacobi Preconditioner */
+  ierr = PCSetType (pc, PCSHELL);
   CHKERRQ (ierr);
+  ierr = JacobiShellPCCreate (&pcshell_ctx, appctx.timestep, 1.0);
+  CHKERRQ (ierr);
+  ierr = PCShellSetApply (pc, JacobiShellPCApply);
+  CHKERRQ (ierr);
+  ierr = PCShellSetContext (pc, pcshell_ctx);
+  CHKERRQ (ierr);
+  ierr = PCShellSetDestroy (pc, JacobiShellPCDestroy);
+  CHKERRQ (ierr);
+  ierr = PCShellSetName (pc, "Try Jacobi Preconditioner");
+  CHKERRQ (ierr);
+  t8dg_debugf ("Anzahl totaler elemente: %d\n", (int) t8dg_dof_get_num_total_elements (appctx.future_local_dofs));
+  ierr = JacobiShellPCSetUp (pc, A, u, appctx.future_local_dofs, (size_t) t8dg_dof_get_num_total_elements (appctx.future_local_dofs));
+  CHKERRQ (ierr);
+#endif
+#if TRY_MG_PRECONDITIONER
+  t8dg_debugf ("multigrid_preconditioning begin\n");
+  t8dg_mg_set_up_two_lvl_precon ((t8dg_linear_advection_diffusion_problem_t *) user_data, appctx.future_local_dofs, time_derivative,
+                                 &coarse_lvl, t8dg_adapt_multigrid_coarsen_finest_level, &res_prol_ctx, &cmat_ctx, vec_global_index);
+  t8dg_debugf ("set up complete\n");
+  t8dg_mg_create_coarse_lvl_matrix (&A_coarse, &coarse_lvl, &cmat_ctx);
+  t8dg_debugf ("coarse matrix complete\n");
+  t8dg_mg_create_restriction_matrix (&Restriction, &res_prol_ctx);
+  t8dg_debugf ("restriction matrix complete\n");
+  t8dg_mg_create_prolongation_matrix (&Prolongation, &res_prol_ctx);
+  t8dg_debugf ("prolongation matrix complete\n");
+  /* Set Coarse Solver, Smoother, Matrices and Operators */
+  ierr = PCSetType (pc, PCMG);
+  CHKERRQ (ierr);
+  ierr = PCMGSetLevels (pc, 2, NULL);
+  CHKERRQ (ierr);
+  ierr = PCMGSetType (pc, PC_MG_MULTIPLICATIVE);
+  CHKERRQ (ierr);
+  ierr = PCMGSetCycleType (pc, PC_MG_CYCLE_V);
+  CHKERRQ (ierr);
+  ierr = PCMGGetCoarseSolve (pc, &coarse_solver);
+  CHKERRQ (ierr);
+  ierr = KSPSetOperators (coarse_solver, A_coarse, A_coarse);
+  CHKERRQ (ierr);
+  ierr = KSPSetTolerances (coarse_solver, 1.0e-8, 1.0e-8, PETSC_DEFAULT, PETSC_DEFAULT);
+  CHKERRQ (ierr);
+  ierr = KSPSetType (coarse_solver, KSPGMRES);
+  CHKERRQ (ierr);
+  ierr = KSPGetPC (coarse_solver, &coarse_pc);
+  CHKERRQ (ierr);
+  ierr = PCSetType (coarse_pc, PCNONE);
+  CHKERRQ (ierr);
+  ierr = PCMGGetSmoother (pc, 1, &smoother);
+  CHKERRQ (ierr);
+  ierr = KSPSetOperators (smoother, A, A);
+  CHKERRQ (ierr);
+  ierr = KSPSetType (smoother, KSPGMRES);
+  CHKERRQ (ierr);
+  ierr = KSPGetPC (smoother, &smoother_pc);
+  CHKERRQ (ierr);
+  ierr = PCSetType (smoother_pc, PCNONE);
+  CHKERRQ (ierr);
+  /* Amount of pre- and post-smoothing steps */
+  ierr = PCMGSetNumberSmooth (pc, 3);
+  CHKERRQ (ierr);
+  /* Set Restriction operator */
+  ierr = PCMGSetRestriction (pc, 1, Restriction);
+  CHKERRQ (ierr);
+  /* Set Prolongation operator */
+  ierr = PCMGSetInterpolation (pc, 1, Prolongation);
+  CHKERRQ (ierr);
+  /* Set residual calculation - my be default since only Mat's and Vec's are used */
+  ierr = PCMGSetResidual (pc, 1, PCMGResidualDefault, A);
+  CHKERRQ (ierr);
+  /* Provide work space vectors */
+  /* No they should be automatically managed by PETSc */
+  t8dg_debugf ("all multigrid operators were set\n");
+#endif
+
   /* Set initial guess to non-zero (to the last solution) otherwise it will filled with zeros */
-  ierr = KSPSetInitialGuessNonzero (ksp, PETSC_TRUE);
-  CHKERRQ (ierr);
+  //ierr = KSPSetInitialGuessNonzero (ksp, PETSC_TRUE);
+  //CHKERRQ (ierr);
   /* Use eventually further specified properties via the command line, otherwise it is just going to be set up */
   ierr = KSPSetFromOptions (ksp);
   CHKERRQ (ierr);
@@ -395,7 +505,7 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   ierr = VecRestoreArrayRead (u, &new_local_approx);
   CHKERRQ (ierr);
 
-  t8dg_debugf ("\ndCalculated solution (dofs) of the next timestep:\n");
+  t8dg_debugf ("\nCalculated solution (dofs) of the next timestep:\n");
   t8dg_dof_values_debug_print (dof_problem_new);
 
   /* Swap the degrees of freedom associated with the problem with the newly calculated degrees of freedom */
@@ -404,11 +514,41 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   //t8dg_debugf("Dfference between A*u_{k+1} und initial dofs/rhs (u_{k})\n");
   //ierr = VecAXPY(u, -1.0, f); CHKERRQ(ierr);
   //VecView(u, PETSC_VIEWER_STDOUT_WORLD);
-
+  t8dg_debugf ("here memory corruption \n");
   /* Free used resources */
   t8dg_dof_values_destroy (&(appctx.future_local_dofs_derivative));
   t8dg_dof_values_destroy (&dof_problem_new);
-
+  t8dg_debugf ("vor forest unref\n");
+#if TRY_MG_PRECONDITIONER
+  /* Free multigrid preconditioner data */
+  t8_forest_unref (&coarse_lvl.forest_coarsened);
+  t8dg_values_destroy_adapt_data (coarse_lvl.dg_values, &coarse_lvl.tmp_mortar_coarse_lvl);
+  t8dg_debugf ("hier\n");
+  t8dg_dof_values_destroy ((coarse_lvl.dof_values_adapt));
+  t8dg_dof_values_destroy (&(cmat_ctx.problem_dofs_derivation));
+  t8dg_dof_values_destroy (&((coarse_lvl.adapt_data)->dof_values));
+  t8dg_debugf ("oder hier\n");
+  t8dg_dof_values_destroy (&((coarse_lvl.adapt_data)->dof_values_adapt));
+  t8dg_debugf ("oder hier?\n");
+  ierr = MatDestroy (&A_coarse);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed A\n");
+  ierr = MatDestroy (&Restriction);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed Restriction\n");
+  ierr = MatDestroy (&Prolongation);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed Prolongation\n");
+  ierr = KSPDestroy (&coarse_solver);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed coarse_solver\n");
+  ierr = KSPDestroy (&smoother);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed smoother\n");
+  ierr = PetscFree (coarse_lvl.global_indexing);
+  CHKERRQ (ierr);
+  t8dg_debugf ("destroyed global indexing\n");
+#endif
   /* Free PETSc resources */
   ierr = MatDestroy (&A);
   CHKERRQ (ierr);
@@ -416,8 +556,8 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   CHKERRQ (ierr);
   ierr = VecDestroy (&u);
   CHKERRQ (ierr);
-  ierr = KSPDestroy (&ksp);
-  CHKERRQ (ierr);
+  //ierr = KSPDestroy (&ksp);
+  //CHKERRQ (ierr);
   ierr = PetscFree (vec_global_index);
   CHKERRQ (ierr);
 
@@ -433,6 +573,7 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
 PetscErrorCode
 MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
 {
+  t8dg_debugf ("in matmultimpleuler\n");
   t8dg_timestepping_impl_euler_ctx_t *appctx;
   PetscErrorCode      ierr;
   PetscScalar        *current_local_approx;
@@ -442,7 +583,7 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   /* Get the matrix-free application context */
   ierr = MatShellGetContext (A, &appctx);
   CHKERRQ (ierr);
-
+#if 0
   /* Retrieve the local part of the 'in' Vector for reading purposes */
   ierr = VecGetArrayRead (in, &current_local_approx);
   CHKERRQ (ierr);
@@ -459,14 +600,18 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   /* Restore the array entries of the 'in' Vector */
   ierr = VecRestoreArrayRead (in, &current_local_approx);
   CHKERRQ (ierr);
+#endif
+  t8dg_precon_write_vec_to_dof (&in, *(appctx->future_local_dofs));
 
   /* Calculate the time derivative (concerning the next time step) of the degrees of freedom passed to the MatMult (= 'in' Vector) and store their derivation inside future_local_dofs_derivative */
-  (appctx->time_derivative_func) (appctx->future_local_dofs, appctx->future_local_dofs_derivative, appctx->next_time_point,
+  (appctx->time_derivative_func) (*(appctx->future_local_dofs), appctx->future_local_dofs_derivative, appctx->next_time_point,
                                   appctx->user_data);
 
   /* calculate the sum of the initially passed degrees of freedom ('in' Vector) and their (scaled) derivation */
-  t8dg_dof_values_axpy (-(appctx->timestep), appctx->future_local_dofs_derivative, appctx->future_local_dofs);
+  t8dg_dof_values_axpy (-(appctx->timestep), appctx->future_local_dofs_derivative, *(appctx->future_local_dofs));
 
+  t8dg_precon_write_dof_to_vec (*(appctx->future_local_dofs), &out, appctx->global_indexing);
+#if 0
   /* Write the result of the matrix-application to the 'in' Vector in the 'out' Vector */
   ierr =
     VecSetValues (out, appctx->num_local_dofs, appctx->global_indexing, t8dg_dof_get_double_pointer_to_array (appctx->future_local_dofs),
@@ -476,7 +621,7 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   CHKERRQ (ierr);
   ierr = VecAssemblyEnd (out);
   CHKERRQ (ierr);
-
+#endif
   return 0;
 }
 #endif
@@ -498,6 +643,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   int                 iter;
   PetscErrorCode      ierr;
   t8dg_timestepping_dirk_ctx_t appctx;
+  t8dg_timestepping_precon_jacobi_ctx_t *pcshell_ctx;
   /* This array holds the pointer to solution calculated of the different steps */
   t8dg_dof_values_t  *local_dofs_step[num_order_stages];
   double              current_time = t8dg_timestepping_data_get_current_time (time_data);
@@ -515,6 +661,9 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   appctx.time_data = time_data;
   appctx.user_data = user_data;
   appctx.timestep = t8dg_timestepping_data_get_time_step (time_data);
+
+  /* Just for preconditioning */
+  appctx.next_time_point = current_time;
 
   /* Clone the current degrees of freedom */
   appctx.local_derivation_degrees = *pdof_array;
@@ -613,9 +762,30 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   ierr = KSPSetType (ksp, KSPGMRES);
   CHKERRQ (ierr);
   /* Select a Preconditioner - without Preconditioning */
-  ierr = PCSetType (pc, PCNONE);
+  //ierr = PCSetType (pc, PCNONE);
+  //CHKERRQ (ierr);
+  /* Select Jacobi Preconditioner */
+  ierr = PCSetType (pc, PCSHELL);
   CHKERRQ (ierr);
-  ierr = KSPSetTolerances (ksp, 1.0e-12, 1.0e-12, PETSC_DEFAULT, PETSC_DEFAULT);
+  ierr = JacobiShellPCCreate (&pcshell_ctx, appctx.timestep, (*dirk_b_coeff)[0]);
+  CHKERRQ (ierr);
+  ierr = PCShellSetApply (pc, JacobiShellPCApply);
+  CHKERRQ (ierr);
+  ierr = PCShellSetContext (pc, pcshell_ctx);
+  CHKERRQ (ierr);
+  ierr = PCShellSetDestroy (pc, JacobiShellPCDestroy);
+  CHKERRQ (ierr);
+  ierr = PCShellSetName (pc, "Try Jacobi Preconditioner");
+  CHKERRQ (ierr);
+  appctx.next_time_point = current_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
+  t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
+  ierr =
+    JacobiShellPCSetUp (pc, A, u, appctx.local_derivation_degrees,
+                        (size_t) t8dg_dof_get_num_total_elements (appctx.local_derivation_degrees));
+  CHKERRQ (ierr);
+  appctx.next_time_point = current_time;
+  t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
+  ierr = KSPSetTolerances (ksp, 1.0e-8, 1.0e-8, PETSC_DEFAULT, PETSC_DEFAULT);
   CHKERRQ (ierr);
   /* Set initial guess to non-zero (to the last solution) otherwise it will filled with zeros */
   ierr = KSPSetInitialGuessNonzero (ksp, PETSC_TRUE);
@@ -641,11 +811,30 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     /* Fill the future_local_dofs_step with zeros, so that the axpy product will not be irritated */
     t8dg_dof_values_set_zero (appctx.future_local_dofs_step);
 
-    /* Subtract the (weighted) derivations of the degrees of freedom of the former stages */
+    /* Accumulate the (weighted) derivations of the degrees of freedom of the former stages */
     for (iter = 0; iter < step_iter; ++iter) {
-      t8dg_dof_values_axpy (-(appctx.timestep * ((*dirk_a_coeff)[step_iter][iter])), local_dofs_step[iter], appctx.future_local_dofs_step);
+      t8dg_dof_values_axpy ((appctx.timestep * ((*dirk_a_coeff)[step_iter][iter])), local_dofs_step[iter], appctx.future_local_dofs_step);
+    }
+    /* Add the (weighted) derivations of the degrees of freedom of the former stages to the right-hand side */
+    if (step_iter > 0) {
+      ierr =
+        VecSetValues (f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array (appctx.future_local_dofs_step),
+                      ADD_VALUES);
+      CHKERRQ (ierr);
+      ierr = VecAssemblyBegin (f);
+      CHKERRQ (ierr);
+      ierr = VecAssemblyEnd (f);
     }
 
+    /* store the current b coefficient of the dirk method in the preconditoning context */
+    //pcshell_ctx->current_b_coeff = (*dirk_b_coeff)[step_iter];
+    /* In a second or third step the preconditioner gets updated */
+    /*
+       if (step_iter > 0)
+       {
+       appctx.local_derivation_degrees = t8dg_dof_values_clone(appctx.future_local_dofs_step);
+       }
+     */
     /* Solve the Linear System */
     ierr = KSPSolve (ksp, f, u);
     CHKERRQ (ierr);
@@ -754,7 +943,7 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
                         appctx->local_derivation_degrees);
 
   /* Subtract the (weighted) derivations of the degrees of freedom calculated in the former stages which are stored in future_local_dofs_step */
-  t8dg_dof_values_axpy (1.0, appctx->future_local_dofs_step, appctx->local_derivation_degrees);
+  //t8dg_dof_values_axpy (1.0, appctx->future_local_dofs_step, appctx->local_derivation_degrees);
 
   /* Write the result of the matrix-application to the 'in' Vector in the 'out' Vector */
   ierr =
@@ -802,3 +991,188 @@ t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_der
     }
   }
 }
+
+/************** Preconditioners **************/
+/* Jacobi Preconditioning routines */
+#if T8_WITH_PETSC
+/* Creates a Jacobi preconditioner with corresponding 'preconditioning context' */
+PetscErrorCode
+JacobiShellPCCreate (t8dg_timestepping_precon_jacobi_ctx_t ** pcshell, double timestep, double b_coeff)
+{
+  PetscErrorCode      ierr;
+  t8dg_timestepping_precon_jacobi_ctx_t *pcctx;
+
+  /* Create a new jacobi preconditioning context */
+  ierr = PetscNew (&pcctx);
+  CHKERRQ (ierr);
+  /* Set Vec that represents the matrix diagonal */
+  pcctx->matrix_diagonal = 0;
+  pcctx->timestep = timestep;
+  pcctx->current_b_coeff = b_coeff;
+  /* return the preconditioning context */
+  *pcshell = pcctx;
+
+  return 0;
+}
+
+/* Sets up the Jacobi preconditioner - calculates main diagonal of the system matrix */
+PetscErrorCode
+JacobiShellPCSetUp (PC pc, Mat pmat, Vec u, t8dg_dof_values_t * current_dofs, size_t num_total_elements)
+{
+  PetscErrorCode      ierr;
+
+  t8dg_timestepping_precon_jacobi_ctx_t *pcshell;
+  Vec                 mat_diagonal;
+  t8dg_timestepping_impl_euler_ctx_t *appctx;
+  t8dg_dof_values_t  *identity_vector;
+  double             *dof_pointer_identity_vec;
+
+  ierr = MatShellGetContext (pmat, &appctx);
+  CHKERRQ (ierr);
+
+  identity_vector = t8dg_dof_values_duplicate (current_dofs);
+
+  ierr = VecDuplicate (u, &mat_diagonal);
+  CHKERRQ (ierr);
+
+  ierr = PCShellGetContext (pc, (void **) &pcshell);
+  CHKERRQ (ierr);
+
+  t8dg_linear_advection_diffusion_problem_t *problem = (t8dg_linear_advection_diffusion_problem_t *) appctx->user_data;
+
+#if 1
+  t8dg_advect_diff_problem_jacobi_precon (problem, current_dofs, identity_vector, pcshell->timestep, appctx->num_local_dofs,
+                                          appctx->num_local_dofs);
+
+  dof_pointer_identity_vec = t8dg_dof_get_double_pointer_to_array (identity_vector);
+
+  ierr =
+    VecSetValues (mat_diagonal, appctx->num_local_dofs, appctx->global_indexing, t8dg_dof_get_double_pointer_to_array (identity_vector),
+                  INSERT_VALUES);
+  CHKERRQ (ierr);
+  ierr = VecAssemblyBegin (mat_diagonal);
+  CHKERRQ (ierr);
+  ierr = VecAssemblyEnd (mat_diagonal);
+  CHKERRQ (ierr);
+  ierr = VecReciprocal (mat_diagonal);
+  CHKERRQ (ierr);
+#endif
+
+  t8dg_debugf ("\nSetting up preconditioner finished\n");
+  t8dg_debugf ("Preconditoner looks like\n*************\n");
+  VecView (mat_diagonal, PETSC_VIEWER_STDOUT_WORLD);
+  t8dg_debugf ("**************\n\n\n");
+
+  //VecSet(mat_diagonal, 1.0);
+  pcshell->matrix_diagonal = mat_diagonal;
+
+  t8dg_dof_values_destroy (&identity_vector);
+#if 0
+#if 0
+  //t8dg_timestepping_dirk_ctx_t *appctx;
+  t8dg_timestepping_impl_euler_ctx_t *appctx;
+  t8dg_dof_values_t  *dof_values_current_copy;
+  t8dg_dof_values_t  *identity_vector;
+  double             *dof_pointer;
+  double             *dof_pointer_identity_vec;
+#endif
+  Vec                 mat_diagonal;
+#if 0
+  /* Get the matrix-free application context */
+  ierr = MatShellGetContext (pmat, &appctx);
+  CHKERRQ (ierr);
+#endif
+  /* Get the preconditoning context */
+  ierr = PCShellGetContext (pc, (void **) &pcshell);
+  CHKERRQ (ierr);
+
+  /* Preallocate the mat_diagonal vector and an identity vector */
+  ierr = VecDuplicate (u, &mat_diagonal);
+  CHKERRQ (ierr);
+  ierr = VecSet (mat_diagonal, 1.0);
+  CHKERRQ (ierr);
+#if 1
+  dof_values_current_copy = t8dg_dof_values_clone (current_dofs);
+  identity_vector = t8dg_dof_values_duplicate (current_dofs);
+  dof_pointer = t8dg_dof_get_double_pointer_to_array (current_dofs);
+  for (int i = 0; i < num_total_elements; ++i) {
+    dof_pointer[i] = 0.0;
+  }
+  /* Calculate the diagonal of the application matrix */
+  /******************* !!!!!! nur im seriellen Fall möglich !!!!!!!!! *********/
+  dof_pointer_identity_vec = t8dg_dof_get_double_pointer_to_array (identity_vector);
+  for (int i = 0; i < appctx->num_local_dofs; ++i) {
+    dof_pointer[i] = 1.0;
+    (appctx->time_derivative_func) (current_dofs, identity_vector, appctx->next_time_point, appctx->user_data);
+    t8dg_debugf ("\n*****\nAbleitung wert von identity_vec auswertung an stelle %d ist %f\n*****\n", i, dof_pointer_identity_vec[i]);
+    ierr =
+      VecSetValue (mat_diagonal, i, 1.0 - ((pcshell->timestep * pcshell->current_b_coeff) * (dof_pointer_identity_vec[i])), INSERT_VALUES);
+    CHKERRQ (ierr);
+    ierr = VecAssemblyBegin (mat_diagonal);
+    CHKERRQ (ierr);
+    ierr = VecAssemblyEnd (mat_diagonal);
+    CHKERRQ (ierr);
+    dof_pointer[i] = 0.0;
+  }
+  t8dg_dof_values_swap (&current_dofs, &dof_values_current_copy);
+  t8dg_dof_values_destroy (&current_dofs);
+  t8dg_dof_values_destroy (&identity_vector);
+  /* Calculate the reciprocal of the diagonal */
+  ierr = VecReciprocal (mat_diagonal);
+  CHKERRQ (ierr);
+  //VecSet(mat_diagonal, 1.0);
+  /* Store the preconditoner */
+#endif
+  pcshell->matrix_diagonal = mat_diagonal;
+#if 0
+  t8dg_debugf ("\nSetting up preconditioner finished\n");
+  t8dg_debugf ("Preconditoner looks like\n*************\n");
+  VecView (mat_diagonal, PETSC_VIEWER_STDOUT_WORLD);
+  t8dg_debugf ("**************\n\n\n");
+#endif
+#endif
+  return 0;
+}
+
+/* Applies the Jacobi preconditioner to a vector */
+PetscErrorCode
+JacobiShellPCApply (PC pc, Vec in, Vec out)
+{
+  PetscErrorCode      ierr;
+  t8dg_timestepping_precon_jacobi_ctx_t *pcshell;
+
+  /* Get the preconditoning context */
+  ierr = PCShellGetContext (pc, (void **) &pcshell);
+  CHKERRQ (ierr);
+
+  /* Pointwise multiplication of the main diagonal to the 'out' vector, equals preconditioning with the diagonal matrix extracted from the system matrix */
+  ierr = VecPointwiseMult (out, in, pcshell->matrix_diagonal);
+  CHKERRQ (ierr);
+
+  return 0;
+}
+
+/* Frees the resources used by the preconditioning methods */
+PetscErrorCode
+JacobiShellPCDestroy (PC pc)
+{
+  PetscErrorCode      ierr;
+  t8dg_timestepping_precon_jacobi_ctx_t *pcshell;
+
+  /* Get the preconditoning context */
+  ierr = PCShellGetContext (pc, (void **) &pcshell);
+  CHKERRQ (ierr);
+
+  /* Destroy the vector which stores the main diagonal entries */
+  //ierr = VecDestroy(pcshell->matrix_diagonal); CHKERRQ(ierr);
+
+  /* Free the prconditioning context */
+  ierr = PetscFree (pcshell);
+  CHKERRQ (ierr);
+
+  return 0;
+}
+
+#endif
+
+/*********************************************/
