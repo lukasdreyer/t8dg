@@ -14,8 +14,8 @@
 
 #if T8_WITH_PETSC
 #include <petscksp.h>
-#include <petscdmda.h>
-#include <petscdm.h>
+//#include <petscdmda.h>
+//#include <petscdm.h>
 #endif
 
 T8DG_EXTERN_C_BEGIN ();
@@ -59,7 +59,7 @@ typedef struct
 #if T8_WITH_PETSC
 typedef struct
 {
-  int                 num_local_dofs;
+  size_t              num_local_dofs;
   double              timestep;
   double              next_time_point;
   double              dirk_current_a_coeff;
@@ -68,7 +68,7 @@ typedef struct
   t8dg_dof_values_t  *future_local_dofs_derivative;
   t8dg_dof_values_t  *future_local_dofs_step;
   t8dg_dof_values_t  *current_local_dofs;
-  t8dg_dof_values_t  *local_derivation_degrees;
+  t8dg_dof_values_t **local_derivation_degrees;
   t8dg_timestepping_data_t *time_data;
   void               *user_data;
 } t8dg_timestepping_dirk_ctx_t;
@@ -90,7 +90,35 @@ void
  
  
  t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
-                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data);
+                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
+                                   int preconditioner_selection);
+
+/** Initializes the apllication context needed by the matrix-free application of the system matrix resulting from the implicit euler method 
+* \param[in] time_derivative The function describing the time derivative of the coefficients in the degrees of freedom
+* \param[in] time_data A pointer to the time_data of the advect diff problem
+* \param[in] pdof_array A pointer to a pointer to the degrees of freedom of the advect diff problem
+* \param[in] user_data A void pointer to the advect diff problem
+* \param[in, out] appctx A pointer to \a t8dg_timestepping_impl_euler_ctx_t context whose members will be filled by this function
+*/
+#if T8_WITH_PETSC
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
+                                           t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_impl_euler_ctx_t * appctx);
+#endif
+
+/** Destroys the allocated space needed by the matrix application of the implicit euler method 
+* \param[in] appctx The appctx which was used by the matrix application of the implicit euler method
+*/
+#if T8_WITH_PETSC
+void                t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t * appctx);
+#endif
 
 /** Advances a timestep using a DIRK method  
 * \param[in] time_derivative The function that describes the derivation of the dofs of the current problem which has to be solved (u_{t} = R(u, t))
@@ -110,7 +138,25 @@ void
  
  
  t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
-                         t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_steps);
+                         t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_steps,
+                         int preconditioner_selection);
+
+#if T8_WITH_PETSC
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
+                                     t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_dirk_ctx_t * appctx);
+#endif
+
+#if T8_WITH_PETSC
+void                t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx);
+#endif
 
 /** implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal
  * The time derivative application is given by time_derivative
@@ -129,10 +175,10 @@ void
 void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
 
 t8dg_timestepping_data_t *t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl,
-                                                          int use_implicit_timestepping);
+                                                          int use_implicit_timestepping, int preconditioner_selection);
 
 t8dg_timestepping_data_t *t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t,
-                                                                        int use_implicit_timestepping);
+                                                                        int use_implicit_timestepping, int preconditioner_selection);
 
 void                t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data);
 

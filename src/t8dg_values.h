@@ -96,17 +96,13 @@ void                t8dg_values_interpolate_scalar_function_3d_time
   (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time, void *function_data, t8dg_dof_values_t * dof_values);
 
 #if T8_WITH_PETSC
-//void t8dg_values_change_to_coarse_lvl_mg(PC pc, t8dg_values_t *values);
-//void t8dg_values_change_back_to_fine_lvl_mg(PC pc, t8dg_values_t *values);
-void                t8dg_values_swap_to_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_coarse);
 void                t8dg_values_destroy_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_coarse);
-void                t8dg_values_mg_allocate_prolongation (t8dg_values_t * values, t8_forest_t forest);
 
-void                t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_switch,
-                                                                 t8_forest_t * coarse_forest, t8_forest_t * fine_forest);
+void                t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values);
 
-void                t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_switch,
-                                                               t8_forest_t * coarse_forest, t8_forest_t * fine_forest);
+void                t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values);
+
+void                t8dg_values_mg_allocate_adapt (t8dg_values_t * values, t8_forest_t forest);
 #endif
 T8DG_EXTERN_C_END ();
 

@@ -21,7 +21,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
                     int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order,
                     int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg,
-                    int use_implicit_timestepping)
+                    int use_implicit_timestepping, int preconditioner_selection)
 {
   if (!(icmesh >= 0 && icmesh <= 11))
     return 0;
@@ -37,9 +37,8 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(start_time < end_time))
     return 0;
-  if (!
-      ((cfl > 0 && ((cfl <= 1 && use_implicit_timestepping == 0) || (use_implicit_timestepping != 0)))
-       || (cfl == 0 && (delta_t > 0 || time_steps > 0))))
+  if (!((cfl > 0 && ((cfl <= 1 && use_implicit_timestepping == 0) || (use_implicit_timestepping != 0)))
+        || (cfl == 0 && (delta_t > 0 || time_steps > 0))))
     return 0;
   if (!(time_order >= 1 && time_order <= 4))
     return 0;
@@ -57,6 +56,8 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(use_implicit_timestepping == 0 || use_implicit_timestepping == 1))
     return 0;
+  if (!(0 <= preconditioner_selection && preconditioner_selection <= 2))
+    return 0;
   return 1;
 }
 
@@ -72,6 +73,7 @@ main (int argc, char *argv[])
   int                 uniform_level, max_level, min_level;
   int                 time_order;
   int                 use_implicit_timestepping;
+  int                 preconditioner_selection;
   int                 number_LGL_points;
   int                 vtk_freq;
   int                 adapt_freq;
@@ -128,6 +130,10 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'I', "use_implicit_timestepping", &use_implicit_timestepping, 0,
                       "Whether implicit or explicit time stepping Runge Kutta should be used. Default: 0.\n" "\t\t0: explicit RKV\n"
                       "\t\t1: implicit DIRK (max. time_order <= 3\n");
+  sc_options_add_int (opt, 'P', "preconditioner_selection", &preconditioner_selection, 0,
+                      "Choose which preconditioner should be applied to the implicit system, resulting from the time stepping method (only applicable if an implicit timestepping method is choosen). Default: 0.\n"
+                      "\t\t0: No preconditioning\n" "\t\t1: Jacobi-Preconditioner (Not implemented yet)\n"
+                      "\t\t2: Two-Level Multigrid Preconditioner (coarsening every element once)\n");
   sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0,
                       "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n" "\t\t2: diagonal line more trees\n"
                       "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n" "\t\t6: moebius more tree\n"
@@ -181,13 +187,15 @@ main (int argc, char *argv[])
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
                                               start_time, end_time, cfl, delta_t, time_steps, time_order, vtk_freq, adapt_freq, adapt_arg,
-                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg, use_implicit_timestepping)) {
+                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg, use_implicit_timestepping,
+                                              preconditioner_selection)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
       t8dg_advect_diff_problem_init_arguments (icmesh, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
                                                diffusion_coefficient, start_time, end_time, cfl, delta_t, time_steps, time_order,
-                                               use_implicit_timestepping, min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
-                                               numerical_flux_arg, source_sink_arg, refine_error, sc_MPI_COMM_WORLD);
+                                               use_implicit_timestepping, preconditioner_selection, min_level, max_level, adapt_arg,
+                                               adapt_freq, prefix, vtk_freq, numerical_flux_arg, source_sink_arg, refine_error,
+                                               sc_MPI_COMM_WORLD);
 
     t8dg_advect_diff_solve (problem);
 

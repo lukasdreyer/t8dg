@@ -342,10 +342,8 @@ t8dg_values_get_ghost_exchange_time (t8dg_values_t * values)
 t8dg_global_values_t *
 t8dg_values_get_global_values (t8dg_values_t * values, t8_locidx_t itree, t8_locidx_t ielement)
 {
-  t8dg_debugf ("in get global values\n");
   t8_eclass_t         eclass;
   eclass = t8_forest_get_eclass (values->forest, itree);
-  t8dg_debugf ("funktioniert get eclass\n");
   return values->global_values_array[eclass];
 }
 
@@ -428,89 +426,41 @@ t8dg_values_allocate_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
 }
 
 void
-t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_switch,
-                                             t8_forest_t * coarse_forest, t8_forest_t * fine_forest)
+t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values)
 {
   t8_forest_t        *tmp_forest;
-  t8dg_local_values_t **tmp_local_values;
 
   /* Swap forests */
   tmp_forest = &values->forest;
   values->forest = values->forest_adapt;
   values->forest_adapt = *tmp_forest;
   tmp_forest = NULL;
-#if 1
+
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
-  //t8dg_local_values_set_all_ghost_elements (values->local_values);
-#endif
-#if 0
-  /* Swap local_values */
-  tmp_local_values = &values->local_values;
-  values->local_values = values->local_values_adapt;
-  //t8dg_local_values_set_forest(values->local_values, values->forest);
-  values->local_values_adapt = *tmp_local_values;
-  //t8dg_local_values_set_forest(values->local_values_adapt, values->forest_adapt);
-  tmp_local_values = NULL;
-#endif
+
   /* Create a coarse mortar */
-#if 0
-  mortar_array_switch = &values->mortar_array;
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-#endif
   t8dg_mortar_array_destroy (&values->mortar_array);
-  t8dg_debugf ("new mortar\n");
   values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-  t8dg_debugf ("clean up abgeschlossen\n");
 }
 
 void
-t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_switch, t8_forest_t * coarse_forest,
-                                           t8_forest_t * fine_forest)
+t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values)
 {
   t8_forest_t        *tmp_forest;
-  t8dg_local_values_t **tmp_local_values;
-  t8dg_mortar_array_t **tmp_mortar;
 
   /* Swap forests */
-  //t8_forest_unref(&values->forest);
   tmp_forest = &values->forest;
   values->forest = values->forest_adapt;
   values->forest_adapt = *tmp_forest;
-  //values->forest_adapt = NULL;
   tmp_forest = NULL;
-#if 1
+
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
   t8dg_local_values_set_all_ghost_elements (values->local_values);
-  //values->local_values_adapt = t8dg_local_values_new (forest_adapt, values->global_values_array, values->coarse_geometry);
-#endif
-#if 0
-  /* Swap local_values */
-  tmp_local_values = &values->local_values;
-  values->local_values = values->local_values_adapt;
-  t8dg_local_values_set_forest (values->local_values, &values->forest);
-  values->local_values_adapt = *tmp_local_values;
-  t8dg_local_values_set_forest (values->local_values_adapt, values->forest_adapt);
-  tmp_local_values = NULL;
-#endif
-  /* Swap mortars */
-#if 0
-  tmp_mortar = &values->mortar_array;
-  values->mortar_array = *mortar_array_switch;
-  *mortar_array_switch = *tmp_mortar;
-#endif
-  t8dg_mortar_array_destroy (&values->mortar_array);
-  t8dg_debugf ("new mortar\n");
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-  t8dg_debugf ("clean up abgeschlossen\n");
-}
 
-void
-t8dg_values_mg_clean_restriction (t8dg_values_t * values)
-{
   t8dg_mortar_array_destroy (&values->mortar_array);
   values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
 }
@@ -518,53 +468,9 @@ t8dg_values_mg_clean_restriction (t8dg_values_t * values)
 void
 t8dg_values_mg_allocate_adapt (t8dg_values_t * values, t8_forest_t forest)
 {
-  //t8dg_local_values_destroy(&values->local_values_adapt);
   values->local_values_adapt = t8dg_local_values_new (forest, values->global_values_array, values->coarse_geometry);
   t8dg_local_values_set_all_ghost_elements (values->local_values_adapt);
   values->forest_adapt = forest;
-  //t8dg_mortar_array_destroy (&values->mortar_array);
-  //values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-}
-
-void
-t8dg_values_swap_to_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_coarse)
-{
-  t8_forest_t        *tmp_forest;
-  t8dg_local_values_t **tmp_local_values;
-  t8dg_mortar_array_t **tmp_mortar_array;
-  /* Swap forests */
-  tmp_forest = &values->forest;
-  values->forest = values->forest_adapt;
-  values->forest_adapt = *tmp_forest;
-  tmp_forest = NULL;
-  /* Swap local_values */
-  //t8dg_local_values_destroy (&values->local_values);
-  tmp_local_values = &values->local_values;
-  values->local_values = values->local_values_adapt;
-  t8dg_local_values_set_forest (values->local_values, values->forest);
-  values->local_values_adapt = *tmp_local_values;
-  t8dg_local_values_set_forest (values->local_values, values->forest_adapt);
-  tmp_local_values = NULL;
-  //values->local_values_adapt = NULL;
-  /* Swap the mortar array */
-#if 1
-  if (*mortar_array_coarse == NULL) {
-    /* Create coarse grid mortar */
-    *mortar_array_coarse = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-    /* Swap coarse and fine grid mortars */
-    tmp_mortar_array = mortar_array_coarse;
-    *mortar_array_coarse = values->mortar_array;
-    values->mortar_array = *tmp_mortar_array;
-    tmp_mortar_array = NULL;
-  }
-  else {
-    /* Swap coarse and fine grid mortars */
-    tmp_mortar_array = mortar_array_coarse;
-    *mortar_array_coarse = values->mortar_array;
-    values->mortar_array = *tmp_mortar_array;
-    tmp_mortar_array = NULL;
-  }
-#endif
 }
 
 void
@@ -573,9 +479,6 @@ t8dg_values_destroy_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** m
   values->forest_adapt = NULL;
   t8dg_local_values_destroy (&values->local_values_adapt);
   values->local_values_adapt = NULL;
-  //t8dg_mortar_array_destroy (mortar_array_coarse);
-  //*mortar_array_coarse = NULL;
-  t8dg_debugf ("destroy_adapt_data complete");
 }
 
 void

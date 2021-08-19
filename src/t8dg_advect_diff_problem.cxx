@@ -250,6 +250,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          int time_steps,
                                          int time_order,
                                          int use_implicit_timestepping,
+                                         int preconditioner_selection,
                                          int min_level,
                                          int max_level,
                                          int adapt_arg,
@@ -291,13 +292,15 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   vtk_data = t8dg_output_vtk_data_new (prefix, vtk_freq);
   if (cfl > 0) {
-    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl, use_implicit_timestepping);
+    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl, use_implicit_timestepping, preconditioner_selection);
   }
   else {
     if (delta_t <= 0) {
       delta_t = (end_time - start_time) / time_steps;
     }
-    time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t, use_implicit_timestepping);
+    time_data =
+      t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t, use_implicit_timestepping,
+                                                    preconditioner_selection);
   }
   init_time += sc_MPI_Wtime ();
 
@@ -347,7 +350,10 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
   adapt_steps =
     SC_MAX (problem->adapt_data->maximum_refinement_level - problem->adapt_data->initial_refinement_level,
             problem->adapt_data->initial_refinement_level - problem->adapt_data->minimum_refinement_level);
-
+  /* If the adapt frequence is 0, there should be no initial adaption of the mesh */
+  if (adapt_data->adapt_freq == 0) {
+    adapt_steps = 0;
+  }
   for (iadapt = 0; iadapt < adapt_steps; iadapt++) {
     /* initial adapt */
     t8dg_advect_diff_problem_adapt (problem, 0);

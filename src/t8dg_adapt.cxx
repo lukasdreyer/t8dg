@@ -343,32 +343,22 @@ t8dg_adapt_replace (t8_forest_t forest_old,
   int                 ichild, num_children;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest_new);
-  t8dg_debugf ("forest new user data wurde abgerufen\n");
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, itree, first_ielem_old);
   first_idata_new = t8dg_itree_ielement_to_idata (forest_new, itree, first_ielem_new);
-  t8dg_debugf ("idataold: %d\n", first_idata_old);
-  t8dg_debugf ("idatanew: %d\n", first_idata_new);
-  t8dg_debugf ("nach data zuweisung\n");
   if (num_elems_old == num_elems_new && num_elems_old == 1) {
-    t8dg_debugf ("case1\n");
     t8dg_values_copy_element_values (adapt_data->dg_values, first_idata_old, first_idata_new);
     t8dg_dof_values_copy_from_index_to_index (adapt_data->dof_values, first_idata_old, adapt_data->dof_values_adapt, first_idata_new);
   }
   else if (num_elems_old == 1) {
-    t8dg_debugf ("case2\n");
     num_children = t8dg_global_values_get_num_children (t8dg_values_get_global_values (adapt_data->dg_values, itree, first_ielem_old));
-    t8dg_debugf ("nach num_children\n");
     T8DG_ASSERT (num_children == num_elems_new);
     for (ichild = 0; ichild < num_children; ichild++) {
       t8dg_values_set_element_adapt (adapt_data->dg_values, itree, first_ielem_new + ichild);
-      t8dg_debugf ("nach element adapt\n");
       t8dg_values_transform_parent_dof_to_child_dof (adapt_data->dg_values, adapt_data->dof_values, adapt_data->dof_values_adapt, itree,
                                                      first_ielem_old, first_ielem_new + ichild, ichild);
-      t8dg_debugf ("nach tranformation\n");
     }
   }
   else {
-    t8dg_debugf ("case3\n");
     num_children =
       t8dg_global_values_get_num_children (t8dg_values_get_global_values_adapt (adapt_data->dg_values, itree, first_ielem_new));
     T8DG_ASSERT (num_children == num_elems_old && num_elems_new == 1);

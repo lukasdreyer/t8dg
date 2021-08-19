@@ -14,7 +14,7 @@
 #include "t8dg_advect_diff_problem.h"
 #include "t8dg_preconditioner.h"
 
-#define TRY_MG_PRECONDITIONER 1
+#define TRY_MG_PRECONDITIONER 0
 
 struct t8dg_timestepping_data
 {
@@ -25,6 +25,7 @@ struct t8dg_timestepping_data
   double              cfl;      /**< cfl number*/
   int                 step_number;
   int                 use_implicit_timestepping;
+  int                 preconditioner_selection;
 };
 
 #if T8_WITH_PETSC
@@ -135,7 +136,8 @@ t8dg_timestepping_runge_kutta_step (t8dg_time_matrix_application time_derivative
 }
 
 t8dg_timestepping_data_t *
-t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl, int use_implicit_timestepping)
+t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl, int use_implicit_timestepping,
+                                int preconditioner_selection)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -146,12 +148,13 @@ t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_ti
   time_data->step_number = 0;
   time_data->delta_t = -1;
   time_data->use_implicit_timestepping = use_implicit_timestepping;
+  time_data->preconditioner_selection = preconditioner_selection;
   return time_data;
 }
 
 t8dg_timestepping_data_t *
 t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t,
-                                              int use_implicit_timestepping)
+                                              int use_implicit_timestepping, int preconditioner_selection)
 {
   T8DG_ASSERT (time_order > 0);
   t8dg_timestepping_data_t *time_data = T8DG_ALLOC (t8dg_timestepping_data_t, 1);
@@ -162,6 +165,7 @@ t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time,
   time_data->step_number = 0;
   time_data->delta_t = delta_t;
   time_data->use_implicit_timestepping = use_implicit_timestepping;
+  time_data->preconditioner_selection = preconditioner_selection;
   return time_data;
 }
 
@@ -175,6 +179,7 @@ t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data)
   time_data->cfl = -1;
   time_data->delta_t = -1;
   time_data->use_implicit_timestepping = -1;
+  time_data->preconditioner_selection = -1;
   T8_FREE (time_data);
   *ptime_data = NULL;
 }
@@ -253,107 +258,41 @@ t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data)
 /* Calculates the approximation of the next time step by using the implicit Euler Method in a matrix-free fashion */
 void
 t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
-                                  t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data)
+                                  t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
+                                  int preconditioner_selection)
 {
 #if T8_WITH_PETSC
-  size_t              iter;
-  //size_t max_local_index;
-  //double             *raw_local_dofs;
-  double             *dof_values_ptr;
-  int                 dof_iter;
+
   Mat                 A;
   Vec                 u, f;
   KSP                 ksp;
   PC                  pc;
-  PetscScalar        *local_dofs;
-  PetscScalar        *new_local_approx;
   PetscErrorCode      ierr;
   t8dg_timestepping_impl_euler_ctx_t appctx;
-  t8dg_timestepping_precon_jacobi_ctx_t *pcshell_ctx;
-  t8dg_dof_values_t  *dof_problem_new;
-  PetscInt            its;
-  PetscInt           *vec_global_index;
-  t8_gloidx_t         global_offset_to_first_local_elem;
+  t8dg_precon_general_preconditioner_t preconditioner;
 
-  /* Trial of a two-level multigrid preconditioner */
-#if TRY_MG_PRECONDITIONER
-  KSP                 coarse_solver;
-  KSP                 smoother;
-  PC                  coarse_pc;
-  PC                  smoother_pc;
-  Mat                 Restriction, Prolongation;
-  t8dg_coarse_matrix_ctx_t cmat_ctx;
-  Mat                 A_coarse;
-  t8dg_mg_interpolating_ctx_t res_prol_ctx;
-  t8dg_mg_coarse_lvl_t coarse_lvl;
-#endif
-
-  /* Store the current timestep */
-  appctx.timestep = t8dg_timestepping_data_get_time_step (time_data);
-
-  /* Store the next point in time which is going to be calculated */
-  appctx.next_time_point = t8dg_timestepping_data_get_current_time (time_data) + (double) appctx.timestep;
-
-  /* Store the time_derivative_function and the problem related data as well as the degrees of freedom */
-  appctx.time_derivative_func = time_derivative;
-  appctx.time_data = time_data;
-  appctx.user_data = user_data;
-
-  /* Store the degrees of freedom in the matrix-free application context (the current (original) degrees of freedom will be directly overwritten) */
-  appctx.future_local_dofs = pdof_array;
-  /* Is going to store the derivation of the degrees of freedom -> the evaluation of the time_derivative function */
-  appctx.future_local_dofs_derivative = t8dg_dof_values_duplicate (*(appctx.future_local_dofs));
-
-  /* the degrees of freedom (of the next time step) which will be filled with the solution */
-  dof_problem_new = t8dg_dof_values_duplicate (*(appctx.future_local_dofs));
+  /* Initialize the context needed by the matrix application */
+  t8dg_timestepping_init_impl_euler_appctx (time_derivative, time_data, pdof_array, user_data, &appctx);
 
   /* Advance a time step */
   t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
 
-  t8dg_debugf ("System wird aufgebaut und geloest\n");
-
-        /********** Setting up and Solving the LS ****************/
-
-  /* Calculate the process-local number of degrees of freedom */
-  appctx.num_local_dofs =
-    (size_t) (t8dg_dof_get_num_local_elements (*(appctx.future_local_dofs)) *
-              t8dg_dof_get_max_num_element_dof (*(appctx.future_local_dofs)));
-
-  /* Allocate space for an array which holds the global indices of the degrees of freedom */
-  ierr = PetscMalloc1 (appctx.num_local_dofs, &vec_global_index);
-
-  /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
-  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (*(appctx.future_local_dofs)));
-  if (global_offset_to_first_local_elem != 0) {
-    global_offset_to_first_local_elem = global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (*(appctx.future_local_dofs));
-  }
-
-  /* Fill the array of global indices */
-  for (iter = 0; iter < appctx.num_local_dofs; ++iter) {
-    vec_global_index[iter] = iter + global_offset_to_first_local_elem;
-  }
-
-  /* Store a pointer to these global indices which will be needed for the assembly of the ouput-Vector during the matrix-free MatVec product */
-  appctx.global_indexing = vec_global_index;
+         /********** Setting up and Solving the LS ****************/
 
   /* Create the right-hand-side of the system resulting from the implicit Euler-Method */
   ierr = VecCreateMPI (PETSC_COMM_WORLD, (PetscInt) appctx.num_local_dofs, PETSC_DETERMINE, &f);
   CHKERRQ (ierr);
+
   /* Fill the vector with the current degrees of freedom resulting from the former time step */
-  ierr = VecSetValues (f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array (*pdof_array), INSERT_VALUES);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyBegin (f);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyEnd (f);
-  CHKERRQ (ierr);
+  t8dg_precon_write_dof_to_vec (*(appctx.future_local_dofs), &f, appctx.global_indexing);
+
+  /* Assign a proper name */
   ierr = PetscObjectSetName ((PetscObject) f, "Right Hand Side");
   CHKERRQ (ierr);
 
   /* Create an Approximation Vector storing the solution of the LS */
   /* Use the size and allocation similar to the right-hand-side (-> f) */
   ierr = VecDuplicate (f, &u);
-  CHKERRQ (ierr);
-  ierr = VecCopy (f, u);
   CHKERRQ (ierr);
   ierr = PetscObjectSetName ((PetscObject) u, "Approximation");
   CHKERRQ (ierr);
@@ -384,105 +323,25 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   ierr = KSPSetType (ksp, KSPFGMRES);
   CHKERRQ (ierr);
   /* Set error tolerances in the (outer) GMRES iteration */
-  ierr = KSPSetTolerances (ksp, 1.0e-9, 1.0e-9, PETSC_DEFAULT, PETSC_DEFAULT);
+  ierr = KSPSetTolerances (ksp, 1.0e-8, 1.0e-8, PETSC_DEFAULT, PETSC_DEFAULT);
   CHKERRQ (ierr);
   t8dg_debugf ("KSPFGMRES was selected\n");
-#if 0
-  /* Select a Preconditioner - without Preconditioning */
-  ierr = PCSetType (pc, PCNONE);
-  CHKERRQ (ierr);
-#endif
-#if 0
-  /* Select Jacobi Preconditioner */
-  ierr = PCSetType (pc, PCSHELL);
-  CHKERRQ (ierr);
-  ierr = JacobiShellPCCreate (&pcshell_ctx, appctx.timestep, 1.0);
-  CHKERRQ (ierr);
-  ierr = PCShellSetApply (pc, JacobiShellPCApply);
-  CHKERRQ (ierr);
-  ierr = PCShellSetContext (pc, pcshell_ctx);
-  CHKERRQ (ierr);
-  ierr = PCShellSetDestroy (pc, JacobiShellPCDestroy);
-  CHKERRQ (ierr);
-  ierr = PCShellSetName (pc, "Try Jacobi Preconditioner");
-  CHKERRQ (ierr);
-  t8dg_debugf ("Anzahl totaler elemente: %d\n", (int) t8dg_dof_get_num_total_elements (appctx.future_local_dofs));
-  ierr = JacobiShellPCSetUp (pc, A, u, appctx.future_local_dofs, (size_t) t8dg_dof_get_num_total_elements (appctx.future_local_dofs));
-  CHKERRQ (ierr);
-#endif
-#if TRY_MG_PRECONDITIONER
-  t8dg_debugf ("multigrid_preconditioning begin\n");
-  t8dg_mg_set_up_two_lvl_precon ((t8dg_linear_advection_diffusion_problem_t *) user_data, appctx.future_local_dofs, time_derivative,
-                                 &coarse_lvl, t8dg_adapt_multigrid_coarsen_finest_level, &res_prol_ctx, &cmat_ctx, vec_global_index);
-  t8dg_debugf ("set up complete\n");
-  t8dg_mg_create_coarse_lvl_matrix (&A_coarse, &coarse_lvl, &cmat_ctx);
-  t8dg_debugf ("coarse matrix complete\n");
-  t8dg_mg_create_restriction_matrix (&Restriction, &res_prol_ctx);
-  t8dg_debugf ("restriction matrix complete\n");
-  t8dg_mg_create_prolongation_matrix (&Prolongation, &res_prol_ctx);
-  t8dg_debugf ("prolongation matrix complete\n");
-  /* Set Coarse Solver, Smoother, Matrices and Operators */
-  ierr = PCSetType (pc, PCMG);
-  CHKERRQ (ierr);
-  ierr = PCMGSetLevels (pc, 2, NULL);
-  CHKERRQ (ierr);
-  ierr = PCMGSetType (pc, PC_MG_MULTIPLICATIVE);
-  CHKERRQ (ierr);
-  ierr = PCMGSetCycleType (pc, PC_MG_CYCLE_V);
-  CHKERRQ (ierr);
-  ierr = PCMGGetCoarseSolve (pc, &coarse_solver);
-  CHKERRQ (ierr);
-  ierr = KSPSetOperators (coarse_solver, A_coarse, A_coarse);
-  CHKERRQ (ierr);
-  ierr = KSPSetTolerances (coarse_solver, 1.0e-8, 1.0e-8, PETSC_DEFAULT, PETSC_DEFAULT);
-  CHKERRQ (ierr);
-  ierr = KSPSetType (coarse_solver, KSPGMRES);
-  CHKERRQ (ierr);
-  ierr = KSPGetPC (coarse_solver, &coarse_pc);
-  CHKERRQ (ierr);
-  ierr = PCSetType (coarse_pc, PCNONE);
-  CHKERRQ (ierr);
-  ierr = PCMGGetSmoother (pc, 1, &smoother);
-  CHKERRQ (ierr);
-  ierr = KSPSetOperators (smoother, A, A);
-  CHKERRQ (ierr);
-  ierr = KSPSetType (smoother, KSPGMRES);
-  CHKERRQ (ierr);
-  ierr = KSPGetPC (smoother, &smoother_pc);
-  CHKERRQ (ierr);
-  ierr = PCSetType (smoother_pc, PCNONE);
-  CHKERRQ (ierr);
-  /* Amount of pre- and post-smoothing steps */
-  ierr = PCMGSetNumberSmooth (pc, 3);
-  CHKERRQ (ierr);
-  /* Set Restriction operator */
-  ierr = PCMGSetRestriction (pc, 1, Restriction);
-  CHKERRQ (ierr);
-  /* Set Prolongation operator */
-  ierr = PCMGSetInterpolation (pc, 1, Prolongation);
-  CHKERRQ (ierr);
-  /* Set residual calculation - my be default since only Mat's and Vec's are used */
-  ierr = PCMGSetResidual (pc, 1, PCMGResidualDefault, A);
-  CHKERRQ (ierr);
-  /* Provide work space vectors */
-  /* No they should be automatically managed by PETSc */
-  t8dg_debugf ("all multigrid operators were set\n");
-#endif
 
-  /* Set initial guess to non-zero (to the last solution) otherwise it will filled with zeros */
-  //ierr = KSPSetInitialGuessNonzero (ksp, PETSC_TRUE);
-  //CHKERRQ (ierr);
+  /* Initialize the preconditioner */
+  t8dg_precon_initialize_preconditioner (&pc, preconditioner_selection, &preconditioner, user_data, appctx.future_local_dofs,
+                                         time_derivative, &A, appctx.global_indexing);
+
   /* Use eventually further specified properties via the command line, otherwise it is just going to be set up */
   ierr = KSPSetFromOptions (ksp);
   CHKERRQ (ierr);
 
-  t8dg_debugf ("\nGMRES got called\n");
+  t8dg_debugf ("\nFGMRES got called\n");
 
   /* Solve the Linear System */
   ierr = KSPSolve (ksp, f, u);
   CHKERRQ (ierr);
 
-  t8dg_debugf ("\nGMRES solve completed\n");
+  t8dg_debugf ("\nFGMRES solve completed\n");
 
   /* View whether or not the GMRES did converge */
   ierr = KSPConvergedRateView (ksp, PETSC_VIEWER_STDOUT_WORLD);
@@ -490,65 +349,15 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
 
         /******************* The LS has been solved *********************/
 
-  /* Retrieve the local part of the 'solution' Vector u for reading purposes */
-  ierr = VecGetArrayRead (u, &new_local_approx);
-  CHKERRQ (ierr);
+  /* Write the solution from the PETSc Vector to degrees of freedom of the problem */
+  t8dg_precon_write_vec_to_dof (&u, *pdof_array);
 
-  /* Get a double pointer to the data inside the sc_array_t of t8dg_dof_values_t */
-  dof_values_ptr = t8dg_dof_get_double_pointer_to_array (dof_problem_new);
+  /* Free used matrix-application related components */
+  t8dg_timestepping_destroy_impl_euler_appctx (&appctx);
 
-  /* Overwrite the dof_problem_new with the newly calculated degrees of freedom */
-  for (dof_iter = 0; dof_iter < appctx.num_local_dofs; ++dof_iter) {
-    dof_values_ptr[dof_iter] = (double) new_local_approx[dof_iter];
-  }
-  /* Restore the array entries */
-  ierr = VecRestoreArrayRead (u, &new_local_approx);
-  CHKERRQ (ierr);
+  /* Destroy the preconditioner */
+  t8dg_precon_destroy_preconditioner (preconditioner_selection, &preconditioner);
 
-  t8dg_debugf ("\nCalculated solution (dofs) of the next timestep:\n");
-  t8dg_dof_values_debug_print (dof_problem_new);
-
-  /* Swap the degrees of freedom associated with the problem with the newly calculated degrees of freedom */
-  t8dg_dof_values_swap (pdof_array, &dof_problem_new);
-
-  //t8dg_debugf("Dfference between A*u_{k+1} und initial dofs/rhs (u_{k})\n");
-  //ierr = VecAXPY(u, -1.0, f); CHKERRQ(ierr);
-  //VecView(u, PETSC_VIEWER_STDOUT_WORLD);
-  t8dg_debugf ("here memory corruption \n");
-  /* Free used resources */
-  t8dg_dof_values_destroy (&(appctx.future_local_dofs_derivative));
-  t8dg_dof_values_destroy (&dof_problem_new);
-  t8dg_debugf ("vor forest unref\n");
-#if TRY_MG_PRECONDITIONER
-  /* Free multigrid preconditioner data */
-  t8_forest_unref (&coarse_lvl.forest_coarsened);
-  t8dg_values_destroy_adapt_data (coarse_lvl.dg_values, &coarse_lvl.tmp_mortar_coarse_lvl);
-  t8dg_debugf ("hier\n");
-  t8dg_dof_values_destroy ((coarse_lvl.dof_values_adapt));
-  t8dg_dof_values_destroy (&(cmat_ctx.problem_dofs_derivation));
-  t8dg_dof_values_destroy (&((coarse_lvl.adapt_data)->dof_values));
-  t8dg_debugf ("oder hier\n");
-  t8dg_dof_values_destroy (&((coarse_lvl.adapt_data)->dof_values_adapt));
-  t8dg_debugf ("oder hier?\n");
-  ierr = MatDestroy (&A_coarse);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed A\n");
-  ierr = MatDestroy (&Restriction);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed Restriction\n");
-  ierr = MatDestroy (&Prolongation);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed Prolongation\n");
-  ierr = KSPDestroy (&coarse_solver);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed coarse_solver\n");
-  ierr = KSPDestroy (&smoother);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed smoother\n");
-  ierr = PetscFree (coarse_lvl.global_indexing);
-  CHKERRQ (ierr);
-  t8dg_debugf ("destroyed global indexing\n");
-#endif
   /* Free PETSc resources */
   ierr = MatDestroy (&A);
   CHKERRQ (ierr);
@@ -558,8 +367,6 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   CHKERRQ (ierr);
   //ierr = KSPDestroy (&ksp);
   //CHKERRQ (ierr);
-  ierr = PetscFree (vec_global_index);
-  CHKERRQ (ierr);
 
   t8dg_debugf ("\nImplicit Euler-Method has been completed\n");
 #else
@@ -576,31 +383,15 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   t8dg_debugf ("in matmultimpleuler\n");
   t8dg_timestepping_impl_euler_ctx_t *appctx;
   PetscErrorCode      ierr;
-  PetscScalar        *current_local_approx;
-  int                 dof_iter;
-  double             *dof_values_ptr;
+  //PetscScalar        *current_local_approx;
+  //int                 dof_iter;
+  //double             *dof_values_ptr;
 
   /* Get the matrix-free application context */
   ierr = MatShellGetContext (A, &appctx);
   CHKERRQ (ierr);
-#if 0
-  /* Retrieve the local part of the 'in' Vector for reading purposes */
-  ierr = VecGetArrayRead (in, &current_local_approx);
-  CHKERRQ (ierr);
 
-  /* Get a pointer to the original degrees of freedom of the probblem */
-  dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx->future_local_dofs);
-
-  /* Overwrite them with the 'in' Vector of the Matrix Multiplication */
-  /* Because this MatMult is only used within the GMRES, it is okay to overwrite the original problem dofs without resetting them */
-  for (dof_iter = 0; dof_iter < appctx->num_local_dofs; ++dof_iter) {
-    dof_values_ptr[dof_iter] = current_local_approx[dof_iter];
-  }
-
-  /* Restore the array entries of the 'in' Vector */
-  ierr = VecRestoreArrayRead (in, &current_local_approx);
-  CHKERRQ (ierr);
-#endif
+  /* Write the entries into the degrees of freedom of the problem, so that they can be derived by the time_derivate function */
   t8dg_precon_write_vec_to_dof (&in, *(appctx->future_local_dofs));
 
   /* Calculate the time derivative (concerning the next time step) of the degrees of freedom passed to the MatMult (= 'in' Vector) and store their derivation inside future_local_dofs_derivative */
@@ -610,18 +401,9 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   /* calculate the sum of the initially passed degrees of freedom ('in' Vector) and their (scaled) derivation */
   t8dg_dof_values_axpy (-(appctx->timestep), appctx->future_local_dofs_derivative, *(appctx->future_local_dofs));
 
+  /* Write the result of the application of the system matrix of the implicit euler method into the out vector */
   t8dg_precon_write_dof_to_vec (*(appctx->future_local_dofs), &out, appctx->global_indexing);
-#if 0
-  /* Write the result of the matrix-application to the 'in' Vector in the 'out' Vector */
-  ierr =
-    VecSetValues (out, appctx->num_local_dofs, appctx->global_indexing, t8dg_dof_get_double_pointer_to_array (appctx->future_local_dofs),
-                  INSERT_VALUES);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyBegin (out);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyEnd (out);
-  CHKERRQ (ierr);
-#endif
+
   return 0;
 }
 #endif
@@ -629,7 +411,8 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
 /* Calculates the approximation of the next time step using a DIRK method (either DIRK(2,2) or DIRK(3,3) can be selected) */
 void
 t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
-                        t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_stages)
+                        t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_stages,
+                        int preconditioner_selection)
 {
 #if T8_WITH_PETSC
   T8DG_ASSERT ((num_order_stages == 2 || num_order_stages == 3));
@@ -642,36 +425,23 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   int                 step_iter;
   int                 iter;
   PetscErrorCode      ierr;
+  PetscInt            iteration_count[num_order_stages];
   t8dg_timestepping_dirk_ctx_t appctx;
-  t8dg_timestepping_precon_jacobi_ctx_t *pcshell_ctx;
+
   /* This array holds the pointer to solution calculated of the different steps */
   t8dg_dof_values_t  *local_dofs_step[num_order_stages];
-  double              current_time = t8dg_timestepping_data_get_current_time (time_data);
-  PetscInt           *vec_global_index;
-  t8_gloidx_t         global_offset_to_first_local_elem;
+
+  /* Initial point in time when the DIRK method got called */
+  double              initial_time = t8dg_timestepping_data_get_current_time (time_data);
+
+  /* Variables of the Linear system */
   Mat                 A;
   Vec                 u, f;
   KSP                 ksp;
   PC                  pc;
-  double             *dof_values_ptr;
-  PetscScalar        *new_local_approx;
 
-  /* Store the time_derivative_function and the problem related data */
-  appctx.time_derivative_func = time_derivative;
-  appctx.time_data = time_data;
-  appctx.user_data = user_data;
-  appctx.timestep = t8dg_timestepping_data_get_time_step (time_data);
-
-  /* Just for preconditioning */
-  appctx.next_time_point = current_time;
-
-  /* Clone the current degrees of freedom */
-  appctx.local_derivation_degrees = *pdof_array;
-  appctx.current_local_dofs = t8dg_dof_values_clone (appctx.local_derivation_degrees);
-
-  /* Duplicate the other t8dg_dof_values_t */
-  appctx.future_local_dofs_derivative = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
-  appctx.future_local_dofs_step = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
+  /* Declaration Preconditioner */
+  t8dg_precon_general_preconditioner_t preconditioner;
 
   /* Select whether the order 2 or order 3 DIRK method has been choosen */
   if (num_order_stages == 2) {
@@ -685,28 +455,8 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     dirk_c_coeff = &dirk33_c_coeff;
   }
 
-  /* Calculate the process-local number of degrees of freedom */
-  appctx.num_local_dofs =
-    (size_t) (t8dg_dof_get_num_local_elements (appctx.local_derivation_degrees) *
-              t8dg_dof_get_max_num_element_dof (appctx.local_derivation_degrees));
-
-  /* Allocate space for an array which holds the global indices of the degrees of freedom */
-  ierr = PetscMalloc1 (appctx.num_local_dofs, &vec_global_index);
-
-  /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
-  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (appctx.local_derivation_degrees));
-  if (global_offset_to_first_local_elem != 0) {
-    global_offset_to_first_local_elem =
-      global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (appctx.local_derivation_degrees);
-  }
-
-  /* Fill the process-local array of global indices */
-  for (iter = 0; iter < appctx.num_local_dofs; ++iter) {
-    vec_global_index[iter] = iter + global_offset_to_first_local_elem;
-  }
-
-  /* Store a pointer to these global indices which will be needed for the assembly of the ouput-Vector during the matrix-free MatVec product */
-  appctx.global_indexing = vec_global_index;
+  /* Initialize the context needed by the matrix application of the DIRK Method */
+  t8dg_timestepping_init_dirk_appctx (time_derivative, time_data, pdof_array, user_data, &appctx);
 
   /*********************** Setting up the Vectors and Matrix ***************************/
 
@@ -714,12 +464,8 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   ierr = VecCreateMPI (PETSC_COMM_WORLD, (PetscInt) appctx.num_local_dofs, PETSC_DETERMINE, &f);
   CHKERRQ (ierr);
   /* Fill the vector with the current degrees of freedom resulting from the former time step */
-  ierr = VecSetValues (f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array (*pdof_array), INSERT_VALUES);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyBegin (f);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyEnd (f);
-  CHKERRQ (ierr);
+  t8dg_precon_write_dof_to_vec (*(appctx.local_derivation_degrees), &f, appctx.global_indexing);
+  /* Assign aproper name */
   ierr = PetscObjectSetName ((PetscObject) f, "Right Hand Side");
   CHKERRQ (ierr);
 
@@ -727,17 +473,10 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   /* Use the size and allocation similar to the right-hand-side (-> f) */
   ierr = VecDuplicate (f, &u);
   CHKERRQ (ierr);
-  /* Copy the entries of f to u -> u is used as an initial guess; otherwise u will be overwitten with zeros during KSPSolve (if non_zero_guess is false) */
-  ierr = VecCopy (f, u);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyBegin (u);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyEnd (u);
-  CHKERRQ (ierr);
   ierr = PetscObjectSetName ((PetscObject) u, "Approximation");
   CHKERRQ (ierr);
 
-  /* Setting up matrix-free Matrix */
+  /* Setting up the matrix-free Matrix */
   /* Create a matrix shell with local dimensions equal to the dimension of the Vec containing the process-local degrees of freedom and add an application context needed by the matrix-free MatVec multiplication */
   ierr =
     MatCreateShell (PETSC_COMM_WORLD, (PetscInt) appctx.num_local_dofs, (PetscInt) appctx.num_local_dofs, PETSC_DETERMINE, PETSC_DETERMINE,
@@ -758,43 +497,21 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   /* Extract KSP and PC Context from  KSP Context */
   ierr = KSPGetPC (ksp, &pc);
   CHKERRQ (ierr);
-  /* Select GMRES as Solver; default: Restarted GMRES(30) */
-  ierr = KSPSetType (ksp, KSPGMRES);
+  /* Select FGMRES as Solver; otherwise a multigrid preconditioner can not be applied */
+  ierr = KSPSetType (ksp, KSPFGMRES);
   CHKERRQ (ierr);
-  /* Select a Preconditioner - without Preconditioning */
-  //ierr = PCSetType (pc, PCNONE);
-  //CHKERRQ (ierr);
-  /* Select Jacobi Preconditioner */
-  ierr = PCSetType (pc, PCSHELL);
-  CHKERRQ (ierr);
-  ierr = JacobiShellPCCreate (&pcshell_ctx, appctx.timestep, (*dirk_b_coeff)[0]);
-  CHKERRQ (ierr);
-  ierr = PCShellSetApply (pc, JacobiShellPCApply);
-  CHKERRQ (ierr);
-  ierr = PCShellSetContext (pc, pcshell_ctx);
-  CHKERRQ (ierr);
-  ierr = PCShellSetDestroy (pc, JacobiShellPCDestroy);
-  CHKERRQ (ierr);
-  ierr = PCShellSetName (pc, "Try Jacobi Preconditioner");
-  CHKERRQ (ierr);
-  appctx.next_time_point = current_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
-  t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
-  ierr =
-    JacobiShellPCSetUp (pc, A, u, appctx.local_derivation_degrees,
-                        (size_t) t8dg_dof_get_num_total_elements (appctx.local_derivation_degrees));
-  CHKERRQ (ierr);
-  appctx.next_time_point = current_time;
-  t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
+  /* Set the convergence tolerances of the KSP solver */
   ierr = KSPSetTolerances (ksp, 1.0e-8, 1.0e-8, PETSC_DEFAULT, PETSC_DEFAULT);
   CHKERRQ (ierr);
-  /* Set initial guess to non-zero (to the last solution) otherwise it will filled with zeros */
-  ierr = KSPSetInitialGuessNonzero (ksp, PETSC_TRUE);
-  CHKERRQ (ierr);
+  /* Select and initialize a Preconditioner */
+  t8dg_precon_initialize_preconditioner (&pc, preconditioner_selection, &preconditioner, user_data, appctx.local_derivation_degrees,
+                                         time_derivative, &A, appctx.global_indexing);
   /* Use eventually further specified properties via the command line, otherwise it is just going to be set up */
   ierr = KSPSetFromOptions (ksp);
   CHKERRQ (ierr);
 
   /************************* Creation of Vectors and Matrix finished *************************/
+  /******************************** Solving the system begins ********************************/
 
   t8dg_debugf ("\nDIRK Method of order %d has been called\n", num_order_stages);
 
@@ -802,7 +519,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   for (step_iter = 0; step_iter < num_order_stages; ++step_iter) {
 
     /* Set the next time point of the upcoming RKV step */
-    appctx.next_time_point = current_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
+    appctx.next_time_point = initial_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
     t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
 
     /* Set the current coefficient needed in the matrix-free application for the next step */
@@ -817,58 +534,41 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     }
     /* Add the (weighted) derivations of the degrees of freedom of the former stages to the right-hand side */
     if (step_iter > 0) {
-      ierr =
-        VecSetValues (f, appctx.num_local_dofs, vec_global_index, t8dg_dof_get_double_pointer_to_array (appctx.future_local_dofs_step),
-                      ADD_VALUES);
-      CHKERRQ (ierr);
-      ierr = VecAssemblyBegin (f);
-      CHKERRQ (ierr);
-      ierr = VecAssemblyEnd (f);
+      /* Update the right hand side of the linear system */
+      t8dg_precon_write_dof_to_vec (appctx.future_local_dofs_step, &f, appctx.global_indexing);
     }
 
-    /* store the current b coefficient of the dirk method in the preconditoning context */
-    //pcshell_ctx->current_b_coeff = (*dirk_b_coeff)[step_iter];
-    /* In a second or third step the preconditioner gets updated */
-    /*
-       if (step_iter > 0)
-       {
-       appctx.local_derivation_degrees = t8dg_dof_values_clone(appctx.future_local_dofs_step);
-       }
-     */
+    /* Update the coarse level solver by assigning the current leading a_coeff */
+    t8dg_precon_dirk_update_coarse_lvl_solver (preconditioner_selection, &preconditioner, appctx.dirk_current_a_coeff,
+                                               appctx.next_time_point);
+
     /* Solve the Linear System */
     ierr = KSPSolve (ksp, f, u);
+    CHKERRQ (ierr);
+
+    /* Get the iteration count */
+    ierr = KSPGetIterationNumber (ksp, &iteration_count[step_iter]);
     CHKERRQ (ierr);
 
     /* View whether or not the GMRES did converge */
     ierr = KSPConvergedRateView (ksp, PETSC_VIEWER_STDOUT_WORLD);
     CHKERRQ (ierr);
 
-    /* Write the solution to future_local_dofs_steps */
-    /* Retrieve the local part of the 'solution' Vector u for reading purposes */
-    ierr = VecGetArrayRead (u, &new_local_approx);
-    CHKERRQ (ierr);
+    /* Write the solution of the stage into local_derivation_degrees */
+    t8dg_precon_write_vec_to_dof (&u, *(appctx.local_derivation_degrees));
 
-    /* Get a double pointer to the data inside the sc_array_t of t8dg_dof_values_t */
-    dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx.local_derivation_degrees);
+    /* Create a new empty t8dg_dof_values_t which will hold the derived solution of the stage */
+    local_dofs_step[step_iter] = t8dg_dof_values_duplicate (*(appctx.local_derivation_degrees));
 
-    /* Overwrite the dof_problem_new with the newly calculated degrees of freedom */
-    for (iter = 0; iter < appctx.num_local_dofs; ++iter) {
-      dof_values_ptr[iter] = (double) new_local_approx[iter];
-    }
-
-    /* Restore the array entries */
-    ierr = VecRestoreArrayRead (u, &new_local_approx);
-    CHKERRQ (ierr);
-
-    /* Create a new empty t8dg_dof_values_t and swap with the current solution */
-    local_dofs_step[step_iter] = t8dg_dof_values_duplicate (appctx.local_derivation_degrees);
-
-    /* Store the derivation of degrees of freedom calculated in the current step in local_dofs_step */
-    (appctx.time_derivative_func) (appctx.local_derivation_degrees, local_dofs_step[step_iter], appctx.next_time_point, appctx.user_data);
+    /* Store the derivation of the degrees of freedom calculated in the current step in local_dofs_step */
+    (appctx.time_derivative_func) (*(appctx.local_derivation_degrees), local_dofs_step[step_iter], appctx.next_time_point,
+                                   appctx.user_data);
 
   }
 
-  /* Add the values of the staged to the former approximation to obtain the degrees of freedom of the next step */
+  /*********************** The Linear system has been solved at all stages ***********************/
+
+  /* Add the values of the stages to the former approximation to obtain the degrees of freedom of the next step */
   for (iter = 0; iter < num_order_stages; ++iter) {
     t8dg_dof_values_axpy ((appctx.timestep * (*dirk_b_coeff)[iter]), local_dofs_step[iter], appctx.current_local_dofs);
   }
@@ -878,10 +578,13 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   t8dg_debugf ("\nDIRK Method completed\n");
 
-  /* Free used resources */
-  t8dg_dof_values_destroy (&(appctx.future_local_dofs_derivative));
-  t8dg_dof_values_destroy (&(appctx.future_local_dofs_step));
-  t8dg_dof_values_destroy (&(appctx.current_local_dofs));
+  /* Destroy the application context */
+  t8dg_timestepping_destroy_dirk_appctx (&appctx);
+
+  /* Destroy the preconditioner */
+  t8dg_precon_destroy_preconditioner (preconditioner_selection, &preconditioner);
+
+  /* Free the degrees of freedom obtained in the single stages */
   for (iter = 0; iter < num_order_stages; ++iter) {
     t8dg_dof_values_destroy (&local_dofs_step[iter]);
   }
@@ -893,16 +596,149 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   CHKERRQ (ierr);
   ierr = VecDestroy (&u);
   CHKERRQ (ierr);
-  ierr = KSPDestroy (&ksp);
-  CHKERRQ (ierr);
-  ierr = PetscFree (vec_global_index);
-  CHKERRQ (ierr);
+  //ierr = KSPDestroy (&ksp);
+  //CHKERRQ (ierr);
 
+  if (num_order_stages == 2) {
+    t8dg_debugf ("Iteration Count:\nStage 1: %d\nStage 2: %d\n", iteration_count[0], iteration_count[1]);
+  }
+  else if (num_order_stages == 3) {
+    t8dg_debugf ("Iteration Count:\nStage 1: %d\nStage 2: %d\nStage 3: %d\n", iteration_count[0], iteration_count[1], iteration_count[2]);
+  }
 #else
   t8dg_global_productionf
     ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
 #endif
 }
+
+#if T8_WITH_PETSC
+/* Initializes the apllication context needed by the matrix-free application of the system matrix resulting from the implicit euler method */
+void
+t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
+                                          t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_impl_euler_ctx_t * appctx)
+{
+  size_t              iter;
+  PetscErrorCode      ierr;
+  t8_gloidx_t         global_offset_to_first_local_elem;
+
+  /* Store the current timestep */
+  appctx->timestep = t8dg_timestepping_data_get_time_step (time_data);
+
+  /* Store the next point in time which is going to be calculated */
+  appctx->next_time_point = t8dg_timestepping_data_get_current_time (time_data) + (double) appctx->timestep;
+
+  /* Store the time_derivative_function and the problem related data as well as the degrees of freedom */
+  appctx->time_derivative_func = time_derivative;
+  appctx->time_data = time_data;
+  appctx->user_data = user_data;
+
+  /* Store the degrees of freedom in the matrix-free application context (the current (original) degrees of freedom will be directly overwritten) */
+  appctx->future_local_dofs = pdof_array;
+  /* Is going to store the derivation of the degrees of freedom -> the evaluation of the time_derivative function */
+  appctx->future_local_dofs_derivative = t8dg_dof_values_duplicate (*(appctx->future_local_dofs));
+
+  /* Calculate the process-local number of degrees of freedom */
+  appctx->num_local_dofs =
+    (size_t) (t8dg_dof_get_num_local_elements (*(appctx->future_local_dofs)) *
+              t8dg_dof_get_max_num_element_dof (*(appctx->future_local_dofs)));
+
+  /* Allocate space for an array which holds the global indices of the degrees of freedom */
+  ierr = PetscMalloc1 (appctx->num_local_dofs, &appctx->global_indexing);
+
+  /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
+  global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (*(appctx->future_local_dofs)));
+  if (global_offset_to_first_local_elem != 0) {
+    global_offset_to_first_local_elem = global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (*(appctx->future_local_dofs));
+  }
+
+  /* Fill the array of global indices */
+  for (iter = 0; iter < appctx->num_local_dofs; ++iter) {
+    (appctx->global_indexing)[iter] = iter + global_offset_to_first_local_elem;
+  }
+
+}
+#endif
+
+#if T8_WITH_PETSC
+void
+t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
+                                    t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_dirk_ctx_t * appctx)
+{
+  int                 iter;
+  PetscErrorCode      ierr;
+  t8_gloidx_t         global_offset_to_first_local_elem;
+
+  /* Store the time_derivative_function and the problem related data */
+  appctx->time_derivative_func = time_derivative;
+  appctx->time_data = time_data;
+  appctx->user_data = user_data;
+  appctx->timestep = t8dg_timestepping_data_get_time_step (time_data);
+
+  /* Clone the current degrees of freedom */
+  appctx->local_derivation_degrees = pdof_array;
+  appctx->current_local_dofs = t8dg_dof_values_clone (*(appctx->local_derivation_degrees));
+
+  /* Duplicate the other t8dg_dof_values_t */
+  appctx->future_local_dofs_derivative = t8dg_dof_values_duplicate (*(appctx->local_derivation_degrees));
+  appctx->future_local_dofs_step = t8dg_dof_values_duplicate (*(appctx->local_derivation_degrees));
+
+  /* Calculate the process-local number of degrees of freedom */
+  appctx->num_local_dofs =
+    (size_t) (t8dg_dof_get_num_local_elements (*(appctx->local_derivation_degrees)) *
+              t8dg_dof_get_max_num_element_dof (*(appctx->local_derivation_degrees)));
+
+  /* Allocate space for an array which holds the global indices of the degrees of freedom */
+  ierr = PetscMalloc1 (appctx->num_local_dofs, &(appctx->global_indexing));
+
+  /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
+  global_offset_to_first_local_elem =
+    t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (*(appctx->local_derivation_degrees)));
+  if (global_offset_to_first_local_elem != 0) {
+    global_offset_to_first_local_elem =
+      global_offset_to_first_local_elem * t8dg_dof_get_max_num_element_dof (*(appctx->local_derivation_degrees));
+  }
+
+  /* Fill the process-local array of global indices */
+  for (iter = 0; iter < appctx->num_local_dofs; ++iter) {
+    (appctx->global_indexing)[iter] = iter + global_offset_to_first_local_elem;
+  }
+
+}
+#endif
+
+#if T8_WITH_PETSC
+/* Destroys the allocated space needed by the matrix application of the implicit euler method */
+void
+t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t * appctx)
+{
+  PetscErrorCode      ierr;
+
+  /* Free used resources */
+  t8dg_dof_values_destroy (&(appctx->future_local_dofs_derivative));
+
+  /* Free the PETSc indexing scheme */
+  ierr = PetscFree (appctx->global_indexing);
+  CHKERRQ (ierr);
+
+}
+#endif
+
+#if T8_WITH_PETSC
+void
+t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx)
+{
+  PetscErrorCode      ierr;
+
+  /* Free used resources */
+  t8dg_dof_values_destroy (&(appctx->future_local_dofs_derivative));
+  t8dg_dof_values_destroy (&(appctx->future_local_dofs_step));
+  t8dg_dof_values_destroy (&(appctx->current_local_dofs));
+
+  /* Free the PETSc indexing scheme */
+  ierr = PetscFree (appctx->global_indexing);
+  CHKERRQ (ierr);
+}
+#endif
 
 #if T8_WITH_PETSC
 PetscErrorCode
@@ -918,44 +754,18 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
   ierr = MatShellGetContext (A, &appctx);
   CHKERRQ (ierr);
 
-  /* Retrieve the local part of the 'in' Vector for reading purposes */
-  ierr = VecGetArrayRead (in, &current_local_approx);
-  CHKERRQ (ierr);
-
-  /* Get a pointer to the original degrees of freedom of the probblem */
-  dof_values_ptr = t8dg_dof_get_double_pointer_to_array (appctx->local_derivation_degrees);
-
-  /* Overwrite them with the 'in' Vector of the Matrix Multiplication */
-  for (dof_iter = 0; dof_iter < appctx->num_local_dofs; ++dof_iter) {
-    dof_values_ptr[dof_iter] = current_local_approx[dof_iter];
-  }
-
-  /* Restore the array entries of the 'in' Vector */
-  ierr = VecRestoreArrayRead (in, &current_local_approx);
-  CHKERRQ (ierr);
-
+  /* Write the 'in' Vector to a t8dg_dof_values_t, so that the derivation of these coefficients can be calculated */
+  t8dg_precon_write_vec_to_dof (&in, *(appctx->local_derivation_degrees));
   /* Get the derivation of the degrees of freedom of the current RKV step and store them in appctx->future_local_dofs_derivative */
-  (appctx->time_derivative_func) (appctx->local_derivation_degrees, appctx->future_local_dofs_derivative, appctx->next_time_point,
+  (appctx->time_derivative_func) (*(appctx->local_derivation_degrees), appctx->future_local_dofs_derivative, appctx->next_time_point,
                                   appctx->user_data);
 
   /* Subtract the derivation of the degrees from the dofs of the 'in' Vector */
   t8dg_dof_values_axpy (-(appctx->timestep * appctx->dirk_current_a_coeff), appctx->future_local_dofs_derivative,
-                        appctx->local_derivation_degrees);
-
-  /* Subtract the (weighted) derivations of the degrees of freedom calculated in the former stages which are stored in future_local_dofs_step */
-  //t8dg_dof_values_axpy (1.0, appctx->future_local_dofs_step, appctx->local_derivation_degrees);
+                        *(appctx->local_derivation_degrees));
 
   /* Write the result of the matrix-application to the 'in' Vector in the 'out' Vector */
-  ierr =
-    VecSetValues (out, appctx->num_local_dofs, appctx->global_indexing,
-                  t8dg_dof_get_double_pointer_to_array (appctx->local_derivation_degrees), INSERT_VALUES);
-  CHKERRQ (ierr);
-
-  /* Assemble the output vector */
-  ierr = VecAssemblyBegin (out);
-  CHKERRQ (ierr);
-  ierr = VecAssemblyEnd (out);
-  CHKERRQ (ierr);
+  t8dg_precon_write_dof_to_vec (*(appctx->local_derivation_degrees), &out, appctx->global_indexing);
 
   return 0;
 }
@@ -976,15 +786,15 @@ t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_der
     switch (time_data->time_order) {
     case 1:
       t8dg_debugf ("The implicit Euler method has been called.\n");
-      t8dg_timestepping_implicit_euler (time_derivative, time_data, pdof_array, user_data);
+      t8dg_timestepping_implicit_euler (time_derivative, time_data, pdof_array, user_data, time_data->preconditioner_selection);
       break;
     case 2:
       t8dg_debugf ("The DIRK(2,2) method has been called.\n");
-      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 2);
+      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 2, time_data->preconditioner_selection);
       break;
     case 3:
       t8dg_debugf ("The DIRK(3,3) method has been called.\n");
-      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 3);
+      t8dg_timestepping_dirk (time_derivative, time_data, pdof_array, user_data, 3, time_data->preconditioner_selection);
       break;
     default:
       t8dg_debugf ("An implicit DIRK method of order %d has been called, which is not implemented.\n", time_data->time_order);
