@@ -5,6 +5,15 @@
 
 #if T8_WITH_PETSC
 
+/* Block-Preconditioner routines for matrix-free operations */
+/* currently their name imply it is only block-jacobi which is implemented, but block-gauss-seidel is also possible, it uses the exact same structure and members; renaming these routines still has to be done */
+extern PetscErrorCode JacobiShellPCCreate (t8dg_block_preconditioner_ctx_t **, t8dg_linear_advection_diffusion_problem_t *,
+                                           t8dg_dof_values_t **, PetscInt *, int);
+extern PetscErrorCode JacobiShellPCSetUp (PC);
+extern PetscErrorCode JacobiShellPCApply (PC, Vec, Vec);
+extern PetscErrorCode JacobiShellPCDestroy (PC);
+extern PetscErrorCode MatMult_MF_Jacobi_Preconditioner (Mat, Vec, Vec);
+
 /* Matrix-free PETSc Matrix-Routines for solving a multigrid coarse level problem, restricting the fine level problem onto the coarse level and vice versa */
 extern PetscErrorCode MatMult_MF_Coarse_LVL (Mat, Vec, Vec);
 extern PetscErrorCode MatMult_MF_Prolongation (Mat, Vec, Vec);
@@ -16,6 +25,7 @@ t8dg_precon_initialize_preconditioner (PC * pc, int selector, t8dg_precon_genera
                                        t8dg_dof_values_t ** problem_dofs, t8dg_time_derivation_matrix_application_t time_derivative,
                                        Mat * A, PetscInt * vec_global_index)
 {
+  general_precon->preconditioner_setup_time = -sc_MPI_Wtime ();
   /* Fill the general preconditioner with the selected preconditioning routine */
   switch (selector) {
   case 0:
@@ -23,41 +33,54 @@ t8dg_precon_initialize_preconditioner (PC * pc, int selector, t8dg_precon_genera
     t8dg_precon_init_without_preconditioning (pc);
     break;
   case 1:
-    /* Hier kommt hoffentlich zeitnah der Jacobi-Vorkonditionierer hin */
-
+    /* Block-Jacobi-preconditioner is selected */
+    t8dg_precon_init_jacobi (problem, problem_dofs, A, pc, &general_precon->jacobi_preconditioner_ctx, vec_global_index, selector);
     break;
   case 2:
-    /* Two-Level-Multigrid preconditioner is selected */
+    /* Two-Level-Multigrid-preconditioner is selected */
     t8dg_precon_init_two_level_mg (problem, problem_dofs, time_derivative, A, pc, t8dg_adapt_multigrid_coarsen_finest_level,
                                    &general_precon->smoother, &general_precon->smoother_pc, &general_precon->Restriction,
                                    &general_precon->A_coarse, &(general_precon->coarse_solver), &general_precon->coarse_pc,
                                    &general_precon->Prolongation, &general_precon->coarse_lvl, &general_precon->res_prol_ctx,
                                    &general_precon->cmat_ctx, vec_global_index);
     break;
+  case 3:
+    /* Block-Gauss-Seidel-preconditioner is selected */
+    t8dg_precon_init_jacobi (problem, problem_dofs, A, pc, &general_precon->jacobi_preconditioner_ctx, vec_global_index, selector);
+    break;
   default:
     /* Default equals no preconditioning */
     t8dg_precon_init_without_preconditioning (pc);
     break;
   }
+  general_precon->preconditioner_setup_time += sc_MPI_Wtime ();
 }
 
 /* This function desctroys a preconditioner and frees allocated memory which was used during the preconditioning routine */
 void
-t8dg_precon_destroy_preconditioner (int selector, t8dg_precon_general_preconditioner_t * general_precon)
+t8dg_precon_destroy_preconditioner (PC * pc, int selector, t8dg_precon_general_preconditioner_t * general_precon)
 {
+  PetscErrorCode      ierr;
+
   switch (selector) {
   case 0:
     /* No preconditioning was selected, therefore, nothing needs to be cleaned up */
     break;
   case 1:
-    /* Hier kommt hoffentlich zeitnah der Jacobi-Vorkonditionierer hin */
-
+    /* Block-Jacobi-preconditioner is selected  */
+    t8dg_precon_destroy_block_preconditioner (general_precon->jacobi_preconditioner_ctx);
+    ierr = JacobiShellPCDestroy (*pc);
     break;
   case 2:
     /* Two-Level-Multigrid preconditioner is selected */
     t8dg_precon_destroy_two_level_mg (&general_precon->smoother, &general_precon->Restriction, &general_precon->A_coarse,
                                       &(general_precon->coarse_solver), &general_precon->Prolongation, &general_precon->coarse_lvl,
                                       &general_precon->cmat_ctx);
+    break;
+  case 3:
+    /* Block-Gauss-Seidel-preconditioner is selected  */
+    t8dg_precon_destroy_block_preconditioner (general_precon->jacobi_preconditioner_ctx);
+    ierr = JacobiShellPCDestroy (*pc);
     break;
   default:
     /* No preconditioning was selected, therefore, nothing needs to be cleaned up */
@@ -73,6 +96,257 @@ t8dg_precon_init_without_preconditioning (PC * pc)
   ierr = PCSetType (*pc, PCNONE);
   CHKERRQ (ierr);
 }
+
+/**********************************************************************************************/
+/************************ Beginning of Jacobi-Preconditioner-Routines *************************/
+/**********************************************************************************************/
+/****************************************** Take 2 ********************************************/
+
+/* Initializes a Block-Jacobi preconditioner */
+void
+t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat * A, PC * pc,
+                         t8dg_block_preconditioner_ctx_t ** precon_jacobi_ctx, PetscInt * vec_global_index, int selector)
+{
+  PetscErrorCode      ierr;
+
+  /* Create a PCSHELL which resembles a Block-Preconditioner */
+  ierr = PCSetType (*pc, PCSHELL);
+  CHKERRQ (ierr);
+
+  /* Create an application context */
+  JacobiShellPCCreate (precon_jacobi_ctx, problem, problem_dofs, vec_global_index, selector);
+
+  /* Assign the block preconditioner context to the preconditioner */
+  ierr = PCShellSetContext (*pc, *precon_jacobi_ctx);
+  CHKERRQ (ierr);
+
+  /* Set the function that applies the preconditioner */
+  ierr = PCShellSetApply (*pc, JacobiShellPCApply);
+  CHKERRQ (ierr);
+
+  /* Set the Destroy Function */
+  ierr = PCShellSetDestroy (*pc, JacobiShellPCDestroy);
+  CHKERRQ (ierr);
+
+  /* Assign an appropriate name */
+  if (selector == 1) {
+    ierr = PCShellSetName (*pc, "Block-Jacobi-Preconditioner");
+    CHKERRQ (ierr);
+  }
+  else if (selector == 3) {
+    ierr = PCShellSetName (*pc, "Block-Gauss-Seidel-Preconditioner");
+    CHKERRQ (ierr);
+  }
+  /* Set up the preconditioner */
+  JacobiShellPCSetUp (*pc);
+}
+
+/* Creates a Jacobi preconditioner with corresponding 'preconditioning context' */
+PetscErrorCode
+JacobiShellPCCreate (t8dg_block_preconditioner_ctx_t ** precon_ctx, t8dg_linear_advection_diffusion_problem_t * problem,
+                     t8dg_dof_values_t ** pdof_array, PetscInt * indexing, int selector)
+{
+  PetscErrorCode      ierr;
+  t8dg_block_preconditioner_ctx_t *ctx;
+  int                 iter;
+
+  /* Allocate a new preconditioning context */
+  ierr = PetscNew (&ctx);
+  CHKERRQ (ierr);
+
+  /* Assign values to the preconditiong context */
+  (ctx->jacobi_ctx).current_point_in_time = t8dg_timestepping_data_get_current_time (t8dg_advect_diff_problem_get_time_data (problem));
+  (ctx->jacobi_ctx).problem = (void *) problem;;
+  (ctx->jacobi_ctx).problem_dofs = pdof_array;
+  (ctx->jacobi_ctx).problem_dofs_derivation = t8dg_dof_values_duplicate (*pdof_array);
+  /* This function is declared within 't8dg_advect_diff_problem_cxx' */
+  (ctx->jacobi_ctx).jacobi_preconditioner_advect_diff_application = t8dg_advect_diff_problem_block_precon_time_derivative_variant;
+  (ctx->jacobi_ctx).timestep = t8dg_timestepping_data_get_time_step (t8dg_advect_diff_problem_get_time_data (problem));
+  (ctx->jacobi_ctx).current_implicit_coefficient = 1.0; /* in the case of the implicit euler method */
+
+  /* process-local wise */
+  (ctx->jacobi_ctx).num_local_dofs =
+    (size_t) t8dg_dof_get_num_local_elements (*pdof_array) * t8dg_dof_get_max_num_element_dof (*pdof_array);
+
+  /* Whether block-jacobi (== 1) or block-gauss-seidel (==3) has been choosen */
+  (ctx->jacobi_ctx).selection = selector;
+
+  /* Create a local indexing scheme */
+  ierr = PetscMalloc1 ((ctx->jacobi_ctx).num_local_dofs, (&((ctx->jacobi_ctx).local_indexing)));
+  CHKERRQ (ierr);
+  for (iter = 0; iter < (ctx->jacobi_ctx).num_local_dofs; ++iter) {
+    ((ctx->jacobi_ctx).local_indexing)[iter] = iter;
+  }
+
+  /* Global indexng scheme for the initial implicit system resulting from an implicit timestepping method */
+  ctx->global_indexing = indexing;
+
+  /* Assign the new preconditioning context */
+  *precon_ctx = ctx;
+
+  return 0;
+}
+
+/* Sets up a Block preconditioner - calculates the preconditioning matrix */
+PetscErrorCode
+JacobiShellPCSetUp (PC pc)
+{
+  PetscErrorCode      ierr;
+  t8dg_block_preconditioner_ctx_t *ctx;
+
+  ierr = PCShellGetContext (pc, (void **) &ctx);
+  CHKERRQ (ierr);
+
+  /* Declare the linear system which has to be solved in order to mimic the application of the inverse preconditioning-matrix */
+  /* Create a local vector which will hold the result of the application of the inverse preconditioning matrix */
+  ierr = VecCreateSeq (PETSC_COMM_SELF, (ctx->jacobi_ctx).num_local_dofs, &ctx->u);
+  CHKERRQ (ierr);
+
+  /* Create a local vector which holds the not yet preconditioned vector; it is going to be the right hand side of the linear system */
+  ierr = VecCreateSeq (PETSC_COMM_SELF, (ctx->jacobi_ctx).num_local_dofs, &ctx->f);
+  CHKERRQ (ierr);
+
+  /* Create alocal matrix which applies the preconditioner to a vector */
+  ierr =
+    MatCreateShell (PETSC_COMM_SELF, (ctx->jacobi_ctx).num_local_dofs, (ctx->jacobi_ctx).num_local_dofs, (ctx->jacobi_ctx).num_local_dofs,
+                    (ctx->jacobi_ctx).num_local_dofs, &ctx->jacobi_ctx, &ctx->M_jacobi);
+  CHKERRQ (ierr);
+  /* Set the matrix application of a multiplication in which this matrix takes place in */
+  ierr = MatShellSetOperation (ctx->M_jacobi, MATOP_MULT, (void (*)(void)) MatMult_MF_Jacobi_Preconditioner);
+  CHKERRQ (ierr);
+
+  /* Create a krylov subspace method as solver regarding the linear system */
+  ierr = KSPCreate (PETSC_COMM_SELF, &ctx->jacobi_preconditioner);
+  CHKERRQ (ierr);
+  ierr = KSPSetOperators (ctx->jacobi_preconditioner, ctx->M_jacobi, ctx->M_jacobi);
+  CHKERRQ (ierr);
+  ierr = KSPGetPC (ctx->jacobi_preconditioner, &ctx->pc_jacobi_preconditioner);
+  CHKERRQ (ierr);
+  /* Choose no preconditioer for this GMRES */
+  t8dg_precon_init_without_preconditioning (&ctx->pc_jacobi_preconditioner);
+  ierr = KSPSetType (ctx->jacobi_preconditioner, KSPGMRES);
+  CHKERRQ (ierr);
+  /* Set convergence tolerances of the preconditioning solver */
+  ierr = KSPSetTolerances (ctx->jacobi_preconditioner, 1.0e-7, 1.0e-7, PETSC_DEFAULT, PETSC_DEFAULT);
+  CHKERRQ (ierr);
+  /* Set the solver up ready to use */
+  ierr = KSPSetUp (ctx->jacobi_preconditioner);
+  CHKERRQ (ierr);
+
+  return 0;
+}
+
+/* Applies the Jacobi preconditioner to a vector */
+PetscErrorCode
+JacobiShellPCApply (PC pc, Vec in, Vec out)
+{
+
+  PetscErrorCode      ierr;
+  t8dg_block_preconditioner_ctx_t *ctx;
+
+  /* Get the preconditioning context */
+  ierr = PCShellGetContext (pc, (void **) &ctx);
+  CHKERRQ (ierr);
+
+  /* Take the 'in' vector as the right hand side, so that the GMRES application mimics the application of the inverse of the preconditioning matrix */
+
+  /* It is allowed to copy from a parallel to a sequential vec */
+  /* Receive the 'in' vector as the right hand side */
+  ierr = VecCopy (in, ctx->f);
+  CHKERRQ (ierr);
+
+  /* Solve the system in order to obtain the the application of the inverse preconditioning matrix; the result is stored in u */
+  ierr = KSPSolve (ctx->jacobi_preconditioner, ctx->f, ctx->u);
+  CHKERRQ (ierr);
+
+  /* View whether or not the GMRES did converge */
+  ierr = KSPConvergedRateView (ctx->jacobi_preconditioner, PETSC_VIEWER_STDOUT_WORLD);
+  CHKERRQ (ierr);
+
+  /* Copy the result to the 'out' vector */
+  ierr = VecCopy (ctx->u, out);
+  CHKERRQ (ierr);
+
+  return 0;
+}
+
+/* Frees the resources used by the preconditioning methods */
+PetscErrorCode
+JacobiShellPCDestroy (PC pc)
+{
+  PetscErrorCode      ierr;
+  t8dg_block_preconditioner_ctx_t *ctx;
+
+  /* Get the preconditioning context */
+  ierr = PCShellGetContext (pc, (void **) &ctx);
+  CHKERRQ (ierr);
+
+  /* Free the preconditioning context */
+  ierr = PetscFree (ctx);
+  CHKERRQ (ierr);
+
+  return 0;
+}
+
+/* Destroys/frees the allocated memory of the block preconditioner */
+void
+t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx)
+{
+  PetscErrorCode      ierr;
+
+  /* Free dof values */
+  t8dg_dof_values_destroy (&((ctx->jacobi_ctx).problem_dofs_derivation));
+
+  /* Free the allocated space of PETSc objects */
+  ierr = PetscFree ((ctx->jacobi_ctx).local_indexing);
+  CHKERRQ (ierr);
+  ierr = MatDestroy (&ctx->M_jacobi);
+  CHKERRQ (ierr);
+  ierr = VecDestroy (&ctx->f);
+  CHKERRQ (ierr);
+  ierr = VecDestroy (&ctx->u);
+  CHKERRQ (ierr);
+  ierr = KSPDestroy (&ctx->jacobi_preconditioner);
+  CHKERRQ (ierr);
+
+}
+
+/* Matrix-free application which resembles the application of the function describing the block jacobi preconditioning process */
+PetscErrorCode
+MatMult_MF_Jacobi_Preconditioner (Mat A, Vec in, Vec out)
+{
+
+  PetscErrorCode      ierr;
+  t8dg_precon_block_matrix_ctx_t *jacobi_ctx;
+
+  ierr = MatShellGetContext (A, &jacobi_ctx);
+  CHKERRQ (ierr);
+
+  /* Copy the petsc vec entries into the dof_values of the problem in order to compute their derivation */
+  t8dg_precon_write_vec_to_dof (&in, *(jacobi_ctx->problem_dofs), jacobi_ctx->num_local_dofs);
+
+  /* Calculate the time derivation of the degrees of freedom in the jacobi-preconditioning variant */
+  (jacobi_ctx->jacobi_preconditioner_advect_diff_application) (*(jacobi_ctx->problem_dofs), jacobi_ctx->problem_dofs_derivation,
+                                                               jacobi_ctx->current_point_in_time, jacobi_ctx->problem,
+                                                               jacobi_ctx->selection);
+
+  /* calculate the sum of the initially passed degrees of freedom ('in' Vector) and their (scaled) derivation */
+  t8dg_dof_values_axpy (-(jacobi_ctx->timestep * jacobi_ctx->current_implicit_coefficient), jacobi_ctx->problem_dofs_derivation,
+                        *(jacobi_ctx->problem_dofs));
+
+  /* Copy the dof_values back to a petsc_vector */
+  t8dg_precon_write_dof_to_vec (*(jacobi_ctx->problem_dofs), &out, jacobi_ctx->local_indexing, jacobi_ctx->num_local_dofs);
+
+  return 0;
+}
+
+/**********************************************************************************************/
+/*************************** End of Jacobi-Preconditioner-Routines ****************************/
+/**********************************************************************************************/
+
+/**********************************************************************************************/
+/****************************** Beginning of Multigrid-Routines *******************************/
+/**********************************************************************************************/
 
 /* Initializes a 2-Level Multigrid preconditioner */
 void
@@ -332,7 +606,7 @@ MatMult_MF_Coarse_LVL (Mat A, Vec in, Vec out)
   CHKERRQ (ierr);
 
   /* Copy the petsc vec entries into the dof_values of the problem in order to compute their derivation */
-  t8dg_precon_write_vec_to_dof (&in, *(c_appctx->coarse_lvl->dof_values));
+  t8dg_precon_write_vec_to_dof (&in, *(c_appctx->coarse_lvl->dof_values), c_appctx->coarse_lvl->num_local_dofs);
 
   /* Calculate the time derivation of the degrees of freedom */
   (c_appctx->time_derivative_func) (*(c_appctx->coarse_lvl->dof_values), c_appctx->problem_dofs_derivation, c_appctx->current_point_in_time,
@@ -343,7 +617,8 @@ MatMult_MF_Coarse_LVL (Mat A, Vec in, Vec out)
                         *(c_appctx->coarse_lvl->dof_values));
 
   /* Copy the dof_values back to a petsc_vector */
-  t8dg_precon_write_dof_to_vec (*(c_appctx->coarse_lvl->dof_values), &out, c_appctx->coarse_lvl->global_indexing);
+  t8dg_precon_write_dof_to_vec (*(c_appctx->coarse_lvl->dof_values), &out, c_appctx->coarse_lvl->global_indexing,
+                                c_appctx->coarse_lvl->num_local_dofs);
 
   return 0;
 }
@@ -364,13 +639,14 @@ MatMult_MF_Restriction (Mat A, Vec in, Vec out)
   coarse_lvl = appctx->coarse_lvl;
 
   /* Write the entries of the 'in' vector in adapt_data->dof_values, these are getting adapted/restricted */
-  t8dg_precon_write_vec_to_dof (&in, coarse_lvl->adapt_data->dof_values);
+  t8dg_precon_write_vec_to_dof (&in, coarse_lvl->adapt_data->dof_values, appctx->num_local_dofs_fine_grid);
 
   /* Calling iterate_replace executes the adaption/restriction */
   t8_forest_iterate_replace (coarse_lvl->forest_coarsened, coarse_lvl->problem_forest, t8dg_adapt_replace);
 
   /* Write the degrees of freedom to a petsc vec */
-  t8dg_precon_write_dof_to_vec (coarse_lvl->adapt_data->dof_values_adapt, &out, coarse_lvl->global_indexing);
+  t8dg_precon_write_dof_to_vec (coarse_lvl->adapt_data->dof_values_adapt, &out, coarse_lvl->global_indexing,
+                                appctx->num_local_dofs_coarse_grid);
 
   /* Swap the initial problem properties to the coarse level problem */
   t8dg_dof_values_swap ((coarse_lvl->dof_values), (coarse_lvl->dof_values_adapt));
@@ -397,7 +673,7 @@ MatMult_MF_Prolongation (Mat A, Vec in, Vec out)
   coarse_lvl = appctx->coarse_lvl;
 
   /* Write the entries of the 'in' vector in adapt_data->dof_values, these are getting adapted/restricted */
-  t8dg_precon_write_vec_to_dof (&in, coarse_lvl->adapt_data->dof_values);
+  t8dg_precon_write_vec_to_dof (&in, coarse_lvl->adapt_data->dof_values, appctx->num_local_dofs_coarse_grid);
 
   /* Set the user_data of the forest; this is needed for the adaption */
   t8_forest_set_user_data (coarse_lvl->problem_forest, coarse_lvl->adapt_data);
@@ -409,7 +685,8 @@ MatMult_MF_Prolongation (Mat A, Vec in, Vec out)
   t8_forest_iterate_replace (coarse_lvl->problem_forest, coarse_lvl->forest_coarsened, t8dg_adapt_replace);
 
   /* Write the degrees of freedom to a petsc vec */
-  t8dg_precon_write_dof_to_vec (coarse_lvl->adapt_data->dof_values_adapt, &out, appctx->fine_lvl_global_indexing);
+  t8dg_precon_write_dof_to_vec (coarse_lvl->adapt_data->dof_values_adapt, &out, appctx->fine_lvl_global_indexing,
+                                appctx->num_local_dofs_fine_grid);
 
   /* Swap the coarse level problem to the initial fine level state */
   t8dg_dof_values_swap ((coarse_lvl->dof_values), (coarse_lvl->dof_values_adapt));
@@ -478,15 +755,17 @@ t8dg_mg_create_prolongation_matrix (Mat * Prolongation, t8dg_mg_interpolating_ct
   CHKERRQ (ierr);
 }
 
+/**********************************************************************************************/
+/********************************* End of Multigrid-Routines **********************************/
+/**********************************************************************************************/
+
 /* A function that writes a t8dg_dof_values_t to a PETSc Vector */
 void
-t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing)
+t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing, size_t num_local_dofs)
 {
   PetscErrorCode      ierr;
   /* Sets the values of a petsc vector to the entries of a t8dg_dof_values_t */
-  ierr =
-    VecSetValues (*p_vec, (t8dg_dof_get_num_local_elements (dofs) * t8dg_dof_get_max_num_element_dof (dofs)), indexing,
-                  t8dg_dof_values_get_double_pointer (dofs, 0), INSERT_VALUES);
+  ierr = VecSetValues (*p_vec, num_local_dofs, indexing, t8dg_dof_values_get_double_pointer (dofs, 0), INSERT_VALUES);
   CHKERRQ (ierr);
   /* Assemble the petsc vector */
   ierr = VecAssemblyBegin (*p_vec);
@@ -497,7 +776,7 @@ t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * 
 
 /* A function that writes a PETSc Vector to a t8dg_dof_values_t */
 void
-t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs)
+t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_local_dofs)
 {
   PetscErrorCode      ierr;
   PetscScalar        *vec_reader;
@@ -512,7 +791,7 @@ t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs)
   dof_pointer = t8dg_dof_values_get_double_pointer (dofs, 0);
   /* Overwrite the dof values with the entries of a petsc vector */
   /* it is assumed (not checked!) that the local petsc vector is of length dof_values->num_local_elements */
-  for (dof_iter = 0; dof_iter < (t8dg_dof_get_num_local_elements (dofs) * t8dg_dof_get_max_num_element_dof (dofs)); ++dof_iter) {
+  for (dof_iter = 0; dof_iter < num_local_dofs; ++dof_iter) {
     dof_pointer[dof_iter] = (double) vec_reader[dof_iter];
   }
   /* Restore the array entries in the petsc vector */
@@ -522,25 +801,37 @@ t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs)
 
 /* Thus function updates the preconditioner within the DIRK methods due to the varying coefficients of the different stages */
 void
-t8dg_precon_dirk_update_coarse_lvl_solver (int selector, t8dg_precon_general_preconditioner_t * preconditioner,
-                                           double stage_related_a_coefficient, double stage_current_time)
+t8dg_precon_dirk_update_preconditioner (int selector, t8dg_precon_general_preconditioner_t * preconditioner,
+                                        double stage_related_a_coefficient, double stage_current_time)
 {
   switch (selector) {
   case 0:
     /* No preconditioning was selected, therefore, no updating is needed */
     break;
   case 1:
-    /* Hier kommt hoffentlich zeitnah der Jacobi-Vorkonditionierer hin */
-
+    /* Block-Jacobi-Preconditioner is selected */
+    (preconditioner->jacobi_preconditioner_ctx->jacobi_ctx).current_implicit_coefficient = stage_related_a_coefficient;
+    (preconditioner->jacobi_preconditioner_ctx->jacobi_ctx).current_point_in_time = stage_current_time;
     break;
   case 2:
     /* Two-Level-Multigrid preconditioner is selected */
     (preconditioner->cmat_ctx).current_coefficient = stage_related_a_coefficient;
     (preconditioner->cmat_ctx).current_point_in_time = stage_current_time;
     break;
+  case 3:
+    /* Block-Gauss-Seidel-Preconditioner is selected */
+    (preconditioner->jacobi_preconditioner_ctx->jacobi_ctx).current_implicit_coefficient = stage_related_a_coefficient;
+    (preconditioner->jacobi_preconditioner_ctx->jacobi_ctx).current_point_in_time = stage_current_time;
+    break;
   default:
     break;
   }
+}
+
+double
+t8dg_precon_get_setup_time (t8dg_precon_general_preconditioner_t * preconditioner)
+{
+  return (preconditioner->preconditioner_setup_time);
 }
 
 #endif

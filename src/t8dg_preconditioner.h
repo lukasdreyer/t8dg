@@ -25,6 +25,37 @@ typedef int         (*t8dg_corase_lvl_adapt_func_t) (t8_forest_t forest, t8_fore
 typedef void        (*t8dg_time_derivation_matrix_application_t) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
                                                                   const void *application_data);
 
+/* typedef which resembles a pointer to a function describing the application of the problem in concerns of a choosen block-preconditioner */
+typedef void        (*t8dg_block_precon_matrix_application_t) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
+                                                               const void *application_data, int selection);
+
+/* Struct needed by the matrix application in order to solve for the inverse application of the block preconditioner */
+typedef struct
+{
+  t8dg_dof_values_t **problem_dofs;
+  t8dg_dof_values_t  *problem_dofs_derivation;
+  void               *problem;
+  t8dg_block_precon_matrix_application_t jacobi_preconditioner_advect_diff_application;
+  double              current_implicit_coefficient;
+  double              current_point_in_time;
+  double              timestep;
+  size_t              num_local_dofs;
+  PetscInt           *local_indexing;
+  int                 selection;
+} t8dg_precon_block_matrix_ctx_t;
+
+/* Struct that keeps information needed by the Jacobi Preconditioner */
+typedef struct
+{
+  t8dg_precon_block_matrix_ctx_t jacobi_ctx;
+  Mat                 M_jacobi;
+  Vec                 u, f;
+  KSP                 jacobi_preconditioner;
+  PC                  pc_jacobi_preconditioner;
+  PetscInt           *global_indexing;
+
+} t8dg_block_preconditioner_ctx_t;
+
 /* Struct that keeps the context needed in order to establish a coarser mesh on which the multigrid preconditioner performs */
 typedef struct
 {
@@ -77,6 +108,11 @@ typedef struct
   t8dg_mg_coarse_lvl_t coarse_lvl;
   /* END Two-Level Multigrid components */
 
+  /* BEGIN Jacobi-Preconditioner components */
+  t8dg_block_preconditioner_ctx_t *jacobi_preconditioner_ctx;
+  /* END Jacobi-Preconditioner components */
+
+  double              preconditioner_setup_time;
 } t8dg_precon_general_preconditioner_t;
 
 /** This function initializes a selected preconditioner
@@ -84,7 +120,7 @@ typedef struct
 * \param[in] selector An integer describing which preconditioner ought to be initialized and set up
 * \param[in, out] general_precon A pointer to a \a t8dg_precon_general_preconditioner_t context holding further information needed by the matrix application regarding of the choice of the preconditioner
 * \param[in] problem A pointer to the advect diff problem
-* \param[in] problem_dofs A pointer to a pointer wich relates to the degrees of freedom of the initial advect diff problem \a problem
+* \param[in] problem_dofs A pointer to a pointer which relates to the degrees of freedom of the initial advect diff problem \a problem
 * \param[in] time_derivative A function describing the time derivation of the coefficients (in the degrees of freedom \a problem_dofs); resulting from the discretization of the advect diff problem
 * \param[in] A A pointer to a PETSc Matrix which resembles the application of the system matrix resulting from the timestepping method
 * \param[in] vec_global_index An indexing scheme which describes the relation between the global index in a PETSc Vector and the process-local degrees of freedom */
@@ -97,7 +133,18 @@ void                t8dg_precon_initialize_preconditioner (PC * pc, int selector
 * \param[in] selector An integer describing which preconditioner was used
 * \param[in] general_precon A pointer to the preconditioner which ought to be destroyed
 */
-void                t8dg_precon_destroy_preconditioner (int selector, t8dg_precon_general_preconditioner_t * general_precon);
+void                t8dg_precon_destroy_preconditioner (PC * pc, int selector, t8dg_precon_general_preconditioner_t * general_precon);
+
+/* Initializes the without-preconditioning option */
+void                t8dg_precon_init_without_preconditioning (PC * pc);
+
+/* Initializes a block jacobi preconditioner */
+void                t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat * A, PC * pc,
+                                             t8dg_block_preconditioner_ctx_t ** precon_jacobi_ctx, PetscInt * vec_global_index,
+                                             int selector);
+
+/* Destroys the allocated memory from the block jacobi preconditioner */
+void                t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx);
 
 /** Initializes a two level multigrid preconditioner and calls all subroutines, therefore, some parameters need to be passed to the function which will be initilialized right here
 * \param[in] problem A void pointer to the initial advection diffusion problem
@@ -132,7 +179,7 @@ void                t8dg_precon_init_two_level_mg (void *problem, t8dg_dof_value
 * \param[in] A_coarse A pointer to a PETSc Matrix describing the system matrix of the coarse level problem
 * \param[in] coarse_solver A pointer to the PETSc KSP which solved the coarse level problem, given by the coarse level matrix application \a A_coarse
 * \param[in] Prolongation A pointer the a PETSc Matrix resembling the interpolation/prolongation from the coarse level onto the fine level
-* \param[in] coarse_lvl A pointer the \a t8dg_mg_coarse_lvl_t context^which hold the coarse level mesh of the multigrid preconditioner
+* \param[in] coarse_lvl A pointer the \a t8dg_mg_coarse_lvl_t context which hold the coarse level mesh of the multigrid preconditioner
 * \param[in] cmat_ctx A pointer to the \a t8dg_coarse_matrix_ctx_t context context which hold the information needed by the coarse matrix application \a A_coarse
  */
 void                t8dg_precon_destroy_two_level_mg (KSP * smoother, Mat * Restriction, Mat * A_coarse, KSP * coarse_solver,
@@ -144,13 +191,13 @@ void                t8dg_precon_destroy_two_level_mg (KSP * smoother, Mat * Rest
 * \param[in, out] p_vec A pointer to a PETSc Vector which entries will be filled 
 * \param[in] indexing A global indexing scheme which provides the corresponding global index in the PETSc Vector to an entry in the (local) t8dg_dof_values_t \a dofs
 */
-void                t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing);
+void                t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing, size_t num_dofs);
 
 /** A function that writes a PETSc Vector to a t8dg_dof_values_t 
 * \param[in] p_vec A pointer to a PETSc Vector which entries will be copied
 * \param[in, out] dofs A pointer to the degrees of freedom which will be filled with the entries of the PETSc Vector, specifically, the element_dofs of \a dofs will be overwritten with these entries 
 */
-void                t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs);
+void                t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_dofs);
 
 /** A function that sets up the components needed in order to perform a two level multigrid V-Cycle 
 * \param[in] problem A pointer to the initial advection diffusion problem
@@ -218,8 +265,9 @@ void                t8dg_mg_create_prolongation_matrix (Mat * Prolongation, t8dg
 * \param[in] selector An integer describing which preconditioner was selected 
 * \param[in, out] preconditioner A pointer to the preconditioner which has to be updated 
 * \param[in] stage_related_a_coefficient The current a_coefficient (speaking of a Butcher Tableau) of the stage */
-void                t8dg_precon_dirk_update_coarse_lvl_solver (int selector, t8dg_precon_general_preconditioner_t * preconditioner,
-                                                               double stage_related_a_coefficient, double stage_current_time);
+void                t8dg_precon_dirk_update_preconditioner (int selector, t8dg_precon_general_preconditioner_t * preconditioner,
+                                                            double stage_related_a_coefficient, double stage_current_time);
+double              t8dg_precon_get_setup_time (t8dg_precon_general_preconditioner_t * preconditioner);
 #endif
 
 T8DG_EXTERN_C_END ();

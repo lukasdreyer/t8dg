@@ -56,7 +56,7 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(use_implicit_timestepping == 0 || use_implicit_timestepping == 1))
     return 0;
-  if (!(0 <= preconditioner_selection && preconditioner_selection <= 2))
+  if (!(0 <= preconditioner_selection && preconditioner_selection <= 3))
     return 0;
   return 1;
 }
@@ -128,12 +128,14 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'o', "time_order", &time_order, 2,
                       "The order used for the runge Kutta timestepping (1<= order <=4). Default: 2");
   sc_options_add_int (opt, 'I', "use_implicit_timestepping", &use_implicit_timestepping, 0,
-                      "Whether implicit or explicit time stepping Runge Kutta should be used. Default: 0.\n" "\t\t0: explicit RKV\n"
-                      "\t\t1: implicit DIRK (max. time_order <= 3\n");
+                      "Whether implicit or explicit time stepping Runge Kutta should be used. Default: 0.\n"
+                      "\t\t0: explicit RKV (max. time_order <= 4)\n" "\t\t1: implicit DIRK (max. time_order <= 3)\n");
   sc_options_add_int (opt, 'P', "preconditioner_selection", &preconditioner_selection, 0,
                       "Choose which preconditioner should be applied to the implicit system, resulting from the time stepping method (only applicable if an implicit timestepping method is choosen). Default: 0.\n"
-                      "\t\t0: No preconditioning\n" "\t\t1: Jacobi-Preconditioner (Not implemented yet)\n"
-                      "\t\t2: Two-Level Multigrid Preconditioner (coarsening every element once)\n");
+                      "\t\t0: No preconditioning\n" "\t\t1: Block-Jacobi-Preconditioner\n"
+                      "\t\t2: Two-Level Multigrid Preconditioner (coarsening each element once)\n"
+                      "\t\t3: Block-Gauss-Seidel-Preconditioner\n");
+
   sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0,
                       "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n" "\t\t2: diagonal line more trees\n"
                       "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n" "\t\t6: moebius more tree\n"

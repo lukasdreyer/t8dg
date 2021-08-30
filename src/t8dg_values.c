@@ -327,6 +327,96 @@ t8dg_values_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t 
 
 }
 
+#if T8_WITH_PETSC
+void
+t8dg_values_block_precon_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
+                                                             t8dg_dof_values_t * dest_dof, int icomp,
+                                                             t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data,
+                                                             double time, int selector)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  t8dg_element_dof_values_t *element_dest_dof;
+
+  t8dg_mortar_array_calculate_flux_dof1D (values->mortar_array, src_dof, icomp, numerical_flux, numerical_flux_data, time);
+
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      element_dest_dof = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
+      t8dg_mortar_array_block_precon_apply_element_boundary_integral (values->mortar_array, itree, ielement, element_dest_dof, selector);
+
+      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dest_dof));
+      sc_array_destroy (element_dest_dof);
+    }
+  }
+
+  t8dg_mortar_array_invalidate_all (values->mortar_array);
+}
+#endif
+
+#if T8_WITH_PETSC
+void
+t8dg_values_block_precon_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof,
+                                                   t8dg_linear_flux3D_fn linear_flux, void *flux_data,
+                                                   t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data, double time,
+                                                   int selector)
+{
+  t8_locidx_t         itree, ielement, idata;
+  t8_locidx_t         num_trees, num_elems_in_tree;
+  t8dg_element_dof_values_t *element_dest_dof;
+
+  /* Calculate all flux values */
+  t8dg_mortar_array_calculate_linear_flux3D (values->mortar_array, src_dof, linear_flux, flux_data, numerical_flux, numerical_flux_data,
+                                             time);
+
+  /* Iterate over all local trees */
+  num_trees = t8_forest_get_num_local_trees (values->forest);
+  for (itree = 0, idata = 0; itree < num_trees; itree++) {
+
+    num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
+
+    /* Iterate over all tree-local elements */
+    for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      /* Get the current dofs of the current element */
+      element_dest_dof = t8dg_dof_values_new_element_dof_values_view (dest_dof, itree, ielement);
+
+      /* Apply/update the element-local degrees of freedom, but only with the block-preconditioner-conforming flux values */
+      t8dg_mortar_array_block_precon_apply_element_boundary_integral (values->mortar_array, itree, ielement, element_dest_dof, selector);
+
+      T8DG_ASSERT (t8dg_element_dof_values_is_valid (element_dest_dof));
+      /* Free the element_dofs */
+      sc_array_destroy (element_dest_dof);
+    }
+  }
+
+  /* Make the mortars accessible for recalculating, after the block preconditioner has been applied */
+  t8dg_mortar_array_invalidate_all (values->mortar_array);
+
+}
+#endif
+
+#if T8_WITH_PETSC
+/* Counts the local number of degrees of freedoms */
+t8_locidx_t
+t8dg_values_count_num_local_dofs (t8dg_values_t * values)
+{
+  t8_locidx_t         iter_tree, iter_elem;
+  t8_locidx_t         number_local_dofs = 0;
+
+  for (iter_tree = 0; iter_tree < t8_forest_get_num_local_trees (values->forest); ++iter_tree) {
+    for (iter_elem = 0; iter_elem < t8_forest_get_tree_num_elements (values->forest, iter_tree); ++iter_elem) {
+      number_local_dofs = number_local_dofs + t8dg_global_values_get_num_dof (t8dg_values_get_global_values (values, iter_tree, iter_elem));
+    }
+  }
+
+  return number_local_dofs;
+}
+#endif
+
 void
 t8dg_values_ghost_exchange (t8dg_values_t * values)
 {
@@ -484,25 +574,19 @@ t8dg_values_destroy_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** m
 void
 t8dg_values_cleanup_adapt (t8dg_values_t * values)
 {
-  t8dg_debugf ("Cleanup entered\n");
   /* clean the old element data */
   t8_forest_unref (&values->forest);
   values->forest = values->forest_adapt;
   values->forest_adapt = NULL;
-  t8dg_debugf ("local values kram beginnt\n");
   /* Set the elem data to the adapted elem data */
   t8dg_local_values_destroy (&values->local_values);
   values->local_values = values->local_values_adapt;
   values->local_values_adapt = NULL;
   t8dg_local_values_set_all_ghost_elements (values->local_values);      /*local elements get set during replace, these could also be communicated */
-  t8dg_debugf ("mortar action begins\n");
   /*Create new mortar arrays */
   values->ghost_exchange_data_time += t8dg_mortar_array_get_ghost_exchange_time (values->mortar_array);
-  t8dg_debugf ("at destroy\n");
   t8dg_mortar_array_destroy (&values->mortar_array);
-  t8dg_debugf ("new mortar\n");
   values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-  t8dg_debugf ("clean up abgeschlossen\n");
 }
 
 void
@@ -732,52 +816,3 @@ t8dg_values_get_dim (t8dg_values_t * values)
 {
   return values->dim;
 }
-
-#if 0
-void
-t8dg_values_change_to_coarse_lvl_mg (PC pc, t8dg_values_t * values)
-{
-  t8dg_preconditioner_mg_ctx_t *pc_ctx;
-
-  /* Get the preconditoning context */
-  ierr = PCShellGetContext (pc, (void **) &pc_ctx);
-  CHKERRQ (ierr);
-
-  pc_ctx->tmp_dg_values_forest = values->forest;
-  values->forest = values->forest_adapt;
-  values->forest_adapt = NULL;
-
-  pc_ctx->tmp_local_values = values->local_values;
-  values->local_values = values->local_values_adapt;
-  values->local_values_adapt = NULL;
-
-  t8dg_local_values_set_all_ghost_elements (values->local_values);
-
-  pc_ctx->tmp_mortar_array = values->mortar_array;
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-}
-
-void
-t8dg_values_change_back_to_fine_lvl_mg (PC pc, t8dg_values_t * values)
-{
-  t8dg_preconditioner_mg_ctx_t *pc_ctx;
-
-  /* Get the preconditoning context */
-  ierr = PCShellGetContext (pc, (void **) &pc_ctx);
-  CHKERRQ (ierr);
-
-  values->forest = pc_ctx->tmp_dg_values_forest;
-  pc_ctx->tmp_dg_values_forest = NULL;
-  values->forest_adapt = NULL;
-
-  t8dg_local_values_destroy (&values->local_values);
-  values->local_values = pc_ctx->tmp_local_values;
-  pc_ctx->tmp_local_values = NULL;
-  t8dg_local_values_destroy (&values->local_values_adapt);
-  values->local_values_adapt = NULL;
-
-  t8dg_mortar_array_destroy (values->mortar_array);
-  values->mortar_array = pc_ctx->tmp_mortar_array;
-
-}
-#endif

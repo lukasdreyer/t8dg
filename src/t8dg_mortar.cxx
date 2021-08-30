@@ -839,6 +839,95 @@ t8dg_mortar_array_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_
   sc_array_destroy (summand);
 }
 
+#if T8_WITH_PETSC
+void
+t8dg_mortar_array_block_precon_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_array,
+                                                                t8_locidx_t itree, t8_locidx_t ielement, sc_array_t * element_result_dof,
+                                                                int selector)
+{
+  int                 iter;
+  int                 iface, num_faces;
+
+  sc_array_t         *face_flux_dof;
+  sc_array_t         *face_dof;
+  sc_array_t         *summand;
+
+  int                *neigh_ifaces;
+  int                 num_neighs;
+  t8_element_t       *element, **neigh_elems;
+  t8_eclass_scheme_c *neigh_scheme;
+  t8_locidx_t        *neigh_idatas;
+
+  t8dg_functionbasis_t *functionbasis;
+
+  t8_locidx_t         idata = t8dg_itree_ielement_to_idata (mortar_array->forest, itree, ielement);
+
+  /* Calculate the element's local id */
+  t8_locidx_t         local_element_id = t8_forest_get_tree_element_offset (mortar_array->forest, itree) + ielement;
+
+  /* Get the current element */
+  element = t8_forest_get_element_in_tree (mortar_array->forest, itree, ielement);
+
+  /* Get the element's functionbasis */
+  functionbasis = t8dg_global_values_get_functionbasis (t8dg_local_values_get_global_values (mortar_array->local_values, itree, ielement));
+
+  /* Get the number of face basis functions */
+  num_faces = t8dg_functionbasis_get_num_face_functionbasis (functionbasis);
+
+  /* Allocate space */
+  summand = t8dg_element_dof_values_duplicate (element_result_dof);
+  /* Set all dofs to zero; they will be filled with the dofs resulting from the faces */
+  t8dg_element_dof_values_set_zero (element_result_dof);
+
+  /* Iterate over all element's faces */
+  for (iface = 0; iface < num_faces; iface++) {
+
+    /* Get the neighbouring elements to the given iface */
+    t8_forest_leaf_face_neighbors (mortar_array->forest, itree, element, &neigh_elems, iface, &neigh_ifaces, &num_neighs, &neigh_idatas,
+                                   &neigh_scheme, 1);
+
+    /* i guess here needs to be checked whether the face belongs to a direct neighbour regarding the element order/numbering */
+    /* try it first local, so that all elements have a local id */
+    /* further more, just one face gets checked, which means it is a uniform mesh, not sure if it would work on an adaptive mesh with possibly hanging nodes */
+    /* If this face connects a direct/adjacent neighbor in the global elements' order/numbering; only in this case the flux values of this face can account for the block jacobi system */
+    /* Or if it's a boundary face -> periodic boundaries -> the transformed face_dofs have to be added */
+    /* selector == 1 means block-jacobi and selector == 3 means block_gauss-seidel */
+    /* only possible in serial right now */
+    if (((selector == 1) && ((num_neighs > 0) && (neigh_idatas[0] == (local_element_id - 1) || neigh_idatas[0] == (local_element_id + 1))))
+        || ((selector == 3) && ((num_neighs > 0) && (neigh_idatas[0] <= (local_element_id + 1))))
+        || num_neighs == 0) {
+      /* Get the face_dof_values of the iface */
+      face_flux_dof = t8dg_mortar_array_get_oriented_flux (mortar_array, idata, iface);
+
+      /* Allocate space for the application of the face mass matrix */
+      face_dof = t8dg_face_dof_values_duplicate (face_flux_dof);
+
+      /* Apply the face mass matrix */
+      t8dg_local_values_apply_face_mass_matrix (mortar_array->local_values, itree, ielement, iface, face_flux_dof, face_dof);
+
+      /* Transform the face_dofs to the element_dofs */
+      t8dg_functionbasis_transform_face_dof_to_element_dof (functionbasis, iface, face_dof, summand);
+
+      T8DG_ASSERT (t8dg_element_dof_values_is_valid (summand));
+      /* Add flux values from this face */
+      t8dg_element_dof_values_axpy (1, summand, element_result_dof);
+
+      sc_array_destroy (face_dof);
+
+    }
+    /* Destroy the face-neighbor-infomation */
+    if (num_neighs > 0) {
+      T8_FREE (neigh_elems);
+      T8_FREE (neigh_idatas);
+      T8_FREE (neigh_ifaces);
+    }
+  }
+
+  /* Free allocated space */
+  sc_array_destroy (summand);
+}
+#endif
+
 double
 t8dg_mortar_array_get_ghost_exchange_time (t8dg_mortar_array_t * mortar_array)
 {

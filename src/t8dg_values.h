@@ -103,7 +103,20 @@ void                t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t *
 void                t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values);
 
 void                t8dg_values_mg_allocate_adapt (t8dg_values_t * values, t8_forest_t forest);
+
+void                t8dg_values_block_precon_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
+                                                                       t8dg_dof_values_t * dest_dof, t8dg_linear_flux3D_fn linear_flux,
+                                                                       void *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
+                                                                       void *numerical_flux_data, double time, int selector);
+
+void                t8dg_values_block_precon_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
+                                                                                 t8dg_dof_values_t * dest_dof, int icomp,
+                                                                                 t8dg_numerical_flux1D_fn numerical_flux,
+                                                                                 void *numerical_flux_data, double time, int selector);
+
+t8_locidx_t         t8dg_values_count_num_local_dofs (t8dg_values_t * values);
 #endif
+
 T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_VALUES_H_ */

@@ -14,8 +14,6 @@
 
 #if T8_WITH_PETSC
 #include <petscksp.h>
-//#include <petscdmda.h>
-//#include <petscdm.h>
 #endif
 
 T8DG_EXTERN_C_BEGIN ();
@@ -25,10 +23,17 @@ typedef struct t8dg_timestepping_data t8dg_timestepping_data_t;
 typedef void        (*t8dg_time_matrix_application) (t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof, const double t,
                                                      const void *application_data);
 
+/** This function gets called by \a t8dg_advect_diff_advance_timestep() method and choose either an explicit or an implicit Runge Kutta timestepping method based on the input via the command line; default: is explicit RKV.
+* The information which timestepping method was choosen lies within the \a tima_data.
+* \param[in] time_derivative A function pointer to a function describing the problem dependent time derivation of the coefficients (degrees of freedom)
+* \param[in] time_data A pointer to \a t8dg_timestepping_data_t holding all information regarding time and time-stepping
+* \param[in, out] pdof_array A pointer to a pointer to the initial degrees of freedom of the advect diff problem; These degrees of freedom get filled by the timestepping methods with the approximation of the next time step
+* \param[in] user_data A void pointer to the initial advect diff problem
+*/
 void                t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_derivative,
                                                                t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array,
                                                                void *user_data);
-
+#if 0
 /* Struct that provides a context for matrix-free preconditioning */
 #if T8_WITH_PETSC
 typedef struct
@@ -38,7 +43,7 @@ typedef struct
   PetscScalar         current_b_coeff;
 } t8dg_timestepping_precon_jacobi_ctx_t;
 #endif
-
+#endif
 /* Struct which keeps information regarding the matrix-free application of system matrix resulting from the implicit Euler-Method */
 #if T8_WITH_PETSC
 typedef struct
