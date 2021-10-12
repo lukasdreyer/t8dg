@@ -5,7 +5,7 @@
 
 T8DG_EXTERN_C_BEGIN ();
 
-t8_cmesh_t          t8dg_cmesh_new_arg (int icmesh, int *dim, int *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm);
+t8_cmesh_t          t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_dim, int *dim, int *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm);
 
 t8_cmesh_t          t8dg_cmesh_new_periodic_diagonal_line_more_trees (sc_MPI_Comm comm);
 

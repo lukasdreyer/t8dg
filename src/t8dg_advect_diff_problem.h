@@ -47,6 +47,8 @@ typedef struct t8dg_linear_advection_diffusion_problem_description
 } t8dg_linear_advection_diffusion_problem_description_t;
 
 t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_arguments (int icmesh,
+                                                                                    const char *mshfile_prefix,
+                                                                                    int mshfile_dim,
                                                                                     int initial_level,
                                                                                     int number_LGL_points,
                                                                                     int initial_cond_arg,

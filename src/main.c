@@ -14,18 +14,26 @@
 #include <sc.h>
 
 static int
-t8dg_check_options (int icmesh, int initial_cond_arg,
+t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
                     int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order,
                     int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
 {
-  if (!(icmesh >= 0 && icmesh <= 11))
+  if (!(icmesh >= 0 && icmesh <= 12))
     return 0;
-  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 17))
+  if (icmesh == 12 && mshfile_prefix == NULL) {
+    /* icmesh = 12 requires mshfile_prefix to be set */
+    t8_global_errorf ("Argument error. No mshfile provided.\n");
     return 0;
-  if (!(uniform_level >= 0 && uniform_level <= 30))
+  }
+  if (mshfile_prefix != NULL && icmesh != 12) {
+    /* Cannot set mshfile with icmesh different than 12. */
+    t8_global_errorf ("Argument error. mshfile provided but cmesh != 12.\n");
     return 0;
-  if (!(max_level >= uniform_level && max_level <= 30))
+  }
+  if (0 > mshfile_dim || mshfile_dim > T8_ECLASS_MAX_DIM) {
+    /* Must have 0 <= mshfile_dim <= max_dim */
+    t8_global_errorf ("Argument error. Invalid dimension.\n");
     return 0;
   }
   if (!(initial_cond_arg >= 0 && initial_cond_arg <= 17)){
@@ -111,6 +119,8 @@ main (int argc, char *argv[])
   double              delta_t;
   double              diffusion_coefficient;
   const char         *prefix;
+  const char         *mshfile_prefix;
+  int                 mshfile_dim;
   int                 numerical_flux_arg;
   int                 time_steps;
   int                 refine_error;
@@ -146,7 +156,11 @@ main (int argc, char *argv[])
   sc_options_add_int (opt, 'm', "cmesh", &icmesh, 0, "Choose cmesh. Default: 0\n" "\t\t0: line 1 tree\n" "\t\t1: line 3 trees\n"
                       "\t\t2: diagonal line more trees\n" "\t\t3: square\n" "\t\t4: square different size trees\n" "\t\t5: square moebius\n"
                       "\t\t6: moebius more tree\n" "\t\t7: parallelogram\n" "\t\t8: cube\n" "\t\t9: circle ring\n"
-                      "\t\t10: square half periodic\n" "\t\t11: cylinder ring\n");
+                      "\t\t10: square half periodic\n" "\t\t11: cylinder ring\n"
+                      "\t\t12: read the cmesh from a .msh file. Require --mshfile and --dim");
+  sc_options_add_string (opt, '\0', "mshfile", &mshfile_prefix, NULL, "If cmesh = 12, the prefix of a .msh file containing the cmesh geometry. Requires --dim\n");
+  sc_options_add_int (opt, '\0', "dim", &mshfile_dim, 3, "If cmesh = 12 and mshfile is set, the dimension of the mesh in the mshfile. Requires --mshfile. Default: 3\n");
+
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
   sc_options_add_double (opt, 'd', "diff_coeff", &diffusion_coefficient, 0, "The diffusion coefficient. Default: 0");
 
@@ -193,12 +207,12 @@ main (int argc, char *argv[])
     t8dg_global_essentialf ("%s\n", help);
     sc_options_print_usage (t8dg_get_package_id (), SC_LP_ERROR, opt, NULL);
   }
-  else if (parsed >= 0 && t8dg_check_options (icmesh, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
+  else if (parsed >= 0 && t8dg_check_options (icmesh, mshfile_prefix, mshfile_dim, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
                                               start_time, end_time, cfl, delta_t, time_steps, time_order, vtk_freq, adapt_freq, adapt_arg,
                                               diffusion_coefficient, numerical_flux_arg, source_sink_arg)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
-      t8dg_advect_diff_problem_init_arguments (icmesh, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
+      t8dg_advect_diff_problem_init_arguments (icmesh, mshfile_prefix, mshfile_dim, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
                                                diffusion_coefficient, start_time, end_time, cfl, delta_t, time_steps, time_order,
                                                min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
                                                numerical_flux_arg, source_sink_arg, refine_error, sc_MPI_COMM_WORLD);

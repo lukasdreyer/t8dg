@@ -238,6 +238,8 @@ t8dg_advect_diff_problem_description_destroy (t8dg_linear_advection_diffusion_pr
 
 t8dg_linear_advection_diffusion_problem_t *
 t8dg_advect_diff_problem_init_arguments (int icmesh,
+                                         const char *mshfile_prefix,
+                                         int mshfile_dim,
                                          int initial_level,
                                          int number_LGL_points,
                                          int initial_cond_arg,
@@ -273,7 +275,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
   init_time = -sc_MPI_Wtime ();
 
   default_scheme = t8_scheme_new_default_cxx ();
-  cmesh = t8dg_cmesh_new_arg (icmesh, &dim, &velocity_field_arg, &geometry_arg, comm);
+  cmesh = t8dg_cmesh_new_arg (icmesh, mshfile_prefix, mshfile_dim, &dim, &velocity_field_arg, &geometry_arg, comm);
   forest = t8_forest_new_uniform (cmesh, default_scheme, initial_level, 1, comm);
 
   coarse_geometry = t8dg_coarse_geometry_new_arg (geometry_arg);

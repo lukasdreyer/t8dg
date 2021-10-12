@@ -2,15 +2,18 @@
 #include "t8dg_coarse_geometry.h"
 #include <t8_cmesh.h>
 #include <t8_cmesh_vtk.h>
+#include <t8_cmesh_readmshfile.h>
 #include <t8_vec.h>
 #include <t8_geometry/t8_geometry_implementations/t8_geometry_analytic.hxx>
 #include <t8_geometry/t8_geometry_implementations/t8_geometry_linear.h>
 #include <t8_geometry/t8_geometry_helpers.h>
 
 t8_cmesh_t
-t8dg_cmesh_new_arg (int icmesh, int *dim, int *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm)
+t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_dim, int *dim, int *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm)
 {
   t8_cmesh_t          cmesh;
+  T8_ASSERT (icmesh == 12 || mshfile_prefix == NULL);
+  /* Build a cmesh depending on the icmesh parameter. */
   switch (icmesh) {
   case 0:
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, comm, 0, 0, 1);
@@ -83,6 +86,15 @@ t8dg_cmesh_new_arg (int icmesh, int *dim, int *velocity_field_arg, int *geometry
     *dim = 3;
     *velocity_field_arg = 2;
     *geometry_arg = 4;
+    break;
+  case 12:
+    /* load the cmesh from a file */
+    T8DG_ASSERT (mshfile_prefix != NULL);
+    cmesh = t8_cmesh_from_msh_file (mshfile_prefix, 0, comm, mshfile_dim, 0);
+    *dim = mshfile_dim;
+    *velocity_field_arg = 0;
+    /* TODO: What does this mean? */
+    *geometry_arg = 0;
     break;
   default:
     T8DG_ABORT ("Not yet implemented");
