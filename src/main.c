@@ -27,28 +27,63 @@ t8dg_check_options (int icmesh, int initial_cond_arg,
     return 0;
   if (!(max_level >= uniform_level && max_level <= 30))
     return 0;
-  if (!(min_level >= 0 && min_level <= uniform_level))
+  }
+  if (!(initial_cond_arg >= 0 && initial_cond_arg <= 17)){
+    t8_global_errorf ("Argument error. Invalid initial condition.\n");
     return 0;
-  if (!(number_LGL_points >= 1 && number_LGL_points <= MAX_LGL_NUMBER))
+  }
+  if (!(uniform_level >= 0 && uniform_level <= 30)){
+    t8_global_errorf ("Argument error. Invalid uniform level.\n");
     return 0;
-  if (!(start_time < end_time))
+  }
+  if (!(max_level >= uniform_level && max_level <= 30)){
+    t8_global_errorf ("Argument error. Invalid max level.\n");
     return 0;
-  if (!((cfl > 0 && cfl <= 1) || (cfl == 0 && (delta_t > 0 || time_steps > 0))))
+  }
+  if (!(min_level >= 0 && min_level <= uniform_level)){
+    t8_global_errorf ("Argument error. Invalid min level.\n");
     return 0;
-  if (!(time_order >= 1 && time_order <= 4))
+  }
+  if (!(number_LGL_points >= 1 && number_LGL_points <= MAX_LGL_NUMBER)){
+    t8_global_errorf ("Argument error. Invalid number of LGL points level.\n");
     return 0;
-  if (!(vtk_freq >= 0))
+  }
+  if (!(start_time < end_time)) {
+    t8_global_errorf ("Argument error. start_time >= end_time.\n");
     return 0;
-  if (!(adapt_freq >= 0))
+  }
+  if (!((cfl > 0 && cfl <= 1) || (cfl == 0 && (delta_t > 0 || time_steps > 0)))) {
+    t8_global_errorf ("Argument error. Invalid CFL/delta_t/time_steps value.\n");
     return 0;
-  if (!(adapt_arg >= 0 && adapt_arg <= 3))
+  }
+  if (!(time_order >= 1 && time_order <= 4)) {
+    t8_global_errorf ("Argument error. Invalid time order.\n");
     return 0;
-  if (diffusion_coefficient < 0)
+  }
+  if (!(vtk_freq >= 0)) {
+    t8_global_errorf ("Argument error. Invalid vtk frequency.\n");
     return 0;
-  if (!(numerical_flux_arg >= 0 && numerical_flux_arg <= 2))
+  }
+  if (!(adapt_freq >= 0)) {
+    t8_global_errorf ("Argument error. Invalid adapt frequency.\n");
     return 0;
-  if (!(source_sink_arg >= 0 && source_sink_arg <= 1))
+  }
+  if (!(adapt_arg >= 0 && adapt_arg <= 3)) {
+    t8_global_errorf ("Argument error. Invalid adapt function.\n");
     return 0;
+  }
+  if (diffusion_coefficient < 0) {
+    t8_global_errorf ("Argument error. Invalid diffusion coefficient.\n");
+    return 0;
+  }
+  if (!(numerical_flux_arg >= 0 && numerical_flux_arg <= 2)) {
+    t8_global_errorf ("Argument error. Invalid numerical flux.\n");
+    return 0;
+  }
+  if (!(source_sink_arg >= 0 && source_sink_arg <= 1)) {
+    t8_global_errorf ("Argument error. Invalid source/sink.\n");
+    return 0;
+  }
   return 1;
 }
 
