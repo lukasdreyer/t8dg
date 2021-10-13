@@ -165,12 +165,13 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
     description->velocity_field = t8dg_rotating_flux_2D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 1;
+    break;
 
   case 2:
     description->velocity_field = t8dg_spiral_flux_3D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 2 * M_PI;
-
+    break;
   default:
     flux_data = NULL;
     break;
