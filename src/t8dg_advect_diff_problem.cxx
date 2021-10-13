@@ -126,7 +126,7 @@ t8dg_advect_diff_problem_accumulate_stat (t8dg_linear_advection_diffusion_proble
 }
 
 t8dg_linear_advection_diffusion_problem_description_t *
-t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_field_arg, double flow_velocity, double diffusion_coefficient,
+t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t velocity_field_type, double flow_velocity, double diffusion_coefficient,
                                           int numerical_flux_arg, int source_sink_arg, int dim)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
@@ -150,8 +150,8 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
   description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
   description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
 
-  switch (velocity_field_arg) {
-  case 0:
+  switch  (velocity_field_type) {
+  case T8DG_CONSTANT_3D:
     description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
     flux_data = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
     flux_data->flow_direction[0] = 1;
@@ -161,18 +161,20 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, int velocity_fie
     *(double *) description->numerical_flux_advection_data = flux_data->flow_velocity;
     break;
 
-  case 1:
+  case T8DG_ROTATE_2D:
     description->velocity_field = t8dg_rotating_flux_2D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 1;
     break;
 
-  case 2:
+  case T8DG_SPIRAL_3D:
     description->velocity_field = t8dg_spiral_flux_3D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 2 * M_PI;
     break;
+
   default:
+    T8DG_ABORT ("Invalid flow type.");
     flux_data = NULL;
     break;
   }
@@ -260,7 +262,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 {
   int                 dim;
   int                 geometry_arg;
-  int                 velocity_field_arg;
+  t8dg_flow_type_t    velocity_field_type;
   t8_scheme_cxx_t    *default_scheme;
   t8_cmesh_t          cmesh;
   t8_forest_t         forest;
@@ -276,13 +278,13 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
   init_time = -sc_MPI_Wtime ();
 
   default_scheme = t8_scheme_new_default_cxx ();
-  cmesh = t8dg_cmesh_new_arg (icmesh, mshfile_prefix, mshfile_dim, &dim, &velocity_field_arg, &geometry_arg, comm);
+  cmesh = t8dg_cmesh_new_arg (icmesh, mshfile_prefix, mshfile_dim, &dim, &velocity_field_type, &geometry_arg, comm);
   forest = t8_forest_new_uniform (cmesh, default_scheme, initial_level, 1, comm);
 
   coarse_geometry = t8dg_coarse_geometry_new_arg (geometry_arg);
 
   description =
-    t8dg_advect_diff_problem_description_new (initial_cond_arg, velocity_field_arg, flow_speed, diffusion_coefficient, numerical_flux_arg,
+    t8dg_advect_diff_problem_description_new (initial_cond_arg, velocity_field_type, flow_speed, diffusion_coefficient, numerical_flux_arg,
                                               source_sink_arg, dim);
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);

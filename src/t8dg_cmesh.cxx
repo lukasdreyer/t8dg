@@ -1,5 +1,6 @@
 #include "t8dg_cmesh.h"
 #include "t8dg_coarse_geometry.h"
+#include "t8dg_advect_diff_problem.h"
 #include <t8_cmesh.h>
 #include <t8_cmesh_vtk.h>
 #include <t8_cmesh_readmshfile.h>
@@ -9,7 +10,7 @@
 #include <t8_geometry/t8_geometry_helpers.h>
 
 t8_cmesh_t
-t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_dim, int *dim, int *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm)
+t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_dim, int *dim, t8dg_flow_type_t *velocity_field_arg, int *geometry_arg, sc_MPI_Comm comm)
 {
   t8_cmesh_t          cmesh;
   T8_ASSERT (icmesh == 12 || mshfile_prefix == NULL);
@@ -18,73 +19,73 @@ t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_di
   case 0:
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_LINE, comm, 0, 0, 1);
     *dim = 1;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 0;
     break;
   case 1:
     cmesh = t8_cmesh_new_periodic_line_more_trees (comm);
     *dim = 1;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 0;
     break;
   case 2:
     cmesh = t8dg_cmesh_new_periodic_diagonal_line_more_trees (comm);
     *dim = 1;
-    *velocity_field_arg = 0;    /*flow currently to the right */
+    *velocity_field_arg = T8DG_CONSTANT_3D;    /*flow currently to the right */
     *geometry_arg = 0;
     break;
   case 3:
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_QUAD, comm, 0, 0, 1);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 4:
     cmesh = t8dg_cmesh_new_square_more_trees_different_size (comm);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 5:
     cmesh = t8dg_cmesh_new_square_moebius (comm);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 6:
     cmesh = t8dg_cmesh_new_half_moebius_more_trees (comm);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 7:
     cmesh = t8dg_cmesh_new_square_tilted (comm);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 8:
     cmesh = t8_cmesh_new_hypercube (T8_ECLASS_HEX, comm, 0, 0, 1);
     *dim = 3;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 2;
     break;
   case 9:
     cmesh = t8dg_cmesh_new_circle_ring (comm, 1, 2, 4);
     *dim = 2;
-    *velocity_field_arg = 1;
+    *velocity_field_arg = T8DG_ROTATE_2D;
     *geometry_arg = 3;
     break;
   case 10:
     cmesh = t8dg_cmesh_new_square_half_periodic (comm);
     *dim = 2;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     *geometry_arg = 1;
     break;
   case 11:
     cmesh = t8dg_cmesh_new_cylinder_ring_periodic (comm, 1, 2, 4, 1);
     *dim = 3;
-    *velocity_field_arg = 2;
+    *velocity_field_arg = T8DG_SPIRAL_3D;
     *geometry_arg = 4;
     break;
   case 12:
@@ -92,7 +93,7 @@ t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_di
     T8DG_ASSERT (mshfile_prefix != NULL);
     cmesh = t8_cmesh_from_msh_file (mshfile_prefix, 0, comm, mshfile_dim, 0);
     *dim = mshfile_dim;
-    *velocity_field_arg = 0;
+    *velocity_field_arg = T8DG_CONSTANT_3D;
     /* TODO: What does this mean? */
     *geometry_arg = 0;
     break;
