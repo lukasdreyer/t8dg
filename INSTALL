@@ -27,7 +27,7 @@ If any errors occur, please contact the developers
 7. Try it out
 cd exec
 ./t8dg -h  // Provides an overview of t8dg's options
-mpirun -np 3 ./t8dg -m 3 -i6 -r3 -C0.2 -T1 // Runs a 2D simulation on a square with a circulat bump initial condition.
+mpirun -np 3 ./t8dg -m 3 -i6 -r3 -C0.2 -T1 // Runs a 2D simulation on a square with a circular bump initial condition.
 
 t8dg produces the vtu files 't8dg_advection_*.{p}vtu'.
 To investigate, you can open the pvtu files in paraview.
