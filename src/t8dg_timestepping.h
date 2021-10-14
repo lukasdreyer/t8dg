@@ -33,17 +33,7 @@ typedef void        (*t8dg_time_matrix_application) (t8dg_dof_values_t * src_dof
 void                t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_derivative,
                                                                t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array,
                                                                void *user_data);
-#if 0
-/* Struct that provides a context for matrix-free preconditioning */
-#if T8_WITH_PETSC
-typedef struct
-{
-  Vec                 matrix_diagonal;
-  PetscScalar         timestep;
-  PetscScalar         current_b_coeff;
-} t8dg_timestepping_precon_jacobi_ctx_t;
-#endif
-#endif
+
 /* Struct which keeps information regarding the matrix-free application of system matrix resulting from the implicit Euler-Method */
 #if T8_WITH_PETSC
 typedef struct
@@ -57,6 +47,8 @@ typedef struct
   t8dg_dof_values_t  *future_local_dofs_derivative;
   t8dg_timestepping_data_t *time_data;
   void               *user_data;
+  double              application_time;
+  int                 mf_app_count;
 } t8dg_timestepping_impl_euler_ctx_t;
 #endif
 
@@ -147,6 +139,14 @@ void
                          int preconditioner_selection);
 
 #if T8_WITH_PETSC
+/** Allocates and fills members of t8dg_timestepping_dirk_ctx_t which are needed by the application of the DIRK methods 
+* \param[in] time_derivative The function that describes the derivation of the dofs of the current problem which has to be solved (u_{t} = R(u, t))
+* \param[in] time_data       Keeps the information regarding the time, e.g. current time, timetep
+* \param[in] pdof_array      Pointer to the dofs of the given problem
+* \param[in] user_data       Contains the complete information regarding the problem, in fact it is a pointer to the initial problem 
+* \param[in, out] appctx     The application context of the DIRK methods; this function allocates and fills the members of the context needed in the DIRK routines
+*/
+
 void
  
  
@@ -160,6 +160,9 @@ void
 #endif
 
 #if T8_WITH_PETSC
+/** Deallocates/Destroys the application context needed by the application of the DIRK methods
+* \param[in] appctx The previous initialized \a t8dg_timestepping_dirk_ctx_t (by calling \a t8dg_timestepping_init_dirk_appctx()) which is going to be destroyed
+*/
 void                t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx);
 #endif
 
@@ -180,10 +183,12 @@ void
 void                t8dg_runge_kutta_fill_coefficients (int time_order, double **prk_a, double **prk_b, double **prk_c);
 
 t8dg_timestepping_data_t *t8dg_timestepping_data_new_cfl (int time_order, double start_time, double end_time, double cfl,
-                                                          int use_implicit_timestepping, int preconditioner_selection);
+                                                          int use_implicit_timestepping, int preconditioner_selection,
+                                                          int multigrid_levels);
 
 t8dg_timestepping_data_t *t8dg_timestepping_data_new_constant_timestep (int time_order, double start_time, double end_time, double delta_t,
-                                                                        int use_implicit_timestepping, int preconditioner_selection);
+                                                                        int use_implicit_timestepping, int preconditioner_selection,
+                                                                        int multigrid_levels);
 
 void                t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data);
 
@@ -208,6 +213,8 @@ int                 t8dg_timestepping_data_get_step_number (t8dg_timestepping_da
 void                t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_data);
 
 double              t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data);
+
+int                 t8dg_timestepping_data_get_multigrid_levels (t8dg_timestepping_data_t * time_data);
 
 T8DG_EXTERN_C_END ();
 

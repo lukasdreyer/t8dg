@@ -13,6 +13,9 @@
 #include <petscksp.h>
 #endif
 
+/* Permitted number of maximal multigrid levels to use (initial mesh is included in this number -> a maximum of N-1 coarse levels may be used) */
+#define T8DG_PRECON_MAX_MG_LVLS 7
+
 T8DG_EXTERN_C_BEGIN ();
 
 #if T8_WITH_PETSC
@@ -53,60 +56,105 @@ typedef struct
   KSP                 jacobi_preconditioner;
   PC                  pc_jacobi_preconditioner;
   PetscInt           *global_indexing;
-
+  double              block_precon_application_time;
 } t8dg_block_preconditioner_ctx_t;
 
-/* Struct that keeps the context needed in order to establish a coarser mesh on which the multigrid preconditioner performs */
+#if 0
 typedef struct
 {
+  int                 mg_coarse_order;
+  size_t              num_fine_dofs;
+  size_t              num_coarse_dofs;
   t8dg_linear_advection_diffusion_problem_t *problem;
-  t8_forest_t         forest_coarsened;
-  t8dg_dof_values_t **dof_values;
-  t8dg_values_t      *dg_values;
-  t8dg_adapt_data_t  *adapt_data;
-  size_t              num_local_dofs;
-  PetscInt           *global_indexing;
-  t8dg_mortar_array_t *tmp_mortar_coarse_lvl;
-  t8_forest_t         problem_forest;
-  t8dg_dof_values_t **dof_values_adapt;
-} t8dg_mg_coarse_lvl_t;
+  t8dg_values_t      *initial_dg_values;
+  t8dg_values_t      *coarse_dg_values;
+  t8dg_dof_values_t  *coarse_lvl_dofs;
+  t8dg_dof_values_t  *coarse_lvl_dofs_derivation;
+  t8dg_dof_values_t **problem_dofs;
+  PetscInt           *coarse_lvl_indexing;
+  PetscInt           *fine_lvl_indexing;
+} t8dg_p_mg_mat_ctx_t;
 
-/* Struct that keeps the context needed by the solver of the coarse level which performs a matrix-free calculation on the restricted system */
 typedef struct
 {
-  t8dg_mg_coarse_lvl_t *coarse_lvl;
-  void               *user_data;
-  t8dg_dof_values_t  *problem_dofs_derivation;
+  Mat                 Restriction;
+  Mat                 Prolongation;
+  Mat                 Coarse_Mat;
+  Mat                 Smoothing_Mat;
+  KSP                 smoother;
+  KSP                 coarse_solver;
+  PC                  smoother_pc;
+  PC                  coarse_pc;
+  t8dg_p_mg_mat_ctx_t *p_mg_mat_ctx;
+} t8dg_p_mg_lvl_ctx_t;
+#endif
+
+/* Struct that holds information regarding the advect diff problem; it is needed by the multigrid preconditioner with multiple levels */
+typedef struct
+{
+  void               *problem;
   t8dg_time_matrix_application time_derivative_func;
   double              current_point_in_time;
   double              timestep;
   double              current_coefficient;
-} t8dg_coarse_matrix_ctx_t;
+  t8dg_dof_values_t **pdof_array;
+  double              preconditioner_application_time_coarse_lvl;
+  double              preconditioner_application_time_smoothing;
+  double              preconditioner_application_time_interpolation;
+} t8dg_mg_general_data_t;
 
-/* Struct the holds information needed by restriction and prolongation routines to transfer between fine and coarse level */
+/* Struct that keeps information needey by the solver on the coarsesrt level during multigrid preconditioning */
 typedef struct
 {
-  t8dg_linear_advection_diffusion_problem_t *problem;
-  t8dg_mg_coarse_lvl_t *coarse_lvl;
-  size_t              num_local_dofs_coarse_grid;
-  size_t              num_local_dofs_fine_grid;
-  PetscInt           *fine_lvl_global_indexing;
-} t8dg_mg_interpolating_ctx_t;
+  size_t              num_local_dofs_coarsest_lvl;
+  PetscInt           *indexing_coarsest_level;
+  t8dg_dof_values_t **coarse_lvl_problem_dofs;
+  t8dg_dof_values_t  *coarse_lvl_problem_dofs_derivation;
+  t8dg_mg_general_data_t *mg_general_data;
+} t8dg_mg_lvl_coarse_matrix_ctx_t;
+
+/* Struct that keeps information needed by the restriction and prolongation operators during multigrid preconditioning */
+typedef struct
+{
+  int                 current_lvl;
+  int                 num_mg_levels;
+  size_t              num_local_dofs[T8DG_PRECON_MAX_MG_LVLS];
+  PetscInt           *indexing_scheme[T8DG_PRECON_MAX_MG_LVLS];
+  t8_forest_t         coarse_level_forests[T8DG_PRECON_MAX_MG_LVLS];
+  t8dg_dof_values_t  *dofs_lvl[T8DG_PRECON_MAX_MG_LVLS];
+  t8dg_dof_values_t  *dofs_lvl_derivation[T8DG_PRECON_MAX_MG_LVLS - 2];
+  t8dg_adapt_data_t  *adapt_data;
+  t8dg_values_t      *dg_values;
+  t8dg_local_values_t *local_values_lvl[T8DG_PRECON_MAX_MG_LVLS];
+  t8dg_mortar_array_t *mortar_array_lvl[T8DG_PRECON_MAX_MG_LVLS];
+  t8dg_mg_general_data_t *mg_general_data;
+} t8dg_mg_lvl_interpolation_ctx_t;
+
+/* Struct that keeps all information for multigrid preconditioning with multiple coarse levels */
+typedef struct
+{
+  KSP                 coarse_solver;
+  KSP                 smoothers[T8DG_PRECON_MAX_MG_LVLS - 1];
+  PC                  coarse_pc;
+  PC                  smoother_pcs[T8DG_PRECON_MAX_MG_LVLS - 1];
+  Mat                 Restriction_Mats[T8DG_PRECON_MAX_MG_LVLS - 1];
+  Mat                 Prolongation_Mats[T8DG_PRECON_MAX_MG_LVLS - 1];
+  Mat                 Smoothing_Mats[T8DG_PRECON_MAX_MG_LVLS - 1];
+  Mat                 A_coarse_Mat;
+  t8dg_mg_lvl_interpolation_ctx_t *interpolation_ctx;
+  t8dg_mg_lvl_coarse_matrix_ctx_t *coarse_matrix_ctx;
+  t8dg_mg_general_data_t *mg_general_data;
+  t8dg_block_preconditioner_ctx_t *precon_jacobi_ctx;
+} t8dg_mg_levels_ctx_t;
 
 /* Struct that fulfills a general purpose and holds Matrices, Contexts, etc. for every possible preconditioner */
 typedef struct
 {
-  /* BEGIN Two-Level Multigrid components */
-  KSP                 coarse_solver;
-  KSP                 smoother;
-  PC                  coarse_pc;
-  PC                  smoother_pc;
-  Mat                 Restriction, Prolongation;
-  Mat                 A_coarse;
-  t8dg_coarse_matrix_ctx_t cmat_ctx;
-  t8dg_mg_interpolating_ctx_t res_prol_ctx;
-  t8dg_mg_coarse_lvl_t coarse_lvl;
-  /* END Two-Level Multigrid components */
+  /* Multiple Level Multigrid preconditioner */
+  t8dg_mg_levels_ctx_t *multiple_mg_lvls_ctx;
+
+  /* p-Multigrid preconditioner */
+  //t8dg_p_mg_lvl_ctx_t *p_mg_ctx;
 
   /* BEGIN Jacobi-Preconditioner components */
   t8dg_block_preconditioner_ctx_t *jacobi_preconditioner_ctx;
@@ -146,46 +194,6 @@ void                t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t **
 /* Destroys the allocated memory from the block jacobi preconditioner */
 void                t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx);
 
-/** Initializes a two level multigrid preconditioner and calls all subroutines, therefore, some parameters need to be passed to the function which will be initilialized right here
-* \param[in] problem A void pointer to the initial advection diffusion problem
-* \param[in] problem_dofs A pointer to a pointer to t8dg_dof_values_t which holds the current degrees of freedom regarding the \a problem 
-* \param[in] time_derivative A function implmenting the matrix-free application to the degrees of freedom \a *problem_dofs describing the time derivation of these coefficients
-* \param[in] A_fine A pointer to a PETSc Matrix resembling the system matrix of an implicit timestepping method; the matrix application of the fine level
-* \param[in, out] mg_pc A pointer to the preconditioner which preconditions the initial/fine level linear system; it preconditions \a A_fine; This preconditioner will be set up by this function
-* \param[in] coarsening_func A \a t8dg_corase_lvl_adapt_func_t function describing the way the coarse level gets constructed/adapted from the initial/fine level problem
-* \param[in, out] smoother A pointer to a PETSc KSP resembling the pre- and post-smoothing iterations which should be performed on the fine level; This KSP will be set up by this function
-* \param[in, out] smoother_pc A pointer to the preconditioning context of the \a smoother; This preconditioner will be set up by this function
-* \param[in, out] Restriction A pointer to a PETSc Matrix resembling the interpolation/restriction from the fine level onto the coarse level; This Matrix will be set up by this function
-* \param[in, out] A_coarse A pointer to a PETSc Matrix describing the system matrix of the coarse level problem; it resembles the restriction of the fine level linear system, given \a A_fine; This Matrix will be set up by this function 
-* \param[in, out] coarse_solver A pointer to a PETSc KSP which will calculate the solution of the coarse level problem, given by the coarse level matrix application \a A_coarse; This KSP will be set up by this function
-* \param[in, out] coarse_pc A pointer to the preconditioning context of \a coarse_solver; This preconditioner will be set up by this function 
-* \param[in, out] Prolongation A pointer to a PETSc Matrix resembling the interpolation/prolongation from the coarse level onto the fine level; This Matrix will be set up by this function
-* \param[in, out] coarse_lvl A pointer to \a t8dg_mg_coarse_lvl_t context; this struct will hold the constructed coarse level mesh; The members will be filled and set up by this function
-* \param[in, out] res_prol_ctx A pointer to \a t8dg_mg_interpolating_ctx_t context; This struct will hold information needed by the \a Restriction and \æ Prolongation routines; The members will be filled and set up by this function
-* \param[in, out] cmat_ctx A pointer to \a t8dg_coarse_matrix_ctx_t context; This struct will hold the information needed by the matrix-application \a A_coarse of the coarse level problem; The members will be filled and set up by this function
-* \param[in] vec_global_index A pointer to an indexing scheme describing the global position within the PETSc vectors of the fine level of the local degrees of freedom
-* */
-void                t8dg_precon_init_two_level_mg (void *problem, t8dg_dof_values_t ** problem_dofs,
-                                                   t8dg_time_derivation_matrix_application_t time_derivative, Mat * A_fine, PC * mg_pc,
-                                                   t8dg_corase_lvl_adapt_func_t coarsening_func, KSP * smoother, PC * smoother_pc,
-                                                   Mat * Restriction, Mat * A_coarse, KSP * coarse_solver, PC * coarse_pc,
-                                                   Mat * Prolongation, t8dg_mg_coarse_lvl_t * coarse_lvl,
-                                                   t8dg_mg_interpolating_ctx_t * res_prol_ctx, t8dg_coarse_matrix_ctx_t * cmat_ctx,
-                                                   PetscInt * vec_global_index);
-
-/** This function destroys the allocated data needed by the before called initilization of the two level multigrid preconditioner \a t8dg_precon_init_two_level_mg()
-* \param[in] smoother A pointer to the PETSc KSP resembling the pre- and post-smoothing iterations
-* \param[in] Restriction A pointer to the PETSc Matrix resembling the interpolation/restriction from the fine level onto the coarse level
-* \param[in] A_coarse A pointer to a PETSc Matrix describing the system matrix of the coarse level problem
-* \param[in] coarse_solver A pointer to the PETSc KSP which solved the coarse level problem, given by the coarse level matrix application \a A_coarse
-* \param[in] Prolongation A pointer the a PETSc Matrix resembling the interpolation/prolongation from the coarse level onto the fine level
-* \param[in] coarse_lvl A pointer the \a t8dg_mg_coarse_lvl_t context which hold the coarse level mesh of the multigrid preconditioner
-* \param[in] cmat_ctx A pointer to the \a t8dg_coarse_matrix_ctx_t context context which hold the information needed by the coarse matrix application \a A_coarse
- */
-void                t8dg_precon_destroy_two_level_mg (KSP * smoother, Mat * Restriction, Mat * A_coarse, KSP * coarse_solver,
-                                                      Mat * Prolongation, t8dg_mg_coarse_lvl_t * coarse_lvl,
-                                                      t8dg_coarse_matrix_ctx_t * cmat_ctx);
-
 /** A function that writes a t8dg_dof_values_t to a PETSc Vector
 * \param[in] dofs A pointer to the degrees of freedom whose element_dofs will be copied into \a p_vec
 * \param[in, out] p_vec A pointer to a PETSc Vector which entries will be filled 
@@ -199,75 +207,147 @@ void                t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec 
 */
 void                t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_dofs);
 
-/** A function that sets up the components needed in order to perform a two level multigrid V-Cycle 
-* \param[in] problem A pointer to the initial advection diffusion problem
-* \param[in] pdof_array A pointer to a pointer to t8dg_dof_values_t which holds the current degrees of freedom regarding the \a problem 
-* \param[in] time_derivative A function implmenting the matrix-free application to the degrees of freedom \a *pdof_array describing the time derivation of these coefficients
-* \param[in, out] coarse_lvl_mesh A pointer to a \a t8dg_mg_coarse_lvl_t context which members will be filled by this function
-* \param[in] coarsening_func An adaption function describing how the coarse level mesh will be extracted from the initial forest of the \a problem
-* \param[in, out] res_prol_ctx A pointer to a \a t8dg_mg_interpolating_ctx_t context which members will be filled by this function
-* \param[in, out] cmat_ctx A pointer to a \a t8dg_mg_coarse_lvl_t context which members will be filled with the corresponding coarse level information
-* \param[in] fine_forest_indexing A global indexing scheme for the entries in a PETSc Vector regarding the fine/intial level mesh
-*/
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_mg_set_up_two_lvl_precon (t8dg_linear_advection_diffusion_problem_t * problem, t8dg_dof_values_t ** pdof_array,
-                                t8dg_time_matrix_application time_derivative, t8dg_mg_coarse_lvl_t * coarse_lvl_mesh,
-                                t8dg_corase_lvl_adapt_func_t coarsening_func, t8dg_mg_interpolating_ctx_t * res_prol_ctx,
-                                t8dg_coarse_matrix_ctx_t * cmat_ctx, PetscInt * fine_forest_indexing);
-
-/** A function that constructs the coarse level for the multigrid preconditioner; this function gets called inside \a t8dg_mg_set_up_two_lvl_precon() and is not needed to be called explicitly;
-* The receiving parameters just get passed on by \a t8dg_mg_set_up_two_lvl_precon()
-* (this function may be changed to static)
-* \param[in] problem A pointer to the initial advection diffusion problem
-* \param[in] pdof_array A pointer to a pointer to t8dg_dof_values_t which holds the current degrees of freedom regarding the \a problem 
-* \param[in, out] coarse_lvl_mesh A pointer to a \a t8dg_mg_coarse_lvl_t context which members will be filled by this function
-* \param[in] coarsening_func An adaption function describing how the coarse level mesh will be extracted from the initial forest of the \a problem
-*/
-void
- 
- 
- 
- 
- 
- 
- 
- t8dg_mg_construct_coarse_lvl (t8dg_linear_advection_diffusion_problem_t * problem, t8dg_dof_values_t ** pdof_array,
-                               t8dg_mg_coarse_lvl_t * coarse_lvl_mesh, t8dg_corase_lvl_adapt_func_t coarsening_func);
-
-/** This functions creates a matrix-free coarse level application needed by the GMRES solver on the coarse level within the multigrid preconditioner
-* \param[in, out] A_coarse A pointer to a PETSc Matrix which resembles the application to a PETSc Vector on the coarse level within the multigrid preconditioner; this matrix is created and assigned with the right properties by this function
-* \param[in] coarse_lvl A pointer to a pointer to t8dg_dof_values_t which holds the current degrees of freesom regarding the \a problem 
-* \param[in] cmat_ctx A pointer to \a t8dg_coarse_matrix_ctx_t context which holds the information needed for the creation of \a A_coarse
-*/
-void                t8dg_mg_create_coarse_lvl_matrix (Mat * A_coarse, t8dg_mg_coarse_lvl_t * coarse_lvl,
-                                                      t8dg_coarse_matrix_ctx_t * cmat_ctx);
-
-/** This functions creates a matrix-free routine to restrict the problem of the fine level onto the coarse level within the multigrid preconditioner
-* \param[in, out] Restrcition A pointer to a PETSc Matrix which is created by this function and is assigned with properties and application to restrict a PETSc Vector of the fine level onto the coarse level in a matrix-free fashion
-* \param[in] res_prol_ctx A pointer to \a t8dg_mg_interpolating_ctx_t context which provides information needed to create the \a Restriction matrix
-*/
-void                t8dg_mg_create_restriction_matrix (Mat * Restriction, t8dg_mg_interpolating_ctx_t * res_prol_ctx);
-
-/** This functions creates a matrix-free routine to prolongate the problem of the coarse level onto the fine level within the multigrid preconditioner
-* \param[in, out] Prolongation A pointer to a PETSc Matrix which is created by this function and is assigned with properties and application to prolongate a PETSc Vector of the coarse level onto the fine level in a matrix-free fashion
-* \param[in] res_prol_ctx A pointer to \a t8dg_mg_interpolating_ctx_t context which provides information needed to create the \a Restriction matrix
-*/
-void                t8dg_mg_create_prolongation_matrix (Mat * Prolongation, t8dg_mg_interpolating_ctx_t * res_prol_ctx);
-
-/** Thus function updates the preconditioner within the DIRK methods due to the varying coefficients of the different stages 
+/** This function updates the preconditioner within the DIRK methods due to the varying coefficients of the different stages 
 * \param[in] selector An integer describing which preconditioner was selected 
 * \param[in, out] preconditioner A pointer to the preconditioner which has to be updated 
 * \param[in] stage_related_a_coefficient The current a_coefficient (speaking of a Butcher Tableau) of the stage */
 void                t8dg_precon_dirk_update_preconditioner (int selector, t8dg_precon_general_preconditioner_t * preconditioner,
                                                             double stage_related_a_coefficient, double stage_current_time);
 double              t8dg_precon_get_setup_time (t8dg_precon_general_preconditioner_t * preconditioner);
+
+/** This function initializes a mutligrid preconditioner with a given number of meshes (-> N-1 coarse level meshes) 
+* \param[in] problem A void pointer to the initial advect diff problem
+* \param[in] problem_dofs A pointer to a pointer to the initial dofs of the advect diff problem
+* \param[in] time_derivative A function pointer describing the time-derivation of the dofs
+* \param[in] A_fine A pointer to a PETSc Matrix resembling the global Matrix (on the intial mesh) resulting from a implicit time-stepping method (e.g. Implicit Euler)
+* \param[in, out] mg_pc A pointer to the preconditioning context of the KSP solver which is used to slove global sytem dscribed by \a A_fine; This context is constructed by this method
+* \param[in] vec_global_index A vector containing the ordering of the dofs of the global system (on the initial mesh)
+* \param[in] num_mg_levels The number of levels to use within multigrid preconditioning (-> num_mg_levels -1 coarse levels are constructed)
+* \param[in, out] mg_ctx A pointer to a pointer to the multigrid context, which contains the matrices, solvers, indexing_schemes, etc. This context and it's members are filled by this function
+* \note The maximum number of permitted multigrid levels is set by the \a T8DG_PRECON_MAX_MG_LVLS macro
+*/
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_precon_init_multiple_level_mg (void *problem, t8dg_dof_values_t ** problem_dofs,
+                                     t8dg_time_derivation_matrix_application_t time_derivative, Mat * A_fine, PC * mg_pc,
+                                     PetscInt * vec_global_index, int num_mg_levels, t8dg_mg_levels_ctx_t ** mg_ctx);
+
+/** This function set the operators required (interpolation, coarse level solver, etc.) up
+* \param[in] problem A void pointer to the initial advect diff problem
+* \param[in] pdof_array A pointer to a pointer to the initial dofs of the advect diff problem
+* \param[in] time_derivative A function pointer describing the time-derivation of the dofs
+* \param[in] vec_global_index A vector containing the ordering of the dofs of the global system (on the initial mesh)
+* \param[in] num_mg_levels The number of levels to use within multigrid preconditioning (-> num_mg_levels -1 coarse levels are constructed)
+* \param[in, out] mg_ctx A pointer to a pointer to the multigrid context, which contains the matrices, solvers, indexing_schemes, etc. Additional members of the context are filled by this function
+*/
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_mg_set_up_multiple_lvl_precon (t8dg_linear_advection_diffusion_problem_t * problem, t8dg_dof_values_t ** pdof_array,
+                                     t8dg_time_matrix_application time_derivative, PetscInt * initial_forest_indexing, int num_mg_levels,
+                                     t8dg_mg_levels_ctx_t * mg_ctx);
+
+/** This function constructs a new coarse mesh at the level \a num_lvl in the hierachy
+* \param[in, out] mg_lvls A pointer to the multigrid context
+* \param[in] coarsening_func The coarsening function which is used to construct the new forest
+* \param[in] num_lvl the level of the new coarse mesh in the multigrid hierachy 
+*/
+void
+ 
+ 
+ 
+         t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_corase_lvl_adapt_func_t coarsening_func, int num_lvl);
+
+/** This functions destroys the multigrid preconditioner and the space it allocated
+* \param[in] mg_ctx The reference of the pointer to the multigrid context which is going to be destroyed
+*/
+void                t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx);
+
+/** This function constructs the PETSc Matrix on the coarsest level within the multigrid preconditioner
+* \param[in, out] mg_lvls A pointer to the multigrid context
+*/
+void                t8dg_mg_set_up_coarse_lvl_matrix (t8dg_mg_levels_ctx_t * mg_lvls);
+
+/** This function sets up the prolonagtion operators between the levels, interpolating from the coarse to the fine level
+* \param[in, out] mg_lvls A pointer to the multigrid context
+*/
+void                t8dg_mg_set_up_prolongation_operators (t8dg_mg_levels_ctx_t * mg_lvls);
+
+/** This function sets up the restriction operators between the levels, interpolating from the fine to the coarse level
+* \param[in, out] mg_lvls A pointer to the multigrid context
+*/
+void                t8dg_mg_set_up_restriction_operators (t8dg_mg_levels_ctx_t * mg_lvls);
+
+/** This function set up the smoothing operators(PETSc Mats, KSPs, ...) on each multigrid level (except on the coarsest)
+* \param[in, out] mg_ctx A pointer to the multigrid context
+* \param[in] A_fine A pointer to the fine/initial level matrix, because Smoothing on the finest level is in fact the application of the initial matrix
+*/
+void                t8dg_mg_set_up_smoothing_operators (t8dg_mg_levels_ctx_t * mg_ctx, Mat * A_fine);
+
+/** This function assigns the correct smoothers to each level
+* \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
+* \param[in, out] mg_ctx A pointer to the multigrid context
+*/
+void                t8dg_mg_initialize_smoothers (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+
+/** This function assigns the correct prolongation operators between the levels
+* \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
+* \param[in, out] mg_ctx A pointer to the multigrid context
+*/
+void                t8dg_mg_initialize_prolongations (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+
+/** This function assigns the correct restriction operators between the levels
+* \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
+* \param[in, out] mg_ctx A pointer to the multigrid context
+*/
+void                t8dg_mg_initialize_restrictions (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+
+/* These following methods are currently not in use ---> p-multigrid is not yet possible */
+#if 0
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_precon_init_p_mg (void *problem, t8dg_dof_values_t ** problem_dofs, t8dg_time_derivation_matrix_application_t time_derivative,
+                        Mat * A_fine, PC * mg_pc, PetscInt * vec_global_index, int coarse_lvl_order, t8dg_p_mg_lvl_ctx_t ** mg_ctx);
+
+void                t8dg_p_mg_set_up_smoothing_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx, Mat * A_fine);
+
+void                t8dg_p_mg_set_up_coarse_level (t8dg_p_mg_lvl_ctx_t * mg_ctx);
+
+void                t8dg_p_mg_set_up_prolongation_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx);
+
+void                t8dg_p_mg_set_up_restriction_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_p_mg_set_up_coarse_lvl (t8dg_linear_advection_diffusion_problem_t * problem, t8dg_dof_values_t ** problem_dofs, int coarse_lvl_order,
+                              t8dg_p_mg_lvl_ctx_t * mg_ctx);
+
+void                t8dg_precon_destroy_p_mg (t8dg_p_mg_lvl_ctx_t ** mg_ctx);
+#endif
+
 #endif
 
 T8DG_EXTERN_C_END ();

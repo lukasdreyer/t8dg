@@ -515,61 +515,62 @@ t8dg_values_allocate_adapt (t8dg_values_t * values, t8_forest_t forest_adapt)
   t8_forest_ref (values->forest_adapt);
 }
 
+#if T8_WITH_PETSC
+/* Allocates local_values and mortar_arrays for each multigrid level */
 void
-t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values)
+t8dg_values_mg_lvl_allocate_properties (t8dg_values_t * values, int num_mg_lvls, t8_forest_t * forests,
+                                        t8dg_local_values_t ** local_values_lvl, t8dg_mortar_array_t ** mortar_array_lvl)
 {
-  t8_forest_t        *tmp_forest;
+  int                 lvl_iter;
 
-  /* Swap forests */
-  tmp_forest = &values->forest;
-  values->forest = values->forest_adapt;
-  values->forest_adapt = *tmp_forest;
-  tmp_forest = NULL;
+  /* the initial members at index zero are already initialized */
+  for (lvl_iter = 1; lvl_iter < num_mg_lvls; ++lvl_iter) {
+    local_values_lvl[lvl_iter] = t8dg_local_values_new (forests[lvl_iter], values->global_values_array, values->coarse_geometry);
+    t8dg_local_values_set_all_ghost_elements (local_values_lvl[lvl_iter]);
+    mortar_array_lvl[lvl_iter] = t8dg_mortar_array_new_empty (forests[lvl_iter], local_values_lvl[lvl_iter]);
+  }
+}
 
-  t8dg_local_values_destroy (&values->local_values);
+/* Assign members of dg_values in order to perform the interpolation step during the multigrid preconditioning */
+void
+t8dg_values_mg_lvl_set_interpolation_step (t8dg_values_t * values, t8_forest_t forest, t8_forest_t forest_adapt,
+                                           t8dg_local_values_t * local_values, t8dg_local_values_t * local_values_adapt)
+{
+  values->forest = forest;
+  values->forest_adapt = forest_adapt;
+  values->local_values = local_values;
+  values->local_values_adapt = local_values_adapt;
+}
+
+/* Switch the dg_Values' members so that they are conforming with the current underlying mesh */
+void
+t8dg_values_mg_lvl_prepare_next_interpolation_step (t8dg_values_t * values, t8dg_mortar_array_t * mortar_array_lvl)
+{
   values->local_values = values->local_values_adapt;
-  values->local_values_adapt = NULL;
-
-  /* Create a coarse mortar */
-  t8dg_mortar_array_destroy (&values->mortar_array);
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
-}
-
-void
-t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values)
-{
-  t8_forest_t        *tmp_forest;
-
-  /* Swap forests */
-  tmp_forest = &values->forest;
+  /* maybe local_values set all ghosts has to be called */
   values->forest = values->forest_adapt;
-  values->forest_adapt = *tmp_forest;
-  tmp_forest = NULL;
-
-  t8dg_local_values_destroy (&values->local_values);
-  values->local_values = values->local_values_adapt;
-  values->local_values_adapt = NULL;
-  t8dg_local_values_set_all_ghost_elements (values->local_values);
-
-  t8dg_mortar_array_destroy (&values->mortar_array);
-  values->mortar_array = t8dg_mortar_array_new_empty (values->forest, values->local_values);
+  values->mortar_array = mortar_array_lvl;
 }
 
-void
-t8dg_values_mg_allocate_adapt (t8dg_values_t * values, t8_forest_t forest)
+t8dg_local_values_t **
+t8dg_values_get_local_values (t8dg_values_t * values)
 {
-  values->local_values_adapt = t8dg_local_values_new (forest, values->global_values_array, values->coarse_geometry);
-  t8dg_local_values_set_all_ghost_elements (values->local_values_adapt);
-  values->forest_adapt = forest;
+  return &(values->local_values);
 }
 
-void
-t8dg_values_destroy_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_coarse)
+t8dg_mortar_array_t **
+t8dg_values_get_mortar_array (t8dg_values_t * values)
 {
-  values->forest_adapt = NULL;
-  t8dg_local_values_destroy (&values->local_values_adapt);
-  values->local_values_adapt = NULL;
+  return &(values->mortar_array);
 }
+
+t8dg_coarse_geometry_t *
+t8dg_values_get_coarse_geometry (t8dg_values_t * values)
+{
+  return values->coarse_geometry;
+}
+
+#endif
 
 void
 t8dg_values_cleanup_adapt (t8dg_values_t * values)

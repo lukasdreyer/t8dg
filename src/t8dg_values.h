@@ -96,13 +96,6 @@ void                t8dg_values_interpolate_scalar_function_3d_time
   (t8dg_values_t * values, t8dg_scalar_function_3d_time_fn function, double time, void *function_data, t8dg_dof_values_t * dof_values);
 
 #if T8_WITH_PETSC
-void                t8dg_values_destroy_adapt_data (t8dg_values_t * values, t8dg_mortar_array_t ** mortar_array_coarse);
-
-void                t8dg_values_mg_swap_instances_to_coarse_lvl (t8dg_values_t * values);
-
-void                t8dg_values_mg_swap_instances_to_fine_lvl (t8dg_values_t * values);
-
-void                t8dg_values_mg_allocate_adapt (t8dg_values_t * values, t8_forest_t forest);
 
 void                t8dg_values_block_precon_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
                                                                        t8dg_dof_values_t * dest_dof, t8dg_linear_flux3D_fn linear_flux,
@@ -115,6 +108,37 @@ void                t8dg_values_block_precon_apply_component_boundary_integrals 
                                                                                  void *numerical_flux_data, double time, int selector);
 
 t8_locidx_t         t8dg_values_count_num_local_dofs (t8dg_values_t * values);
+
+void                t8dg_values_mg_lvl_prepare_next_interpolation_step (t8dg_values_t * values, t8dg_mortar_array_t * mortar_array_lvl);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_values_mg_lvl_set_interpolation_step (t8dg_values_t * values, t8_forest_t forest, t8_forest_t forest_adapt,
+                                            t8dg_local_values_t * local_values, t8dg_local_values_t * local_values_adapt);
+
+void
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ t8dg_values_mg_lvl_allocate_properties (t8dg_values_t * values, int num_mg_lvls, t8_forest_t * forests,
+                                         t8dg_local_values_t ** local_values_lvl, t8dg_mortar_array_t ** mortar_array_lvl);
+
+t8dg_local_values_t **t8dg_values_get_local_values (t8dg_values_t * values);
+
+t8dg_mortar_array_t **t8dg_values_get_mortar_array (t8dg_values_t * values);
+
+t8dg_coarse_geometry_t *t8dg_values_get_coarse_geometry (t8dg_values_t * values);
+
 #endif
 
 T8DG_EXTERN_C_END ();

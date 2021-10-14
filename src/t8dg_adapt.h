@@ -27,6 +27,7 @@ typedef struct t8dg_adapt_data
   t8dg_dof_values_t  *source_sink_dof;
   double              time;
   int                 dim;
+  int                 adapt_fn_arg;     /* needed this member for preconditioning purposes */
 } t8dg_adapt_data_t;
 
 t8_forest_adapt_t   t8dg_adapt_fn_arg (int adapt_arg);

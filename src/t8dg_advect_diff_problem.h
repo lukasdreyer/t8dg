@@ -60,6 +60,7 @@ t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init_argumen
                                                                                     int time_order,
                                                                                     int use_implicit_timestepping,
                                                                                     int preconditioner_selection,
+                                                                                    int multigrid_levels,
                                                                                     int min_level,
                                                                                     int max_level,
                                                                                     int adapt_arg,

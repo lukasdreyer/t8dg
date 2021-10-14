@@ -858,6 +858,8 @@ t8dg_mortar_array_block_precon_apply_element_boundary_integral (t8dg_mortar_arra
   t8_eclass_scheme_c *neigh_scheme;
   t8_locidx_t        *neigh_idatas;
 
+  int                 count_face_values = 0;
+  int                 neigh_iter;
   t8dg_functionbasis_t *functionbasis;
 
   t8_locidx_t         idata = t8dg_itree_ielement_to_idata (mortar_array->forest, itree, ielement);
@@ -886,16 +888,22 @@ t8dg_mortar_array_block_precon_apply_element_boundary_integral (t8dg_mortar_arra
     t8_forest_leaf_face_neighbors (mortar_array->forest, itree, element, &neigh_elems, iface, &neigh_ifaces, &num_neighs, &neigh_idatas,
                                    &neigh_scheme, 1);
 
-    /* i guess here needs to be checked whether the face belongs to a direct neighbour regarding the element order/numbering */
-    /* try it first local, so that all elements have a local id */
-    /* further more, just one face gets checked, which means it is a uniform mesh, not sure if it would work on an adaptive mesh with possibly hanging nodes */
-    /* If this face connects a direct/adjacent neighbor in the global elements' order/numbering; only in this case the flux values of this face can account for the block jacobi system */
-    /* Or if it's a boundary face -> periodic boundaries -> the transformed face_dofs have to be added */
-    /* selector == 1 means block-jacobi and selector == 3 means block_gauss-seidel */
-    /* only possible in serial right now */
-    if (((selector == 1) && ((num_neighs > 0) && (neigh_idatas[0] == (local_element_id - 1) || neigh_idatas[0] == (local_element_id + 1))))
-        || ((selector == 3) && ((num_neighs > 0) && (neigh_idatas[0] <= (local_element_id + 1))))
-        || num_neighs == 0) {
+    for (neigh_iter = 0; neigh_iter < num_neighs; ++neigh_iter) {
+      /* Check if the flux values for this face get accounted */
+      if (((neigh_idatas[neigh_iter] == (local_element_id - 1) || neigh_idatas[neigh_iter] == (local_element_id + 1)))) {
+        count_face_values = 1;
+        break;
+      }
+      else if (((selector == 3) && (neigh_idatas[neigh_iter] > (local_element_id + 1)))) {
+        count_face_values = 1;
+        break;
+      }
+      else {
+        count_face_values = 0;
+      }
+    }
+
+    if (count_face_values != 0) {
       /* Get the face_dof_values of the iface */
       face_flux_dof = t8dg_mortar_array_get_oriented_flux (mortar_array, idata, iface);
 

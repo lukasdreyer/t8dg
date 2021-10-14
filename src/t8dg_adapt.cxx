@@ -38,6 +38,7 @@ t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level
   adapt_data->minimum_refinement_level = min_level;
   adapt_data->initial_refinement_level = initial_level;
   adapt_data->maximum_refinement_level = max_level;
+  adapt_data->adapt_fn_arg = adapt_fn_arg;
   adapt_data->adapt_fn = t8dg_adapt_fn_arg (adapt_fn_arg);
   adapt_data->adapt_freq = adapt_freq;
   if (min_level == max_level) {
@@ -370,7 +371,7 @@ t8dg_adapt_replace (t8_forest_t forest_old,
 }
 
 /* Coarsens the mesh in order to apply a multigrid preconditioner */
-/* This functions only coarsens the finest elements on level back down */
+/* This functions coarsens every family of elements on level back down */
 int
 t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
                                            t8_forest_t forest_from,
@@ -380,19 +381,15 @@ t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
   t8dg_adapt_data_t  *adapt_data;
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
 
-  /* Right now: just refine every element, the balance property might be lost, if it is not a uniformly grid */
-  if (ts->t8_element_level (elements[0]) > adapt_data->minimum_refinement_level) {
+  if (num_elements == 1) {
+    /* If it is not a family, nothing happens */
+    return 0;
+  }
+  /* Right now: Refine at max. to the coarsest geometry possible */
+  if (ts->t8_element_level (elements[0]) > 0) {
     return -1;
   }
-#if 0
-  /* Check if coarsening is possible */
-  if (forest_from->maxlevel_exisiting > adapt_data->minimum_refinement_level) {
-    /* If the element is currently refined to the highest level, it along with it's siblings get coarsened to it's parent element */
-    if (ts->t8_element_level (elements[0]) == forest_from->maxlevel_exisiting) {
-      return -1;
-    }
-  }
-#endif
+
   /* In case the element should not be coarsened and stays the same */
   return 0;
 }
