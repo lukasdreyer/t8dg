@@ -134,7 +134,7 @@ t8dg_itree_ielement_to_idata (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t
 t8_locidx_t
 t8dg_ighosttree_ielement_to_idata (t8_forest_t forest, t8_locidx_t ighosttree, t8_locidx_t ielement)
 {
-  return t8_forest_get_num_element (forest) + t8_forest_ghost_get_tree_element_offset (forest, ighosttree) + ielement;
+  return t8_forest_get_local_num_elements (forest) + t8_forest_ghost_get_tree_element_offset (forest, ighosttree) + ielement;
 }
 
 void

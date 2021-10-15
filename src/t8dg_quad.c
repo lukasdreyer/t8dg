@@ -152,7 +152,7 @@ t8dg_quad_values_new (t8_forest_t forest, t8dg_global_values_t * global_values_a
   return_values->global_values = global_values_array;
   return_values->max_num_element_quad = t8dg_global_values_array_get_max_num_element_quad (global_values_array);
   return_values->max_num_face_quad = t8dg_global_values_array_get_max_num_face_quad (global_values_array);
-  return_values->num_local_elements = t8_forest_get_num_element (forest);
+  return_values->num_local_elements = t8_forest_get_local_num_elements (forest);
   return_values->num_ghost_elements = t8_forest_get_num_ghosts (forest);
   return_values->num_total_elements = return_values->num_local_elements + return_values->num_ghost_elements;
 
@@ -168,7 +168,7 @@ t8dg_quad_values_new_local (t8_forest_t forest, t8dg_global_values_t * global_va
   return_values->forest = forest;
   return_values->global_values = global_values_array;
   return_values->max_num_element_quad = t8dg_global_values_array_get_max_num_element_quad (global_values_array);
-  return_values->num_local_elements = t8_forest_get_num_element (forest);
+  return_values->num_local_elements = t8_forest_get_local_num_elements (forest);
   return_values->num_ghost_elements = 0;
   return_values->num_total_elements = return_values->num_local_elements;
 

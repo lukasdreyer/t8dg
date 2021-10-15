@@ -151,7 +151,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
 
   if (num_neighs == 1 && (neigh_scheme->t8_element_level (neigh_elems[0]) < own_level)) {
     /*the neighbour element is the bigger one */
-    if (neigh_idatas[0] < t8_forest_get_num_element (forest)) {
+    if (neigh_idatas[0] < t8_forest_get_local_num_elements (forest)) {
       /*The neighbour element is local */
       t8_forest_get_element (forest, neigh_idatas[0], &neigh_itree);    /*Only needed for neighbour itree */
       neigh_ielement = neigh_idatas[0] - t8_forest_get_tree_element_offset (forest, neigh_itree);
@@ -726,7 +726,7 @@ t8dg_mortar_array_new_empty (t8_forest_t forest, t8dg_local_values_t * local_val
 
   t8_forest_ref (forest);
   mortar_array->forest = forest;
-  mortar_array->num_local_elements = t8_forest_get_num_element (forest);
+  mortar_array->num_local_elements = t8_forest_get_local_num_elements (forest);
   mortar_array->num_total_elements = mortar_array->num_local_elements + t8_forest_get_num_ghosts (forest);
   mortar_array->local_values = local_values;
   mortar_array->max_num_faces = t8dg_local_values_get_max_num_faces (local_values);

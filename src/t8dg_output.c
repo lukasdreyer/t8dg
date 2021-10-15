@@ -39,7 +39,7 @@ t8dg_output_write_vtk (t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * output_
 
   forest = t8dg_dof_values_get_forest (dof_values);
 
-  num_local_elements = t8_forest_get_num_element (forest);
+  num_local_elements = t8_forest_get_local_num_elements (forest);
   dof_array = T8_ALLOC_ZERO (double, num_local_elements);
 
   num_trees = t8_forest_get_num_local_trees (forest);
