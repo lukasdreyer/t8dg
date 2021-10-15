@@ -15,6 +15,8 @@ void                t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3
 
 void                t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data);
 
+void                t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data);
+
 typedef struct t8dg_linear_flux_1D_from_3D_data
 {
   t8dg_linear_flux3D_fn flux_3D_fn;

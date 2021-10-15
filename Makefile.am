@@ -73,6 +73,7 @@ DISTCLEANFILES += \
 include src/Makefile.am
 include exec/Makefile.am
 include test/Makefile.am
+include thirdparty/mptrac/Makefile.am
 
 # revision control and ChangeLog
 ChangeLog:
