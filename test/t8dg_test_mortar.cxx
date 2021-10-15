@@ -60,7 +60,7 @@ TEST (mortar_arrray1D, creation)
   double              result_value;
   t8dg_dof_values_t  *result_dof;
 
-  result_dof = t8dg_dof_values_new_data_local (forest, global_values_array, result, 2 * t8_forest_get_num_element (forest));
+  result_dof = t8dg_dof_values_new_data_local (forest, global_values_array, result, 2 * t8_forest_get_local_num_elements (forest));
   t8dg_element_dof_values_t *element_result_dof;
 
   t8_locidx_t         num_elems_in_tree, ielement;

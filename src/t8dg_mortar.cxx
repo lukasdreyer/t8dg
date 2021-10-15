@@ -185,7 +185,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
         mortar->eclass_face = t8dg_functionbasis_get_eclass (mortar->face_functionbasis);
         mortar->orientation = t8dg_mortar_calculate_face_orientation (forest, itree, ielement, iface);  /*orientation from small to big element */
       }
-//      t8dg_debugf ("Adress: %p, idata: %i, num_local: %i\n", (void *) mortar, neigh_idatas[0], t8_forest_get_num_element (forest));
+//      t8dg_debugf ("Adress: %p, idata: %i, num_local: %i\n", (void *) mortar, neigh_idatas[0], t8_forest_get_local_num_elements (forest));
 //      t8dg_debugf ("mortar: num_subfaces: %i\n", mortar->num_subfaces);
 //      t8dg_debugf ("Adress: %p\n", (void *) mortar);
 
