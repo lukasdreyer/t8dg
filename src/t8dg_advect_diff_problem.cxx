@@ -876,8 +876,10 @@ void
 t8dg_advect_diff_problem_write_vtk (t8dg_linear_advection_diffusion_problem_t * problem)
 {
   double              io_time = -sc_MPI_Wtime ();
-
-  t8dg_output_write_vtk (problem->dof_values, problem->vtk_data);
+  const int           write_flow = 1;
+  const double time = t8dg_timestepping_data_get_current_time (problem->time_data);
+  
+  t8dg_output_write_vtk (problem->dof_values, problem->vtk_data, write_flow, problem->description->velocity_field, time, problem->description->flux_data);
 
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_IO, io_time + sc_MPI_Wtime ());
 }
