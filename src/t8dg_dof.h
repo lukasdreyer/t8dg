@@ -15,10 +15,10 @@ typedef sc_array_t  t8dg_face_dof_values_t;
 
 typedef struct t8dg_global_values t8dg_global_values_t; /*forward declared typedef because of circular dependency global_values <-> dof */
 
-t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view (t8dg_dof_values_t * dof_values, t8_locidx_t itree,
+t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view (const t8dg_dof_values_t * dof_values, t8_locidx_t itree,
                                                                         t8_locidx_t ielement);
 
-t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view_idata_eclass (t8dg_dof_values_t * dof_values, t8_locidx_t idata,
+t8dg_element_dof_values_t *t8dg_dof_values_new_element_dof_values_view_idata_eclass (const t8dg_dof_values_t * dof_values, t8_locidx_t idata,
                                                                                      t8_eclass_t eclass);
 
 t8dg_face_dof_values_t *t8dg_dof_values_new_face_dof_values_view_idata_eclass (t8dg_dof_values_t * dof_values, int iface, t8_locidx_t idata,
@@ -123,7 +123,7 @@ void                t8dg_dof_values_subtract (t8dg_dof_values_t * tally, t8dg_do
 
 void                t8dg_dof_values_ax (t8dg_dof_values_t * x, double a);
 
-t8_forest_t         t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values);
+t8_forest_t         t8dg_dof_values_get_forest (const t8dg_dof_values_t * dof_values);
 
 void                t8dg_face_dof_values_orient (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation);
 void                t8dg_face_dof_values_orient_back (t8dg_face_dof_values_t * face_dof_values, t8_eclass_t eclass_face, int orientation);

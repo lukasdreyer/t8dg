@@ -19,7 +19,7 @@ struct t8dg_dof_values
 };
 
 t8dg_element_dof_values_t *
-t8dg_dof_values_new_element_dof_values_view_idata_eclass (t8dg_dof_values_t * dof_values, t8_locidx_t idata, t8_eclass_t eclass)
+t8dg_dof_values_new_element_dof_values_view_idata_eclass (const t8dg_dof_values_t * dof_values, t8_locidx_t idata, t8_eclass_t eclass)
 {
   t8dg_element_dof_values_t *element_dof_view;
   t8dg_dofidx_t       num_element_dof;
@@ -36,7 +36,7 @@ t8dg_dof_values_new_element_dof_values_view_idata_eclass (t8dg_dof_values_t * do
 
 /* Allocates memory for t8dg_element_dof_values_t and sc_array_view, only */
 t8dg_element_dof_values_t *
-t8dg_dof_values_new_element_dof_values_view (t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_dof_values_new_element_dof_values_view (const t8dg_dof_values_t * dof_values, t8_locidx_t itree, t8_locidx_t ielement)
 {
   T8DG_ASSERT (itree >= 0 && itree < t8_forest_get_num_local_trees (dof_values->forest));
   t8_locidx_t         idata;
@@ -611,7 +611,7 @@ t8dg_dof_values_add (t8dg_dof_values_t * sum, t8dg_dof_values_t * summand)
 }
 
 t8_forest_t
-t8dg_dof_values_get_forest (t8dg_dof_values_t * dof_values)
+t8dg_dof_values_get_forest (const t8dg_dof_values_t * dof_values)
 {
   return dof_values->forest;
 }
