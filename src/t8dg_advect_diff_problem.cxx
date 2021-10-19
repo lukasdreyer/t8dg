@@ -4,6 +4,7 @@
 #include <t8_schemes/t8_default_cxx.hxx>
 #include <t8_forest/t8_forest_iterate.h>
 #include <t8_forest/t8_forest_partition.h>
+#include <t8/example/mptrac/t8_mptrac_interpolate.h>
 
 #include <sc_containers.h>
 #include <sc_statistics.h>
@@ -27,6 +28,7 @@
 #include "t8dg_output.h"
 #include "t8dg_common.h"
 #include "t8dg_cmesh.h"
+#include "t8dg_mptrac.h"
 
 /* Enum for statistics. */
 typedef enum
@@ -146,33 +148,43 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     init_data->dim = dim;
     description->initial_condition_data = init_data;
   }
-  t8dg_linear_flux3D_constant_flux_data_t *flux_data;
+  void *flux_data;
   description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
   description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
 
   switch  (velocity_field_type) {
-  case T8DG_CONSTANT_3D:
-    description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
-    flux_data = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
-    flux_data->flow_direction[0] = 1;
-    flux_data->flow_direction[1] = 0;
-    flux_data->flow_direction[2] = 0;
-    flux_data->flow_velocity = flow_velocity;
-    *(double *) description->numerical_flux_advection_data = flux_data->flow_velocity;
+  case T8DG_FLOW_CONSTANT_3D:
+    { /* We need these '{' since otherwise we cannot declare variables in this block. */
+      description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
+      t8dg_linear_flux3D_constant_flux_data_t *flux_data_constant_3d = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
+      flux_data_constant_3d->flow_direction[0] = 1;
+      flux_data_constant_3d->flow_direction[1] = 0;
+      flux_data_constant_3d->flow_direction[2] = 0;
+      flux_data_constant_3d->flow_velocity = flow_velocity;
+      *(double *) description->numerical_flux_advection_data = flux_data_constant_3d->flow_velocity;
+      flux_data = flux_data_constant_3d;
+    }
     break;
 
-  case T8DG_ROTATE_2D:
+  case T8DG_FLOW_ROTATE_2D:
     description->velocity_field = t8dg_rotating_flux_2D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 1;
     break;
 
-  case T8DG_SPIRAL_3D:
+  case T8DG_FLOW_SPIRAL_3D:
     description->velocity_field = t8dg_spiral_flux_3D_fn;
     flux_data = NULL;
     *(double *) description->numerical_flux_advection_data = 2 * M_PI;
     break;
 
+  case T8DG_FLOW_MPTRAC_3D:
+    description->velocity_field = t8dg_mptrac_flow_3D_fn;
+    *(double *) description->numerical_flux_advection_data = 1;
+    /* To use the mptrac flow, we need to load the nc files and initial
+     * interpolation first. */
+    flux_data = (t8_mptrac_context_t*) t8dg_mptrac_setup ("ei_2011_06_05_00.nc");
+    break;
   default:
     T8DG_ABORT ("Invalid flow type.");
     flux_data = NULL;
@@ -599,6 +611,9 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
       }
       else if (problem->description->velocity_field == t8dg_spiral_flux_3D_fn) {
         delta_t = cfl * diam / (2 * M_PI);
+      }
+      else if (problem->description->velocity_field == t8dg_mptrac_flow_3D_fn) {
+        delta_t = cfl * diam;
       }
       else {
         T8DG_ABORT ("Not implemented \n ");

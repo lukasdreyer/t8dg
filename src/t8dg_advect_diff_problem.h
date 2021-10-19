@@ -28,11 +28,11 @@ typedef struct t8dg_linear_advection_diffusion_problem t8dg_linear_advection_dif
  */
 typedef enum
 {
-  T8DG_FIRST_FLOW = 0,
-  T8DG_CONSTANT_3D = T8DG_FIRST_FLOW, /**< Constant flow in 3D. Direction and velocity can be specified. */
-  T8DG_ROTATE_2D, /**< Flow field of (y, -x, 0). Rotation around (0,0,0) */
-  T8DG_SPIRAL_3D, /**< (2*PI*y, -2*PI*x, 1). Upwards spiral. */
-  T8DG_MPTRAC_3D, /**< Read flow from given .nc files. */
+  T8DG_FLOW_FIRST = 0,
+  T8DG_FLOW_CONSTANT_3D = T8DG_FLOW_FIRST, /**< Constant flow in 3D. Direction and velocity can be specified. */
+  T8DG_FLOW_ROTATE_2D, /**< Flow field of (y, -x, 0). Rotation around (0,0,0) */
+  T8DG_FLOW_SPIRAL_3D, /**< (2*PI*y, -2*PI*x, 1). Upwards spiral. */
+  T8DG_FLOW_MPTRAC_3D, /**< Read flow from given .nc files. */
   T8DG_FLOW_TYPE_COUNT /**< Total number of flows. */
 } t8dg_flow_type_t;
 
