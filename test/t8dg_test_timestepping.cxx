@@ -68,7 +68,7 @@ TEST (timestepping, ode_x0_times_tsquared)
       }
     }
 
-    time_data = t8dg_timestepping_data_new (order, 1, 2, -1);
+    time_data = t8dg_timestepping_data_new_cfl (order, 1, 2, -1);
     t8dg_timestepping_data_set_time_step (time_data, 1. / N);
 
     for (step = 0; step < N; step++) {
