@@ -16,7 +16,8 @@ libt8dg_installed_headers = \
   src/t8dg_flux_implementation.h \
   src/t8dg_dof.h \
   src/t8dg_quad.h \
-  src/t8dg_mortar.h	\
+  src/t8dg_mortar.h \
+  src/t8dg_mptrac.h \
   src/t8dg_timestepping.h \
   src/t8dg_dmatrix.h \
   src/t8dg_quadrature.h \
@@ -40,7 +41,8 @@ libt8dg_compiled_sources = \
   src/t8dg_local_values.cxx \
   src/t8dg_tensor.c \
   src/t8dg_coarse_geometry.c \
-  src/t8dg_mortar.cxx	\
+  src/t8dg_mortar.cxx \
+  src/t8dg_mptrac.cxx \
   src/t8dg_timestepping.c \
   src/t8dg_dmatrix.c \
   src/t8dg_values.c \
