@@ -93,7 +93,7 @@ t8dg_cmesh_new_arg (int icmesh, const char *mshfile_prefix, const int mshfile_di
     T8DG_ASSERT (mshfile_prefix != NULL);
     cmesh = t8_cmesh_from_msh_file (mshfile_prefix, 0, comm, mshfile_dim, 0);
     *dim = mshfile_dim;
-    *velocity_field_arg = T8DG_FLOW_MPTRAC_3D;
+    *velocity_field_arg = T8DG_FLOW_CONSTANT_3D;
     /* TODO: What does this mean? */
     *geometry_arg = 0;
     break;
