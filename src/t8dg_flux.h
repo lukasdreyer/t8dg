@@ -25,11 +25,11 @@ typedef double      (*t8dg_numerical_linear_flux1D_fn) (const double u_minus, co
                                                         const void *numerical_flux_data);
 
 typedef double      (*t8dg_numerical_flux1D_fn) (const double u_minus, const double u_plus,
-                                                 const double normal_component, const void *numerical_flux_data);
+                                                 const double normal_component, const void *numerical_flux_data, t8_locidx_t itree, t8_locidx_t ielement);
 
-typedef void        (*t8dg_linear_flux1D_fn) (const double x_vec[3], double *flux_velocity, const double t, const void *flux_data);
+typedef void        (*t8dg_linear_flux1D_fn) (const double x_vec[3], double *flux_velocity, const double t, const void *flux_data, t8_locidx_t itree, t8_locidx_t ielement);
 
-typedef void        (*t8dg_linear_flux3D_fn) (double x_vec[3], double flux_velocity[3], double t, void *flux_data);
+typedef void        (*t8dg_linear_flux3D_fn) (double x_vec[3], double flux_velocity[3], double t, void *flux_data, t8_locidx_t itree, t8_locidx_t ielement);
 
 T8DG_EXTERN_C_END ();
 

@@ -278,7 +278,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
 static void
 t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t * dof_values, t8dg_linear_flux3D_fn linear_flux,
                                      void *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data,
-                                     double time)
+                                     double time, t8_locidx_t itree, t8_locidx_t ielement)
 {
   sc_array_t         *elem_dof_values_minus;
   sc_array_t         *elem_dof_values_plus[MAX_SUBFACES];
@@ -372,7 +372,7 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
                                                                   mortar_array->forest, mortar->iglobaltree_plus,
                                                                   mortar->element_plus[isubface], reference_vertex, image_vertex);
 
-        linear_flux (image_vertex, flux_vec, time, flux_data);
+        linear_flux (image_vertex, flux_vec, time, flux_data, itree, ielement);
 
         u_minus_val = t8dg_face_dof_values_get_value (face_dof_values_minus[isubface], idof);
         u_plus_val = t8dg_face_dof_values_get_value (face_dof_values_plus[isubface], idof);
@@ -428,7 +428,8 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
 
 static void
 t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * dof_values,
-                                  int icomp, t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data, double time)
+                                  int icomp, t8dg_numerical_flux1D_fn numerical_flux, void *numerical_flux_data, double time,
+                                  t8_locidx_t itree, t8_locidx_t ielement)
 {
   sc_array_t         *elem_dof_values_minus;
   sc_array_t         *elem_dof_values_plus[MAX_SUBFACES];
@@ -516,7 +517,7 @@ t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * do
           reverse_direction = 1 - (mortar->iface_minus % 2);
           numerical_flux_data = &reverse_direction;
         }
-        fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data);
+        fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data, itree, ielement);
         t8dg_debugf ("fluxvalue: %f\n", fluxvalue);
         T8DG_ASSERT (fluxvalue == fluxvalue && fabs (fluxvalue) < 1e200);
         *(double *) sc_array_index_int (face_flux_values_minus[isubface], idof) = +fluxvalue;
@@ -669,7 +670,7 @@ t8dg_mortar_array_calculate_flux_dof1D (t8dg_mortar_array_t * mortar_array, t8dg
           t8dg_mortar_array_set_all_pointers (mortar_array, mortar);
         }
         if (!mortar->valid) {
-          t8dg_mortar_calculate_flux_dof1D (mortar, dof_values, icomp, numerical_flux, numerical_flux_data, time);
+          t8dg_mortar_calculate_flux_dof1D (mortar, dof_values, icomp, numerical_flux, numerical_flux_data, time, itree, ielement);
         }
         T8DG_ASSERT (t8dg_mortar_array_get_mortar (mortar_array, idata, iface) != NULL);
       }
@@ -709,7 +710,7 @@ t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t
           t8dg_mortar_array_set_all_pointers (mortar_array, mortar);
         }
         if (!mortar->valid) {
-          t8dg_mortar_calculate_linear_flux3D (mortar, dof_values, linear_flux, flux_data, numerical_flux, numerical_flux_data, time);
+          t8dg_mortar_calculate_linear_flux3D (mortar, dof_values, linear_flux, flux_data, numerical_flux, numerical_flux_data, time, itree, ielement);
         }
         T8DG_ASSERT (t8dg_mortar_array_get_mortar (mortar_array, idata, iface) != NULL);
       }

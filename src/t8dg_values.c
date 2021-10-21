@@ -168,7 +168,7 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
           t8dg_functionbasis_get_lagrange_vertex (functionbasis, idof, reference_vertex);
           t8dg_geometry_transform_reference_vertex_to_image_vertex (values->coarse_geometry, values->forest, iglobaltree, element,
                                                                     reference_vertex, image_vertex);
-          flux_fn (image_vertex, flux_vec, time, flux_data);
+          flux_fn (image_vertex, flux_vec, time, flux_data, itree, ielement);
           t8dg_element_dof_values_set_value (element_flux_dof, idof,
                                              flux_vec[direction] * t8dg_element_dof_values_get_value (src_element_dof, idof));
         }

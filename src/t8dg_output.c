@@ -66,7 +66,7 @@ t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * o
         double midpoint[3];
         const t8_element_t *element = t8_forest_get_element_in_tree (forest, itree, ielement);
         t8_forest_element_centroid (forest, itree, element, midpoint);
-        flow_field (midpoint, flow_array + 3 * idata, time, flux_data);
+        flow_field (midpoint, flow_array + 3 * idata, time, flux_data, itree, ielement);
       }
     }
   }
