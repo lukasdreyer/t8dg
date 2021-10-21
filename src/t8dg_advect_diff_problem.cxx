@@ -184,6 +184,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     /* To use the mptrac flow, we need to load the nc files and initial
      * interpolation first. */
     flux_data = (t8_mptrac_context_t*) t8dg_mptrac_setup ("ei_2011_06_05_00.nc");
+
     break;
   default:
     T8DG_ABORT ("Invalid flow type.");
@@ -377,6 +378,9 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
   }
   problem->refine_error = refine_error;
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_INIT, init_time + sc_MPI_Wtime ());
+  if (problem->description->velocity_field == t8dg_mptrac_flow_3D_fn) {
+    ((t8_mptrac_context_t *) problem->description->flux_data)->forest = problem->forest;
+  }
   return problem;
 }
 
@@ -630,6 +634,9 @@ t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_probl
 {
   double              solve_time = -sc_MPI_Wtime ();
   t8dg_advect_diff_problem_set_time_step (problem);
+  if (problem->description->velocity_field == t8dg_mptrac_flow_3D_fn) {
+    ((t8_mptrac_context_t *) problem->description->flux_data)->forest = problem->forest;
+  }
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
   t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
