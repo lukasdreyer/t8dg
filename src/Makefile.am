@@ -45,17 +45,17 @@ libt8dg_compiled_sources = \
   src/t8dg_mptrac.cxx \
   src/t8dg_timestepping.c \
   src/t8dg_dmatrix.c \
-  src/t8dg_values.c \
+  src/t8dg_values.cxx \
   src/t8dg_dof.c \
   src/t8dg_quad.c \
   src/t8dg_vertexset.c \
-  src/t8dg_flux.c \
-  src/t8dg_flux_implementation.c \
+  src/t8dg_flux.cxx \
+  src/t8dg_flux_implementation.cxx \
   src/t8dg_quadrature.c \
   src/t8dg_geometry.cxx \
   src/t8dg_common.c \
   src/t8dg_adapt.cxx \
-  src/t8dg_output.c \
+  src/t8dg_output.cxx \
   src/t8dg_cmesh.cxx \
   src/t8dg_advect_diff_problem.cxx
 

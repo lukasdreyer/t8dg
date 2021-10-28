@@ -7,7 +7,7 @@ bin_PROGRAMS += \
 
 exec_t8dg_SOURCES = \
 	thirdparty/mptrac/libtrac.c \
-	src/main.c
+	src/main.cxx
 
 exec_t8dg_LDADD = $(LDADD) thirdparty/mptrac/libt8dgmptrac.la
 
