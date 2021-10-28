@@ -4,6 +4,7 @@
 #include "t8dg_adapt.h"
 #include <t8_element_cxx.hxx>
 #include <t8_vec.h>
+#include <t8dg_mptrac.h>
 
 t8_forest_adapt_t
 t8dg_adapt_fn_arg (int adapt_arg)
@@ -218,6 +219,20 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   t8dg_adapt_data_t  *adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
   const int level = ts->t8_element_level (elements[0]);
 
+  double midpoint[3];
+  double corner_0[3];
+  double corner_7[3];
+
+  /* Check whether corner 0, midpoint or corner 7 is contained in the box source.
+   * If so, refine the element. */
+  t8_forest_element_centroid (forest_from, itree, element, midpoint);
+  t8_forest_element_coordinate (forest_from, itree, element, 0, corner_0);
+  t8_forest_element_coordinate (forest_from, itree, element, 7, corner_7);
+  if (t8dg_mptrac_box_source (midpoint, -1, adapt_data->source_sink_data)
+  || t8dg_mptrac_box_source (corner_0, -1, adapt_data->source_sink_data)
+  || t8dg_mptrac_box_source (corner_7, -1, adapt_data->source_sink_data)) {
+    return 1 && level < adapt_data->maximum_refinement_level;
+  }
 
   int is_upper_boundary = 0;
   int is_lower_boundary = 0;
