@@ -1,4 +1,6 @@
-The contributions of Johannes Holke restrict to
+The contributions of Johannes Holke during the writing of Lukas Dreyer's thesis restrict to
  - Setting up the build process
  - Adding googletest and setting up the googletest build process
  - Adding t8dg_test_main.cxx and t8dg_test_example.cxx
+
+Johannes Holke places his contributions to t8dg from 05.09.2021 to 04.12.2021 under the BSD license.
