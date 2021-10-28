@@ -13,6 +13,10 @@
 #include <t8dg.h>
 #include <t8dg_flux_data_base.h>
 
+
+/* Source function for a box source */
+double t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data);
+
 class t8dg_mptrac_flux_data : public t8dg_flux_data_base
 {
     public:

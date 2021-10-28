@@ -239,6 +239,10 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     description->source_sink_fn = t8dg_cylinder_ring_source_fn;
     description->source_sink_data = NULL;
     break;
+  case 2:
+    T8DG_ASSERT (velocity_field_type == T8DG_FLOW_MPTRAC_3D);
+    description->source_sink_fn = t8dg_mptrac_box_source;
+    description->source_sink_data = flux_data;
   default:
     break;
   }
@@ -256,7 +260,9 @@ t8dg_advect_diff_problem_description_destroy (t8dg_linear_advection_diffusion_pr
   T8DG_FREE (description->numerical_flux_advection_data);
   T8DG_FREE (description->numerical_flux_diffusion_concentration_data);
   T8DG_FREE (description->numerical_flux_diffusion_gradient_data);
-  T8DG_FREE (description->source_sink_data);
+  if (description->source_sink_fn != t8dg_mptrac_box_source) {
+    T8DG_FREE (description->source_sink_data);
+  }
   T8DG_FREE (description);
   *p_description = NULL;
 }

@@ -88,7 +88,7 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
     t8_global_errorf ("Argument error. Invalid numerical flux.\n");
     return 0;
   }
-  if (!(source_sink_arg >= 0 && source_sink_arg <= 1)) {
+  if (!(source_sink_arg >= 0 && source_sink_arg <= 2)) {
     t8_global_errorf ("Argument error. Invalid source/sink.\n");
     return 0;
   }
@@ -192,7 +192,7 @@ main (int argc, char *argv[])
                       "\t\t0: central\n" "\t\t1: alternating");
 
   sc_options_add_int (opt, 's', "source_sink_fn", &source_sink_arg, 0, "Choose source/sink function. Default: 0\n"
-                      "\t\t0: no source sink\n" "\t\t1: 3D cylinder ring");
+                      "\t\t0: no source sink\n" "\t\t1: 3D cylinder ring\n" "\t\t2: Box source for MPTRAC");
 
   sc_options_add_switch (opt, 'E', "refine_error", &refine_error, "Refines the grid before calculating the errors");
 

@@ -143,13 +143,38 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
     /* We are at the lower boundary. Compute 2D interpolation at ground pressure */
     intpol_met_time_2d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->us,
                         mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->us,
-                        physical_time, lon, lat, flux_vec, ci, cw,
+                        physical_time_s, lon, lat, flux_vec, ci, cw,
                         1);
     intpol_met_time_2d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->vs,
                         mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->vs,
-                        physical_time, lon, lat, flux_vec + 1, ci, cw,
+                        physical_time_s, lon, lat, flux_vec + 1, ci, cw,
                         1);
     /* TODO: Do we also need flux_vec[2] or is it 0? */
   }
 #endif
+}
+
+double
+t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
+{
+  const double value_inside_box = 10;
+  /* Lon/Lat/pressure coordinates of the lower left corner of the box. */
+  const double box_lower_left[3] = {7, 50, 2000};
+  /* Dimensions of the box in degree x degree x meter */
+  const double box_extend[3] = {200, 200, 800};
+
+  double lat, lon, pressure;
+
+  const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
+
+  t8_mptrac_coords_to_lonlatpressure (mptrac_flux_data->get_context(), x, &lat, &lon, &pressure);
+
+  if (box_lower_left[0] <= lon && lon <= box_lower_left[0] + box_extend[0]
+   && box_lower_left[1] <= lat && lat <= box_lower_left[1] + box_extend[1]
+   && box_lower_left[2] <= pressure && pressure <= box_lower_left[2] + box_extend[2])
+   {
+     /* The point x is inside the box. */
+     return value_inside_box;
+   }
+   else return 0;
 }
