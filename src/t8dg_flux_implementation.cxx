@@ -3,7 +3,7 @@
 #include "t8dg_flux_implementation.h"
 
 void
-t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data)
 {
   /*In this case independent of x_vec and t */
   T8DG_ASSERT (dynamic_cast<const t8dg_linear_flux3D_constant_flux_data*> (flux_data) != NULL);
@@ -15,7 +15,7 @@ t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double
 }
 
 void
-t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data)
 {
   flux_vec[0] = x_vec[1];
   flux_vec[1] = -x_vec[0];
@@ -23,7 +23,7 @@ t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, const t
 }
 
 void
-t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data)
 {
   flux_vec[0] = 2 * M_PI * x_vec[1];
   flux_vec[1] = -2 * M_PI * x_vec[0];
@@ -31,11 +31,11 @@ t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 }
 
 void
-t8dg_linear_flux_1D_from_3D_fn (double x_vec[3], double *flux_value, double t, void *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_linear_flux_1D_from_3D_fn (double x_vec[3], double *flux_value, double t, void *flux_data)
 {
   double              flux_vec[3];
   t8dg_linear_flux_1D_from_3D_data_t *flux_1D_data = (t8dg_linear_flux_1D_from_3D_data_t *) flux_data;
-  flux_1D_data->flux_3D_fn (x_vec, flux_vec, t, flux_1D_data->flux_3D_data, itree, ielement);
+  flux_1D_data->flux_3D_fn (x_vec, flux_vec, t, flux_1D_data->flux_3D_data);
   *flux_value = flux_vec[flux_1D_data->component];
 }
 
@@ -55,7 +55,7 @@ t8dg_linear_numerical_flux3D_lax_friedrich_fn (const double u_minus, const doubl
 }
 
 double
-t8dg_numerical_flux1D_central (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_numerical_flux1D_central (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data)
 {
   double              average;
   average = (u_minus + u_plus) / 2;
@@ -63,7 +63,7 @@ t8dg_numerical_flux1D_central (const double u_minus, const double u_plus, const 
 }
 
 double
-t8dg_numerical_flux1D_left (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_numerical_flux1D_left (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data)
 {
   double              u_value = u_minus;
   int                 reverse_factor = 1;
@@ -75,7 +75,7 @@ t8dg_numerical_flux1D_left (const double u_minus, const double u_plus, const dou
 }
 
 double
-t8dg_numerical_flux1D_right (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_numerical_flux1D_right (const double u_minus, const double u_plus, const double normal_component, const void *numerical_flux_data)
 {
   double              u_value = u_plus;
   int                 reverse_factor = 1;

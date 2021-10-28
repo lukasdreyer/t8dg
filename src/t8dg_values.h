@@ -59,7 +59,7 @@ void                t8dg_values_apply_stiffness_matrix_linear_flux_fn3D
 
 void                t8dg_values_apply_boundary_integrals
   (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof,
-   t8dg_linear_flux3D_fn linear_flux, const t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
+   t8dg_linear_flux3D_fn linear_flux, t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
    void *numerical_flux_data, double time);
 
 void                t8dg_values_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,

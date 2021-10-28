@@ -372,7 +372,7 @@ t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t *
                                                                   mortar_array->forest, mortar->iglobaltree_plus,
                                                                   mortar->element_plus[isubface], reference_vertex, image_vertex);
 
-        linear_flux (image_vertex, flux_vec, time, flux_data, itree, ielement);
+        linear_flux (image_vertex, flux_vec, time, flux_data);
 
         u_minus_val = t8dg_face_dof_values_get_value (face_dof_values_minus[isubface], idof);
         u_plus_val = t8dg_face_dof_values_get_value (face_dof_values_plus[isubface], idof);
@@ -517,7 +517,7 @@ t8dg_mortar_calculate_flux_dof1D (t8dg_mortar_t * mortar, t8dg_dof_values_t * do
           reverse_direction = 1 - (mortar->iface_minus % 2);
           numerical_flux_data = &reverse_direction;
         }
-        fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data, itree, ielement);
+        fluxvalue = numerical_flux (u_minus_val, u_plus_val, outward_normal[icomp], numerical_flux_data);
         t8dg_debugf ("fluxvalue: %f\n", fluxvalue);
         T8DG_ASSERT (fluxvalue == fluxvalue && fabs (fluxvalue) < 1e200);
         *(double *) sc_array_index_int (face_flux_values_minus[isubface], idof) = +fluxvalue;
@@ -680,7 +680,7 @@ t8dg_mortar_array_calculate_flux_dof1D (t8dg_mortar_array_t * mortar_array, t8dg
 
 void
 t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t8dg_dof_values_t * dof_values,
-                                           t8dg_linear_flux3D_fn linear_flux, const t8dg_flux_data_base *flux_data,
+                                           t8dg_linear_flux3D_fn linear_flux, t8dg_flux_data_base *flux_data,
                                            t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data, double time)
 {
   t8_locidx_t         itree, ielement, idata;
@@ -700,6 +700,7 @@ t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t
     num_elems_in_tree = t8_forest_get_tree_num_elements (mortar_array->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
 
+      flux_data->before_first_call_on_element (mortar_array->forest, itree, ielement);
       /*TODO: num_faces eclass dependent */
       for (iface = 0; iface < mortar_array->max_num_faces; iface++) {
         mortar = t8dg_mortar_array_get_mortar (mortar_array, idata, iface);
@@ -714,6 +715,8 @@ t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t
         }
         T8DG_ASSERT (t8dg_mortar_array_get_mortar (mortar_array, idata, iface) != NULL);
       }
+
+      flux_data->after_last_call_on_element (mortar_array->forest, itree, ielement);
     }
   }
 }

@@ -52,6 +52,7 @@ t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * o
   for (itree = 0, idata = 0; itree < num_trees; itree++) {
     num_elems_in_tree = t8_forest_get_tree_num_elements (forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++, idata++) {
+      flux_data->before_first_call_on_element (forest, itree, ielement);
       element_dof_values = t8dg_dof_values_new_element_dof_values_view (dof_values, itree, ielement);
       average = 0;
       number_of_dof = t8dg_element_dof_values_get_num_dof (element_dof_values);
@@ -66,8 +67,9 @@ t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * o
         double midpoint[3];
         const t8_element_t *element = t8_forest_get_element_in_tree (forest, itree, ielement);
         t8_forest_element_centroid (forest, itree, element, midpoint);
-        flow_field (midpoint, flow_array + 3 * idata, time, flux_data, itree, ielement);
+        flow_field (midpoint, flow_array + 3 * idata, time, flux_data);
       }
+      flux_data->after_last_call_on_element (forest, itree, ielement);
     }
   }
 

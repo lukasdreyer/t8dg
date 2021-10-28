@@ -157,6 +157,7 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
     num_elems_in_tree = t8_forest_get_tree_num_elements (values->forest, itree);
     iglobaltree = t8_forest_global_tree_id (values->forest, itree);
     for (ielement = 0; ielement < num_elems_in_tree; ielement++) {
+      flux_data->before_first_call_on_element (values->forest, itree, ielement);
       for (direction = 0; direction < values->dim; direction++) {
         element = t8_forest_get_element_in_tree (values->forest, itree, ielement);
         element_flux_dof = t8dg_dof_values_new_element_dof_values_view (flux_dof[direction], itree, ielement);
@@ -168,13 +169,14 @@ t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (t8dg_values_t * values, t8d
           t8dg_functionbasis_get_lagrange_vertex (functionbasis, idof, reference_vertex);
           t8dg_geometry_transform_reference_vertex_to_image_vertex (values->coarse_geometry, values->forest, iglobaltree, element,
                                                                     reference_vertex, image_vertex);
-          flux_fn (image_vertex, flux_vec, time, flux_data, itree, ielement);
+          flux_fn (image_vertex, flux_vec, time, flux_data);
           t8dg_element_dof_values_set_value (element_flux_dof, idof,
                                              flux_vec[direction] * t8dg_element_dof_values_get_value (src_element_dof, idof));
         }
         t8dg_element_dof_values_destroy (&element_flux_dof);
         t8dg_element_dof_values_destroy (&src_element_dof);
       }
+      flux_data->after_last_call_on_element (values->forest, itree, ielement);
     }
   }
 
@@ -299,7 +301,7 @@ t8dg_values_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof
 
 void
 t8dg_values_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof, t8dg_dof_values_t * dest_dof,
-                                      t8dg_linear_flux3D_fn linear_flux, const t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
+                                      t8dg_linear_flux3D_fn linear_flux, t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
                                       void *numerical_flux_data, double time)
 {
   t8_locidx_t         itree, ielement, idata;
