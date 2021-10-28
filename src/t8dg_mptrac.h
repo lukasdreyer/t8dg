@@ -29,25 +29,37 @@ class t8dg_mptrac_flux_data : public t8dg_flux_data_base
 
     void start_new_time_step (const struct t8dg_linear_advection_diffusion_problem *problem);
 
+    /* Before we enter an element for the first time, we check on which boundary
+     * it lies so that we can adapt the flux later. */
+    void before_first_call_on_element (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t element_in_tree);
+
+
     /** Get the current physical time. */
     inline const double get_time () const;
 
     inline const t8_mptrac_context_t *get_context() const;
 
+    inline bool is_current_element_at_pole () const;
+    
+    inline bool is_current_element_at_top_or_bottom () const;
+
     protected:
-        t8_mptrac_context_t * context;
+    t8_mptrac_context_t * context;
 
-        /* How many simulation hours after 05.06.2011 00:00 to start. */
-        double start_six_hours;
-        /* Current simulation time in seconds */
-        double physical_time_s;
+    /* How many simulation hours after 05.06.2011 00:00 to start. */
+    double start_six_hours;
+    /* Current simulation time in seconds */
+    double physical_time_s;
 
-        /* How many simulation hours have passed since last file read.
-         * Every 6 hours we read a new file. */
-        double hours_since_last_file_read;
+    /* How many simulation hours have passed since last file read.
+    * Every 6 hours we read a new file. */
+    double hours_since_last_file_read;
 
-        /* How many hours to pass before a new input file is read. */
-        double hours_between_file_reads;
+    /* How many hours to pass before a new input file is read. */
+    double hours_between_file_reads;
+
+    bool current_element_is_at_pole;
+    bool current_element_is_at_top_or_bottom;
 };
 
 #endif /* SRC_T8DG_MPTRAC_H_ */

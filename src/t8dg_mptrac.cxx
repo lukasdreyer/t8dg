@@ -40,6 +40,46 @@ void t8dg_mptrac_flux_data::initialize(const struct t8dg_linear_advection_diffus
   t8_forest_ref (context->forest);
 }
 
+void t8dg_mptrac_flux_data::before_first_call_on_element (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t element_in_tree)
+{  
+  /* Determine whether this element is at a pole or at the top/bottom. */
+  int is_upper_boundary = 0;
+  int is_lower_boundary = 0;
+  int is_south_boundary = 0;
+  int is_north_boundary = 0;
+  const t8_eclass_t tree_class = t8_forest_get_tree_class (forest, itree);
+  t8_eclass_scheme_c *scheme = t8_forest_get_eclass_scheme (forest, tree_class);
+  const t8_element_t *element = t8_forest_get_element_in_tree (forest, itree, element_in_tree);
+
+  /* Check for upper boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 5)) {
+    is_upper_boundary = 1;
+  }
+  /* Check for upper boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 4)) {
+    is_lower_boundary = 1;
+  }
+  /* Check for south boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 2)) {
+    is_south_boundary = 1;
+  }
+  /* Check for north boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 3)) {
+    is_north_boundary = 1;
+  }
+  current_element_is_at_pole = is_south_boundary || is_north_boundary;
+  current_element_is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
+}
+
+inline bool t8dg_mptrac_flux_data::is_current_element_at_pole () const
+{
+  return current_element_is_at_pole;
+}
+    
+inline bool t8dg_mptrac_flux_data::is_current_element_at_top_or_bottom () const
+{
+  return current_element_is_at_top_or_bottom;
+}
 
 void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advection_diffusion_problem *problem)
 {
@@ -75,41 +115,13 @@ inline const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
 }
 
 void
-t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data,
-                        t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data)
 {
   double lat, lon, pressure;
   T8DG_ASSERT (dynamic_cast<const t8dg_mptrac_flux_data*>(flux_data) != NULL);
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (flux_data);
   const t8_mptrac_context_t *mptrac_context = mptrac_flux_data->get_context();
   const double physical_time_s = mptrac_flux_data->get_time();
-  /* Handle boundary condition */
-  const t8_forest_t forest = mptrac_context->forest;
-  const t8_eclass_t tree_class = t8_forest_get_tree_class (forest, itree);
-  t8_eclass_scheme_c *scheme = t8_forest_get_eclass_scheme (forest, tree_class);
-  const t8_element_t *element = t8_forest_get_element_in_tree (forest, itree, ielement);
-  int is_upper_boundary = 0;
-  int is_lower_boundary = 0;
-  int is_south_boundary = 0;
-  int is_north_boundary = 0;
-  /* Check for upper boundary of unit cube */
-  if (scheme->t8_element_is_root_boundary (element, 5)) {
-    is_upper_boundary = 1;
-  }
-  /* Check for upper boundary of unit cube */
-  if (scheme->t8_element_is_root_boundary (element, 4)) {
-    is_lower_boundary = 1;
-  }
-  /* Check for south boundary of unit cube */
-  if (scheme->t8_element_is_root_boundary (element, 2)) {
-    is_south_boundary = 1;
-  }
-  /* Check for north boundary of unit cube */
-  if (scheme->t8_element_is_root_boundary (element, 3)) {
-    is_north_boundary = 1;
-  }
-  const int is_at_pole = is_south_boundary || is_north_boundary;
-  const int is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
 
   /* TODO: Try using coord = 0/1 as indicator...flow in volumen will have
    *        w/v value, flow at boundary not. */
@@ -123,7 +135,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
                       mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->u,
                       physical_time_s, pressure, lon, lat, flux_vec, ci, cw,
                       1);
-  if (!is_at_pole) {
+  if (!mptrac_flux_data->is_current_element_at_pole()) {
     /* Compute interpolation of v (meridional wind north/south direction, y axis) */
     intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->v, 
                         mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->v, 
@@ -132,7 +144,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   else {
     flux_vec[1] = 0;
   }
-  if (!is_at_top_or_bottom) {
+  if (!mptrac_flux_data->is_current_element_at_top_or_bottom()) {
     /* Compute interpolation of w (vertical velocity, z axis) */
     intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w,
                         mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, 
