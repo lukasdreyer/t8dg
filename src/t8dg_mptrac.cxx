@@ -7,35 +7,61 @@
 
 #include <t8_element_cxx.hxx>
 #include <t8dg.h>
-#include "t8dg_flux_implementation.h"
-#include "t8dg_mptrac.h"
+#include <t8dg_advect_diff_problem.h>
+#include <t8dg_flux_implementation.h>
+#include <t8dg_timestepping.h>
+#include <t8dg_mptrac.h>
 
 
-t8_mptrac_context_t* t8dg_mptrac_setup (const char *nc_filename)
+t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename)
 {
   const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 8 MET_DY 8";
   const int dimension = 3;
   const int uniform_level = 3;
-  t8_mptrac_context_t *context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
+  context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
   double start_six_hours = 0;
   double physical_time;
   time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time);
 
   t8_mptrac_read_nc (context, 1, physical_time);
   t8dg_debugf ("Initialized mptrac context.\n");
+}
 
+t8dg_mptrac_flux_data::~t8dg_mptrac_flux_data ()
+{
+  t8_mptrac_context_destroy (&context);
+}
+
+void t8dg_mptrac_flux_data::initialize(const struct t8dg_linear_advection_diffusion_problem *problem)
+{
+  context->forest = t8dg_advect_diff_problem_get_forest (problem);
+  t8_forest_ref (context->forest);
+}
+
+
+void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advection_diffusion_problem *problem)
+{
+  const t8dg_timestepping_data_t *time_data = t8dg_advect_diff_problem_get_time_data (problem);
+  const double time = t8dg_timestepping_data_get_current_time (time_data);
+  t8dg_global_productionf ("Mptrac data entering new timestep: %i\t%f\n", t8dg_advect_diff_problem_get_stepnumber (problem), time);
+}
+
+const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
+{
   return context;
 }
 
 void
-t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data,
+t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data,
                         t8_locidx_t itree, t8_locidx_t ielement)
 {
   double lat, lon, pressure;
   double physical_time;
   double start_six_hours = 0;
   time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time);
-  t8_mptrac_context_t *mptrac_context = (t8_mptrac_context_t *) flux_data;
+  T8DG_ASSERT (dynamic_cast<const t8dg_mptrac_flux_data*>(flux_data) != NULL);
+  const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (flux_data);
+  const t8_mptrac_context_t *mptrac_context = mptrac_flux_data->get_context();
   
   /* Handle boundary condition */
   const t8_forest_t forest = mptrac_context->forest;

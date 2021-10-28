@@ -3,16 +3,19 @@
 #include "t8dg_flux_implementation.h"
 
 void
-t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_linear_flux3D_constant_flux_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
 {
   /*In this case independent of x_vec and t */
-  double             *tangent = ((t8dg_linear_flux3D_constant_flux_data_t *) flux_data)->flow_direction;
-  double              flow_velocity = ((t8dg_linear_flux3D_constant_flux_data_t *) flux_data)->flow_velocity;
+  T8DG_ASSERT (dynamic_cast<const t8dg_linear_flux3D_constant_flux_data*> (flux_data) != NULL);
+  const t8dg_linear_flux3D_constant_flux_data* constant_flux_data = 
+    static_cast<const t8dg_linear_flux3D_constant_flux_data*>(flux_data);
+  const double             *tangent = constant_flux_data->get_flow_direction ();
+  const double              flow_velocity = constant_flux_data->get_flow_velocity ();
   t8_vec_axb (tangent, flux_vec, flow_velocity, 0);
 }
 
 void
-t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
 {
   flux_vec[0] = x_vec[1];
   flux_vec[1] = -x_vec[0];
@@ -20,7 +23,7 @@ t8dg_rotating_flux_2D_fn (double x_vec[3], double flux_vec[3], double t, void *f
 }
 
 void
-t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, void *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
+t8dg_spiral_flux_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8dg_flux_data_base *flux_data, t8_locidx_t itree, t8_locidx_t ielement)
 {
   flux_vec[0] = 2 * M_PI * x_vec[1];
   flux_vec[1] = -2 * M_PI * x_vec[0];

@@ -28,7 +28,7 @@ void                t8dg_output_vtk_data_destroy (t8dg_vtk_data_t ** p_vtk_data)
  * \param [in] flux_data  Data pointer passer to \a flow_field if \a write_flow is non-zero.
  */
 void                t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * output_data,
-                                           int write_flow, t8dg_linear_flux3D_fn flow_field, const double time, void *flux_data);
+                                           int write_flow, t8dg_linear_flux3D_fn flow_field, const double time, t8dg_flux_data_base *flux_data);
 T8DG_EXTERN_C_END ();
 
 #endif

@@ -277,7 +277,7 @@ t8dg_mortar_new (t8_forest_t forest, t8_locidx_t itree, t8_locidx_t ielement, in
 
 static void
 t8dg_mortar_calculate_linear_flux3D (t8dg_mortar_t * mortar, t8dg_dof_values_t * dof_values, t8dg_linear_flux3D_fn linear_flux,
-                                     void *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data,
+                                     const t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data,
                                      double time, t8_locidx_t itree, t8_locidx_t ielement)
 {
   sc_array_t         *elem_dof_values_minus;
@@ -680,7 +680,7 @@ t8dg_mortar_array_calculate_flux_dof1D (t8dg_mortar_array_t * mortar_array, t8dg
 
 void
 t8dg_mortar_array_calculate_linear_flux3D (t8dg_mortar_array_t * mortar_array, t8dg_dof_values_t * dof_values,
-                                           t8dg_linear_flux3D_fn linear_flux, void *flux_data,
+                                           t8dg_linear_flux3D_fn linear_flux, const t8dg_flux_data_base *flux_data,
                                            t8dg_numerical_linear_flux3D_fn numerical_flux, void *numerical_flux_data, double time)
 {
   t8_locidx_t         itree, ielement, idata;

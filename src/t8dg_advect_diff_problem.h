@@ -47,7 +47,7 @@ typedef struct t8dg_linear_advection_diffusion_problem_description
   void               *analytical_sol_data;
 
   t8dg_linear_flux3D_fn velocity_field;
-  void               *flux_data;
+  t8dg_flux_data_base  *flux_data;
 
   double              diffusion_coefficient;
   t8dg_numerical_linear_flux3D_fn numerical_flux_advection;

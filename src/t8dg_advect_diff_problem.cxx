@@ -148,7 +148,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     init_data->dim = dim;
     description->initial_condition_data = init_data;
   }
-  void *flux_data;
+  t8dg_flux_data_base *flux_data;
   description->numerical_flux_advection = t8dg_linear_numerical_flux3D_lax_friedrich_fn;
   description->numerical_flux_advection_data = T8DG_ALLOC (double, 1);
 
@@ -156,12 +156,10 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
   case T8DG_FLOW_CONSTANT_3D:
     { /* We need these '{' since otherwise we cannot declare variables in this block. */
       description->velocity_field = t8dg_linear_flux3D_constant_flux_fn;
-      t8dg_linear_flux3D_constant_flux_data_t *flux_data_constant_3d = T8DG_ALLOC_ZERO (t8dg_linear_flux3D_constant_flux_data_t, 1);
-      flux_data_constant_3d->flow_direction[0] = 1;
-      flux_data_constant_3d->flow_direction[1] = 0;
-      flux_data_constant_3d->flow_direction[2] = 0;
-      flux_data_constant_3d->flow_velocity = flow_velocity;
-      *(double *) description->numerical_flux_advection_data = flux_data_constant_3d->flow_velocity;
+      /* TODO: T8_NEW Operator? */
+      t8dg_linear_flux3D_constant_flux_data *flux_data_constant_3d =
+        new t8dg_linear_flux3D_constant_flux_data(1, 0, 0, flow_velocity);
+      *(double *) description->numerical_flux_advection_data = flux_data_constant_3d->get_flow_velocity();
       flux_data = flux_data_constant_3d;
     }
     break;
@@ -183,8 +181,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     *(double *) description->numerical_flux_advection_data = 1;
     /* To use the mptrac flow, we need to load the nc files and initial
      * interpolation first. */
-    flux_data = (t8_mptrac_context_t*) t8dg_mptrac_setup ("ei_2011_06_05_00.nc");
-
+    flux_data = new t8dg_mptrac_flux_data ("ei_2011_06_05_00.nc");
     break;
   default:
     T8DG_ABORT ("Invalid flow type.");
@@ -241,7 +238,7 @@ void
 t8dg_advect_diff_problem_description_destroy (t8dg_linear_advection_diffusion_problem_description_t ** p_description)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description = *p_description;
-  T8DG_FREE (description->flux_data);
+  delete description->flux_data;
   T8DG_FREE (description->analytical_sol_data);
   T8DG_FREE (description->initial_condition_data);
   T8DG_FREE (description->numerical_flux_advection_data);
@@ -378,9 +375,8 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
   }
   problem->refine_error = refine_error;
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_INIT, init_time + sc_MPI_Wtime ());
-  if (problem->description->velocity_field == t8dg_mptrac_flow_3D_fn) {
-    ((t8_mptrac_context_t *) problem->description->flux_data)->forest = problem->forest;
-  }
+  /* Initialize the flux data */
+  problem->description->flux_data->initialize(problem);
   return problem;
 }
 
@@ -599,7 +595,7 @@ t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_
       T8_ASSERT (diam > 0);
 
       if (problem->description->velocity_field == t8dg_linear_flux3D_constant_flux_fn) {
-        flow_velocity = ((t8dg_linear_flux3D_constant_flux_data_t *) problem->description->flux_data)->flow_velocity;   /*TODO: element_get_flow_velocity function */
+        flow_velocity = ((t8dg_linear_flux3D_constant_flux_data *) problem->description->flux_data)->get_flow_velocity();   /*TODO: element_get_flow_velocity function */
         if (flow_velocity > 0) {
           delta_t = cfl * diam / flow_velocity; /*Assumption here that advection dominates */
         }
@@ -634,10 +630,8 @@ t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_probl
 {
   double              solve_time = -sc_MPI_Wtime ();
   t8dg_advect_diff_problem_set_time_step (problem);
-  if (problem->description->velocity_field == t8dg_mptrac_flow_3D_fn) {
-    ((t8_mptrac_context_t *) problem->description->flux_data)->forest = problem->forest;
-  }
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
+  problem->description->flux_data->start_new_time_step (problem);
   t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_SOLVE, solve_time + sc_MPI_Wtime ());

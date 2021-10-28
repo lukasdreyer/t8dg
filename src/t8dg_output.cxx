@@ -27,7 +27,7 @@ t8dg_output_vtk_data_destroy (t8dg_vtk_data_t ** p_vtk_data)
 }
 
 void
-t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * output_data, int write_flow, t8dg_linear_flux3D_fn flow_field, const double time, void *flux_data)
+t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * output_data, int write_flow, t8dg_linear_flux3D_fn flow_field, const double time, t8dg_flux_data_base *flux_data)
 {
   t8_forest_t         forest;
   double             *dof_array;
