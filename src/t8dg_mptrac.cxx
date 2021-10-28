@@ -13,17 +13,19 @@
 #include <t8dg_mptrac.h>
 
 
-t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename)
+t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads)
+: hours_between_file_reads(hours_between_file_reads)
 {
   const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 8 MET_DY 8";
   const int dimension = 3;
   const int uniform_level = 3;
   context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
-  double start_six_hours = 0;
-  double physical_time;
-  time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time);
 
-  t8_mptrac_read_nc (context, 1, physical_time);
+  start_six_hours = 0;
+  time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time_s);
+
+  t8_mptrac_read_nc (context, 1, physical_time_s);
+  hours_since_last_file_read = 0;
   t8dg_debugf ("Initialized mptrac context.\n");
 }
 
@@ -43,10 +45,31 @@ void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advect
 {
   const t8dg_timestepping_data_t *time_data = t8dg_advect_diff_problem_get_time_data (problem);
   const double time = t8dg_timestepping_data_get_current_time (time_data);
-  t8dg_global_productionf ("Mptrac data entering new timestep: %i\t%f\n", t8dg_advect_diff_problem_get_stepnumber (problem), time);
+  const double delta_t_hours = t8dg_timestepping_data_get_time_step (time_data);
+
+  t8dg_debugf ("Mptrac data entering new timestep: %i\t%f\n", t8dg_advect_diff_problem_get_stepnumber (problem), time);
+
+  /* Add current time to internal physical time.
+   * and diff since last read. */
+  physical_time_s += delta_t_hours * 3600;
+  hours_since_last_file_read += delta_t_hours;
+  t8dg_debugf ("Mptrac. time = %f  hours_since = %f, diff = %f\n", physical_time_s, hours_since_last_file_read,
+   delta_t_hours);
+  if (hours_since_last_file_read > hours_between_file_reads) {
+    /* Read the nc file. This will only update if physical is advanced to the
+    * next file. */
+    t8_mptrac_read_nc (context, 1, physical_time_s);
+    /* Rescale physical time to interval [0, hours_between_file_reads] */
+    hours_since_last_file_read -= (int)(hours_since_last_file_read/hours_between_file_reads) * hours_between_file_reads;
+  }
 }
 
-const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
+inline const double t8dg_mptrac_flux_data::get_time () const
+{
+  return physical_time_s;
+}
+
+inline const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
 {
   return context;
 }
@@ -56,13 +79,10 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
                         t8_locidx_t itree, t8_locidx_t ielement)
 {
   double lat, lon, pressure;
-  double physical_time;
-  double start_six_hours = 0;
-  time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time);
   T8DG_ASSERT (dynamic_cast<const t8dg_mptrac_flux_data*>(flux_data) != NULL);
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (flux_data);
   const t8_mptrac_context_t *mptrac_context = mptrac_flux_data->get_context();
-  
+  const double physical_time_s = mptrac_flux_data->get_time();
   /* Handle boundary condition */
   const t8_forest_t forest = mptrac_context->forest;
   const t8_eclass_t tree_class = t8_forest_get_tree_class (forest, itree);
