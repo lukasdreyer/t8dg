@@ -215,6 +215,10 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
                              t8_element_t * elements[])
 {
   const t8_element_t *element = elements[0];
+  t8dg_adapt_data_t  *adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+  const int level = ts->t8_element_level (elements[0]);
+
+
   int is_upper_boundary = 0;
   int is_lower_boundary = 0;
   int is_south_boundary = 0;
@@ -238,7 +242,8 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   const int is_at_pole = is_south_boundary || is_north_boundary;
   const int is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
 
-  if (is_at_top_or_bottom || is_at_pole) {
+
+  if ((is_at_top_or_bottom || is_at_pole) && level < adapt_data->maximum_refinement_level) {
     return 1;
   }
   return 0;
