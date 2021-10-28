@@ -70,38 +70,55 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   const t8_element_t *element = t8_forest_get_element_in_tree (forest, itree, ielement);
   int is_upper_boundary = 0;
   int is_lower_boundary = 0;
+  int is_south_boundary = 0;
+  int is_north_boundary = 0;
   /* Check for upper boundary of unit cube */
   if (scheme->t8_element_is_root_boundary (element, 5)) {
-    /* We are at the upper boundary (z = 1) */
     is_upper_boundary = 1;
   }
   /* Check for upper boundary of unit cube */
   if (scheme->t8_element_is_root_boundary (element, 4)) {
-    /* We are at the upper boundary (z = 1) */
     is_lower_boundary = 1;
   }
-  
+  /* Check for south boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 2)) {
+    is_south_boundary = 1;
+  }
+  /* Check for north boundary of unit cube */
+  if (scheme->t8_element_is_root_boundary (element, 3)) {
+    is_north_boundary = 1;
+  }
+  const int is_at_pole = is_south_boundary || is_north_boundary;
+  const int is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
+
+  /* TODO: Try using coord = 0/1 as indicator...flow in volumen will have
+   *        w/v value, flow at boundary not. */
   t8_mptrac_coords_to_latlonpressure (mptrac_context, x_vec, &lat, &lon, &pressure);
 
   int                 ci[3];
   double              cw[3];
 
-  /* If we are at the upper or lower boundary, set the flow in z direction to 0 */
-  flux_vec[2] = 0;
-  if (!is_lower_boundary) {
-    /* Compute interpolation of u */
-    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->u,
-                        mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->u,
-                        physical_time, pressure, lon, lat, flux_vec, ci, cw,
-                        1);
-    /* Compute interpolation of v */
+  /* Compute interpolation of u (zonal wind east/west direction, x axis) */
+  intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->u,
+                      mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->u,
+                      physical_time, pressure, lon, lat, flux_vec, ci, cw,
+                      1);
+  if (!is_at_pole) {
+    /* Compute interpolation of v (meridional wind north/south direction, y axis) */
     intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->v, mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->v, physical_time, pressure, lon, lat, flux_vec + 1, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
-
-    if (!is_upper_boundary) {
-      /* Compute interpolation of w */
-      intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w, mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, physical_time, pressure, lon, lat, flux_vec + 2, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
-    }
+  } 
+  else {
+    flux_vec[1] = 0;
   }
+  if (!is_at_top_or_bottom) {
+    /* Compute interpolation of w (vertical velocity, z axis) */
+    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w, mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, physical_time, pressure, lon, lat, flux_vec + 2, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
+  }
+  else {
+    flux_vec[2] = 0;
+  }
+#if 0
+/* 2D Interpolation for ground pressure. Currently deactivated, may be useful later. */
   else {
     /* We are at the lower boundary. Compute 2D interpolation at ground pressure */
     intpol_met_time_2d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->us,
@@ -112,5 +129,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
                         mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->vs,
                         physical_time, lon, lat, flux_vec + 1, ci, cw,
                         1);
+    /* TODO: Do we also need flux_vec[2] or is it 0? */
   }
+#endif
 }
