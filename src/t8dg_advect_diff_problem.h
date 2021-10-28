@@ -91,6 +91,17 @@ t8dg_linear_advection_diffusion_problem_t *t8dg_advect_diff_problem_init (t8_for
 
 void                t8dg_advect_diff_problem_destroy (t8dg_linear_advection_diffusion_problem_t ** pproblem);
 
+/** Return the forest that is associated to a problem.
+ * \param [in] problem The advection diffusion problem.
+ */
+const t8_forest_t   t8dg_advect_diff_problem_get_forest (const t8dg_linear_advection_diffusion_problem_t *problem);
+
+/** Return the timestepping data that is associated to a problem.
+ * \param [in] problem The advection diffusion problem.
+ */
+const t8dg_timestepping_data_t *t8dg_advect_diff_problem_get_time_data (const t8dg_linear_advection_diffusion_problem_t *problem);
+
+
 /*do the important stuff*/
 void                t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem);
 
@@ -111,18 +122,18 @@ double              t8dg_advect_diff_problem_l_infty_rel (t8dg_linear_advection_
 double              t8dg_advect_diff_problem_l2_rel (t8dg_linear_advection_diffusion_problem_t * problem);
 
 /*output*/
-void                t8dg_advect_diff_problem_printdof (t8dg_linear_advection_diffusion_problem_t * problem);
+void                t8dg_advect_diff_problem_printdof (const t8dg_linear_advection_diffusion_problem_t * problem);
 
 void                t8dg_advect_diff_problem_write_vtk (t8dg_linear_advection_diffusion_problem_t * problem);
 
 /*getter*/
-int                 t8dg_advect_diff_problem_endtime_reached (t8dg_linear_advection_diffusion_problem_t * problem);
+int                 t8dg_advect_diff_problem_endtime_reached (const t8dg_linear_advection_diffusion_problem_t * problem);
 
-int                 t8dg_advect_diff_problem_get_stepnumber (t8dg_linear_advection_diffusion_problem_t * problem);
+int                 t8dg_advect_diff_problem_get_stepnumber (const t8dg_linear_advection_diffusion_problem_t * problem);
 
 void                t8dg_advect_diff_problem_set_time_step (t8dg_linear_advection_diffusion_problem_t * problem);
 
-int                 t8dg_advect_diff_problem_get_apx_total_steps (t8dg_linear_advection_diffusion_problem_t * problem);
+int                 t8dg_advect_diff_problem_get_apx_total_steps (const t8dg_linear_advection_diffusion_problem_t * problem);
 
 T8DG_EXTERN_C_END ();
 

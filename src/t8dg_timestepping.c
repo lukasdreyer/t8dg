@@ -151,7 +151,7 @@ t8dg_timestepping_data_destroy (t8dg_timestepping_data_t ** ptime_data)
 }
 
 double
-t8dg_timestepping_data_get_current_time (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_current_time (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->t;
 }
@@ -163,25 +163,25 @@ t8dg_timestepping_data_set_current_time (t8dg_timestepping_data_t * time_data, d
 }
 
 double
-t8dg_timestepping_data_get_end_time (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_end_time (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->T;
 }
 
 double
-t8dg_timestepping_data_get_cfl (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_cfl (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->cfl;
 }
 
 int
-t8dg_timestepping_data_get_time_order (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_time_order (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->time_order;
 }
 
 double
-t8dg_timestepping_data_get_time_step (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_time_step (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->delta_t;
 }
@@ -198,13 +198,13 @@ t8dg_timestepping_data_set_time_step (t8dg_timestepping_data_t * time_data, doub
 }
 
 int
-t8dg_timestepping_data_is_endtime_reached (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_is_endtime_reached (const t8dg_timestepping_data_t * time_data)
 {
   return !(time_data->t < time_data->T);
 }
 
 int
-t8dg_timestepping_data_get_step_number (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_step_number (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->step_number;
 }
@@ -216,7 +216,7 @@ t8dg_timestepping_data_increase_step_number (t8dg_timestepping_data_t * time_dat
 }
 
 double
-t8dg_timestepping_data_get_time_left (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_time_left (const t8dg_timestepping_data_t * time_data)
 {
   return time_data->T - time_data->t;
 }

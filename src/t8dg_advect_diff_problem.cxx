@@ -108,6 +108,18 @@ struct t8dg_linear_advection_diffusion_problem
   sc_MPI_Comm         comm; /**< MPI Communicator */
 };
 
+const t8_forest_t
+t8dg_advect_diff_problem_get_forest (const t8dg_linear_advection_diffusion_problem_t *problem)
+{
+  return problem->forest;
+}
+
+const t8dg_timestepping_data_t*
+t8dg_advect_diff_problem_get_time_data (const t8dg_linear_advection_diffusion_problem_t *problem)
+{
+  return problem->time_data;
+}
+
 void
 t8dg_advect_diff_problem_compute_and_print_stats (t8dg_linear_advection_diffusion_problem_t * problem)
 {
@@ -558,11 +570,11 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
 }
 
 int
-t8dg_advect_diff_problem_get_apx_total_steps (t8dg_linear_advection_diffusion_problem_t * problem)
+t8dg_advect_diff_problem_get_apx_total_steps (const t8dg_linear_advection_diffusion_problem_t * problem)
 {
   double              timestep = t8dg_timestepping_data_get_time_step (problem->time_data);
-  double              timelenght = t8dg_timestepping_data_get_time_left (problem->time_data);
-  return (int) (timelenght / timestep);
+  double              timelength = t8dg_timestepping_data_get_time_left (problem->time_data);
+  return (int) (timelength / timestep);
 }
 
 void
@@ -886,19 +898,19 @@ t8dg_advect_diff_problem_write_vtk (t8dg_linear_advection_diffusion_problem_t * 
 }
 
 void
-t8dg_advect_diff_problem_printdof (t8dg_linear_advection_diffusion_problem_t * problem)
+t8dg_advect_diff_problem_printdof (const t8dg_linear_advection_diffusion_problem_t * problem)
 {
   t8dg_dof_values_debug_print (problem->dof_values);
 }
 
 int
-t8dg_advect_diff_problem_get_stepnumber (t8dg_linear_advection_diffusion_problem_t * problem)
+t8dg_advect_diff_problem_get_stepnumber (const t8dg_linear_advection_diffusion_problem_t * problem)
 {
   return t8dg_timestepping_data_get_step_number (problem->time_data);
 }
 
 int
-t8dg_advect_diff_problem_endtime_reached (t8dg_linear_advection_diffusion_problem_t * problem)
+t8dg_advect_diff_problem_endtime_reached (const t8dg_linear_advection_diffusion_problem_t * problem)
 {
   return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
 }
