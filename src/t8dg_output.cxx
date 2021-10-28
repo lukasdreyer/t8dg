@@ -93,4 +93,7 @@ t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * o
   (output_data->vtk_count)++;
   /* clean-up */
   T8_FREE (dof_array);
+  if (write_flow) {
+    T8_FREE (flow_array);
+  }
 }
