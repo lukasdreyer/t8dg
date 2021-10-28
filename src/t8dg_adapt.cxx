@@ -21,6 +21,9 @@ t8dg_adapt_fn_arg (int adapt_arg)
   case 3:
     return t8dg_adapt_smooth_indicator_hypercube;
     break;
+  case 4:
+    return t8dg_adapt_mptrac_hypercube;
+    break;
 
   default:
     T8DG_ABORT ("Wrong adapt fn arg");
@@ -204,6 +207,42 @@ t8dg_adapt_smooth_indicator (t8_forest_t forest,
   }
   return 0;
 }
+
+int
+t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
+                             t8_forest_t forest_from,
+                             t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements,
+                             t8_element_t * elements[])
+{
+  const t8_element_t *element = elements[0];
+  int is_upper_boundary = 0;
+  int is_lower_boundary = 0;
+  int is_south_boundary = 0;
+  int is_north_boundary = 0;
+  /* Check for upper boundary of unit cube */
+  if (ts->t8_element_is_root_boundary (element, 5)) {
+    is_upper_boundary = 1;
+  }
+  /* Check for upper boundary of unit cube */
+  if (ts->t8_element_is_root_boundary (element, 4)) {
+    is_lower_boundary = 1;
+  }
+  /* Check for south boundary of unit cube */
+  if (ts->t8_element_is_root_boundary (element, 2)) {
+    is_south_boundary = 1;
+  }
+  /* Check for north boundary of unit cube */
+  if (ts->t8_element_is_root_boundary (element, 3)) {
+    is_north_boundary = 1;
+  }
+  const int is_at_pole = is_south_boundary || is_north_boundary;
+  const int is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
+
+  if (is_at_top_or_bottom || is_at_pole) {
+    return 1;
+  }
+  return 0;
+}                                       
 
 int
 t8dg_adapt_smooth_indicator_hypercube (t8_forest_t forest,

@@ -14,6 +14,7 @@ libt8dg_installed_headers = \
   src/t8dg_vertexset.h \
   src/t8dg_flux.h \
   src/t8dg_flux_implementation.h \
+  src/t8dg_flux_data_base.h \
   src/t8dg_dof.h \
   src/t8dg_quad.h \
   src/t8dg_mortar.h \

@@ -76,7 +76,7 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
     t8_global_errorf ("Argument error. Invalid adapt frequency.\n");
     return 0;
   }
-  if (!(adapt_arg >= 0 && adapt_arg <= 3)) {
+  if (!(adapt_arg >= 0 && adapt_arg <= 4)) {
     t8_global_errorf ("Argument error. Invalid adapt function.\n");
     return 0;
   }
