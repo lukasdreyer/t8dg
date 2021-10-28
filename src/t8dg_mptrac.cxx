@@ -175,9 +175,9 @@ t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
 {
   const double value_inside_box = 10;
   /* Lon/Lat/pressure coordinates of the lower left corner of the box. */
-  const double box_lower_left[3] = {7, 50, 2000};
+  const double box_lower_left[3] = {150, 0, 800};
   /* Dimensions of the box in degree x degree x pressure */
-  const double box_extend[3] = {200, 200, 1000};
+  const double box_extend[3] = {1, 1, 20};
 
   double lat, lon, pressure;
 
