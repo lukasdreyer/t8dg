@@ -113,7 +113,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 
   /* TODO: Try using coord = 0/1 as indicator...flow in volumen will have
    *        w/v value, flow at boundary not. */
-  t8_mptrac_coords_to_latlonpressure (mptrac_context, x_vec, &lat, &lon, &pressure);
+  t8_mptrac_coords_to_lonlatpressure (mptrac_context, x_vec, &lon, &lat, &pressure);
 
   int                 ci[3];
   double              cw[3];
@@ -121,18 +121,22 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   /* Compute interpolation of u (zonal wind east/west direction, x axis) */
   intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->u,
                       mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->u,
-                      physical_time, pressure, lon, lat, flux_vec, ci, cw,
+                      physical_time_s, pressure, lon, lat, flux_vec, ci, cw,
                       1);
   if (!is_at_pole) {
     /* Compute interpolation of v (meridional wind north/south direction, y axis) */
-    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->v, mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->v, physical_time, pressure, lon, lat, flux_vec + 1, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
+    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->v, 
+                        mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->v, 
+                        physical_time_s, pressure, lon, lat, flux_vec + 1, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
   } 
   else {
     flux_vec[1] = 0;
   }
   if (!is_at_top_or_bottom) {
     /* Compute interpolation of w (vertical velocity, z axis) */
-    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w, mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, physical_time, pressure, lon, lat, flux_vec + 2, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
+    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w,
+                        mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, 
+                        physical_time_s, pressure, lon, lat, flux_vec + 2, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
   }
   else {
     flux_vec[2] = 0;
