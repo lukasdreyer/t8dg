@@ -66,7 +66,7 @@ t8dg_values_destroy (t8dg_values_t ** p_values)
 {
   t8dg_values_t      *values;
   values = *p_values;
-  t8_eclass_t         eclass;
+  int         eclass;
 
   t8dg_mortar_array_destroy (&values->mortar_array);
 
