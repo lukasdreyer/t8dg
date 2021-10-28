@@ -176,15 +176,16 @@ t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
   const double value_inside_box = 10;
   /* Lon/Lat/pressure coordinates of the lower left corner of the box. */
   const double box_lower_left[3] = {7, 50, 2000};
-  /* Dimensions of the box in degree x degree x meter */
-  const double box_extend[3] = {200, 200, 800};
+  /* Dimensions of the box in degree x degree x pressure */
+  const double box_extend[3] = {200, 200, 1000};
 
   double lat, lon, pressure;
 
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
 
-  t8_mptrac_coords_to_lonlatpressure (mptrac_flux_data->get_context(), x, &lat, &lon, &pressure);
+  t8_mptrac_coords_to_lonlatpressure (mptrac_flux_data->get_context(), x, &lon, &lat, &pressure);
 
+  /* TODO: How to translate meter of box_extend[3] back to pressure? */
   if (box_lower_left[0] <= lon && lon <= box_lower_left[0] + box_extend[0]
    && box_lower_left[1] <= lat && lat <= box_lower_left[1] + box_extend[1]
    && box_lower_left[2] <= pressure && pressure <= box_lower_left[2] + box_extend[2])
