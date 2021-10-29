@@ -173,22 +173,34 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 double
 t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
 {
+  /* We only spit out material for the first hour. */
+  if (t > 1./60) {
+    return 0;
+  }
   const double value_inside_box = 10;
   /* Lon/Lat/pressure coordinates of the lower left corner of the box. */
   const double box_lower_left[3] = {150, 0, 800};
-  /* Dimensions of the box in degree x degree x pressure */
-  const double box_extend[3] = {1, 1, 20};
+  const double pressure_lower_left_in_meter = Z(box_lower_left[2]);
+  //const double box_lower_left[3] = {0.5, 0.5, 0.5};
+  /* Dimensions of the box in degree x degree x km */
+  const double box_extend[3] = {10, 10, 1};
+  //const double box_extend[3] = {0.05, 0.05, 0.05};
 
   double lat, lon, pressure;
 
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
 
   t8_mptrac_coords_to_lonlatpressure (mptrac_flux_data->get_context(), x, &lon, &lat, &pressure);
-
+  /* Temporarily, we do not use lat/lon/p coordinates. */
+  //lon = x[0];
+  //lat = x[1];
+  //pressure = x[2];
+  t8dg_debugf ("xyz -> llp: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f/%.2f)\n",
+   x[0], x[1], x[2], lon, lat, pressure, Z(pressure));
   /* TODO: How to translate meter of box_extend[3] back to pressure? */
   if (box_lower_left[0] <= lon && lon <= box_lower_left[0] + box_extend[0]
    && box_lower_left[1] <= lat && lat <= box_lower_left[1] + box_extend[1]
-   && box_lower_left[2] <= pressure && pressure <= box_lower_left[2] + box_extend[2])
+   && pressure_lower_left_in_meter <= Z(pressure) && Z(pressure) <= pressure_lower_left_in_meter + box_extend[2])
    {
      /* The point x is inside the box. */
      return value_inside_box;
