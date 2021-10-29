@@ -22,7 +22,7 @@ t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours
   context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
 
   start_six_hours = 0;
-  time2jsec (2011, 06, 05, start_six_hours, 00, 00, 00, &physical_time_s);
+  time2jsec (2017, 01, 01, start_six_hours, 00, 00, 00, &physical_time_s);
 
   t8_mptrac_read_nc (context, 1, physical_time_s);
   hours_since_last_file_read = 0;

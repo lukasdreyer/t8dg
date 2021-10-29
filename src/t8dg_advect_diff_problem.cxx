@@ -193,7 +193,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     *(double *) description->numerical_flux_advection_data = 1;
     /* To use the mptrac flow, we need to load the nc files and initial
      * interpolation first. */
-    flux_data = new t8dg_mptrac_flux_data ("ei_2011_06_05_00.nc", 6);
+    flux_data = new t8dg_mptrac_flux_data ("ei_2017_01_01_00.nc", 6);
     break;
   default:
     T8DG_ABORT ("Invalid flow type.");
