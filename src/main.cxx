@@ -12,12 +12,17 @@
 
 #include <sc_options.h>
 #include <sc.h>
+#if T8_WITH_PETSC
+#include <petscsys.h>
+#include "t8dg_preconditioner.h"
+#endif
 
 static int
 t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int initial_cond_arg,
                     int uniform_level, int max_level, int min_level,
                     int number_LGL_points, double start_time, double end_time, double cfl, double delta_t, int time_steps, int time_order,
-                    int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg)
+                    int vtk_freq, int adapt_freq, int adapt_arg, double diffusion_coefficient, int numerical_flux_arg, int source_sink_arg,
+                    int use_implicit_timestepping, int preconditioner_selection, int multigrid_levels)
 {
   if (!(icmesh >= 0 && icmesh <= 12))
     return 0;
@@ -60,7 +65,8 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
     t8_global_errorf ("Argument error. start_time >= end_time.\n");
     return 0;
   }
-  if (!((cfl > 0 && cfl <= 1) || (cfl == 0 && (delta_t > 0 || time_steps > 0)))) {
+  if (!((cfl > 0 && ((cfl <= 1 && use_implicit_timestepping == 0) || (use_implicit_timestepping != 0)))
+        || (cfl == 0 && (delta_t > 0 || time_steps > 0))))  {
     t8_global_errorf ("Argument error. Invalid CFL/delta_t/time_steps value.\n");
     return 0;
   }
@@ -91,7 +97,20 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
   if (!(source_sink_arg >= 0 && source_sink_arg <= 2)) {
     t8_global_errorf ("Argument error. Invalid source/sink.\n");
     return 0;
+  if (!(use_implicit_timestepping == 0 || use_implicit_timestepping == 1)) {
+    t8_global_errorf ("Argument error. Invalid timestepping.\n");
+    return 0;
   }
+#if T8_WITH_PETSC
+  if (!(0 <= preconditioner_selection && preconditioner_selection <= 4)) {
+    t8_global_errorf ("Argument error. Invalid preconditioner.\n");
+    return 0;
+  }
+  if (!(2 <= multigrid_levels && multigrid_levels <= T8DG_PRECON_MAX_MG_LVLS)) {
+    t8_global_errorf ("Argument error. Invalid multigrid level.\n");
+    return 0;
+  }
+#endif
   return 1;
 }
 
@@ -106,6 +125,9 @@ main (int argc, char *argv[])
   int                 initial_cond_arg;
   int                 uniform_level, max_level, min_level;
   int                 time_order;
+  int                 use_implicit_timestepping;
+  int                 preconditioner_selection;
+  int                 multigrid_levels;
   int                 number_LGL_points;
   int                 vtk_freq;
   int                 adapt_freq;
@@ -124,6 +146,9 @@ main (int argc, char *argv[])
   int                 numerical_flux_arg;
   int                 time_steps;
   int                 refine_error;
+#if T8_WITH_PETSC
+  PetscErrorCode      ierr;
+#endif
   /* brief help message */
 
   /* long help message */
@@ -139,6 +164,12 @@ main (int argc, char *argv[])
 #else
   t8dg_init (SC_LP_ESSENTIAL);
   t8_init (SC_LP_ESSENTIAL);
+#endif
+
+#if T8_WITH_PETSC
+  ierr = PetscInitialize (&argc, &argv, (char *) 0, NULL);
+  if (ierr)
+    return ierr;
 #endif
 
   /* initialize command line argument parser */
@@ -161,6 +192,18 @@ main (int argc, char *argv[])
   sc_options_add_string (opt, '\0', "mshfile", &mshfile_prefix, NULL, "If cmesh = 12, the prefix of a .msh file containing the cmesh geometry. Requires --dim\n");
   sc_options_add_int (opt, '\0', "dim", &mshfile_dim, 3, "If cmesh = 12 and mshfile is set, the dimension of the mesh in the mshfile. Requires --mshfile. Default: 3\n");
 
+  sc_options_add_int (opt, 'I', "use_implicit_timestepping", &use_implicit_timestepping, 0,
+                      "Whether implicit or explicit time stepping Runge Kutta should be used. Default: 0.\n"
+                      "\t\t0: explicit RKV (max. time_order <= 4)\n" "\t\t1: implicit DIRK (max. time_order <= 3)\n");
+  sc_options_add_int (opt, 'P', "preconditioner_selection", &preconditioner_selection, 0,
+                      "Choose which preconditioner should be applied to the implicit system, resulting from the time stepping method (only applicable if an implicit timestepping method is choosen). Default: 0.\n"
+                      "\t\t0: No preconditioning\n" "\t\t1: Block-Jacobi-Preconditioner\n"
+                      "\t\t2: Currently, no preconditioner is assigned\n"
+                      "\t\t3: Block-Gauss-Seidel-Preconditioner\n"
+                      "\t\t4: Multigrid Multiple-Levels (currently max. 6 level; adjustable in t8dg_preconditioner.c)\n");
+  sc_options_add_int (opt, 'M', "multigrid_levels", &multigrid_levels, 2,
+                      "The number of Mesh-Levels to use within multigrid preconditioning (inclusive initial level; (number -1) corse levels are used. Default: 2");
+  
   sc_options_add_double (opt, 'c', "flow_velocity", &flow_velocity, 1.0, "The flow velocity. Default: 1.0");
   sc_options_add_double (opt, 'd', "diff_coeff", &diffusion_coefficient, 0, "The diffusion coefficient. Default: 0");
 
@@ -209,13 +252,15 @@ main (int argc, char *argv[])
   }
   else if (parsed >= 0 && t8dg_check_options (icmesh, mshfile_prefix, mshfile_dim, initial_cond_arg, uniform_level, max_level, min_level, number_LGL_points,
                                               start_time, end_time, cfl, delta_t, time_steps, time_order, vtk_freq, adapt_freq, adapt_arg,
-                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg)) {
+                                              diffusion_coefficient, numerical_flux_arg, source_sink_arg, use_implicit_timestepping,
+                                              preconditioner_selection, multigrid_levels)) {
     t8dg_linear_advection_diffusion_problem_t *problem;
     problem =
       t8dg_advect_diff_problem_init_arguments (icmesh, mshfile_prefix, mshfile_dim, uniform_level, number_LGL_points, initial_cond_arg, flow_velocity,
                                                diffusion_coefficient, start_time, end_time, cfl, delta_t, time_steps, time_order,
-                                               min_level, max_level, adapt_arg, adapt_freq, prefix, vtk_freq,
-                                               numerical_flux_arg, source_sink_arg, refine_error, sc_MPI_COMM_WORLD);
+                                               use_implicit_timestepping, preconditioner_selection, multigrid_levels, min_level, max_level,
+                                               adapt_arg, adapt_freq, prefix, vtk_freq, numerical_flux_arg, source_sink_arg, refine_error,
+                                               sc_MPI_COMM_WORLD);
 
     t8dg_advect_diff_solve (problem);
 
@@ -231,5 +276,8 @@ main (int argc, char *argv[])
   sc_finalize ();
   mpiret = sc_MPI_Finalize ();
   SC_CHECK_MPI (mpiret);
+#if T8_WITH_PETSC
+  PetscFinalize ();
+#endif
   return 0;
 }

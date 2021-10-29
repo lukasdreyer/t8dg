@@ -55,6 +55,12 @@ void
  t8dg_mortar_array_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_array,
                                                     t8_locidx_t itree, t8_locidx_t ielement, sc_array_t * element_result_dof);
 
+#if T8_WITH_PETSC
+void                t8dg_mortar_array_block_precon_apply_element_boundary_integral (t8dg_mortar_array_t * mortar_array,
+                                                                                    t8_locidx_t itree, t8_locidx_t ielement,
+                                                                                    sc_array_t * element_result_dof, int selector);
+#endif
+
 T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_MORTAR_H_ */

@@ -952,3 +952,9 @@ t8dg_local_values_get_coarse_geometry (t8dg_local_values_t * local_values)
 {
   return local_values->coarse_geometry;
 }
+
+void
+t8dg_local_values_set_forest (t8dg_local_values_t * local_values, t8_forest_t * forest)
+{
+  local_values->forest = *forest;
+}

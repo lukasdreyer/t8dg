@@ -19,6 +19,7 @@ libt8dg_installed_headers = \
   src/t8dg_quad.h \
   src/t8dg_mortar.h \
   src/t8dg_mptrac.h \
+  src/t8dg_timestepping_dirk_coefficients.h \
   src/t8dg_timestepping.h \
   src/t8dg_dmatrix.h \
   src/t8dg_quadrature.h \
@@ -29,6 +30,7 @@ libt8dg_installed_headers = \
   src/t8dg_adapt.h \
   src/t8dg_output.h \
   src/t8dg_cmesh.h \
+  src/t8dg_preconditioner.h \
   src/t8dg_advect_diff_problem.h
 
 libt8dg_internal_headers =
@@ -44,6 +46,7 @@ libt8dg_compiled_sources = \
   src/t8dg_coarse_geometry.c \
   src/t8dg_mortar.cxx \
   src/t8dg_mptrac.cxx \
+  src/t8dg_timestepping_dirk_coefficients.c \
   src/t8dg_timestepping.c \
   src/t8dg_dmatrix.c \
   src/t8dg_values.cxx \
@@ -58,6 +61,7 @@ libt8dg_compiled_sources = \
   src/t8dg_adapt.cxx \
   src/t8dg_output.cxx \
   src/t8dg_cmesh.cxx \
+  src/t8dg_preconditioner.c \
   src/t8dg_advect_diff_problem.cxx
 
 # this variable is used for headers that are not publicly installed
@@ -70,11 +74,11 @@ src_libt8dg_la_SOURCES = \
 src_libt8dg_la_CPPFLAGS = $(AM_CPPFLAGS) $(T8DG_CPPFLAGS)
 src_libt8dg_la_LDFLAGS = -release $(VERSION)
 LDADD += @top_builddir@/src/libt8dg.la \
-        @T8DG_T8_LDADD@ @T8DG_P4EST_LDADD@ @T8DG_SC_LDADD@
+        @T8DG_T8_LDADD@ @T8DG_P4EST_LDADD@ @T8DG_SC_LDADD@ @T8DG_PETSC_LINK_LIBS@
 EXTRA_src_libt8dg_la_DEPENDENCIES = @T8DG_T8_LDADD@ @T8DG_P4EST_LDADD@ @T8DG_SC_LDADD@
 
 nodist_include_HEADERS += $(libt8dg_generated_headers)
 include_HEADERS += $(libt8dg_installed_headers)
 
 AM_CPPFLAGS += -I@top_srcdir@/src \
-        @T8DG_SC_CPPFLAGS@ @T8DG_P4EST_CPPFLAGS@ @T8DG_T8_CPPFLAGS@
+        @T8DG_SC_CPPFLAGS@ @T8DG_P4EST_CPPFLAGS@ @T8DG_T8_CPPFLAGS@ @T8DG_PETSC_INCLUDE_DIRS@

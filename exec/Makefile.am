@@ -3,7 +3,7 @@
 # Included from toplevel directory
 
 bin_PROGRAMS += \
-	exec/t8dg 
+	exec/t8dg
 
 exec_t8dg_SOURCES = \
 	thirdparty/mptrac/libtrac.c \

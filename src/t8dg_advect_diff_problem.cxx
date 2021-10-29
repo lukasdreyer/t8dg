@@ -282,6 +282,9 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
                                          double delta_t,
                                          int time_steps,
                                          int time_order,
+                                         int use_implicit_timestepping,
+                                         int preconditioner_selection,
+                                         int multigrid_levels,
                                          int min_level,
                                          int max_level,
                                          int adapt_arg,
@@ -323,13 +326,17 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   vtk_data = t8dg_output_vtk_data_new (prefix, vtk_freq);
   if (cfl > 0) {
-    time_data = t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl);
+    time_data =
+      t8dg_timestepping_data_new_cfl (time_order, start_time, end_time, cfl, use_implicit_timestepping, preconditioner_selection,
+                                      multigrid_levels);
   }
   else {
     if (delta_t <= 0) {
       delta_t = (end_time - start_time) / time_steps;
     }
-    time_data = t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t);
+    time_data =
+      t8dg_timestepping_data_new_constant_timestep (time_order, start_time, end_time, delta_t, use_implicit_timestepping,
+                                                    preconditioner_selection, multigrid_levels);
   }
   init_time += sc_MPI_Wtime ();
 
@@ -379,7 +386,12 @@ t8dg_advect_diff_problem_init (t8_forest_t forest, t8dg_linear_advection_diffusi
   adapt_steps =
     SC_MAX (problem->adapt_data->maximum_refinement_level - problem->adapt_data->initial_refinement_level,
             problem->adapt_data->initial_refinement_level - problem->adapt_data->minimum_refinement_level);
-
+  /* If the adapt frequence is 0, there should be no initial adaption of the mesh */
+#if 1
+  if (adapt_data->adapt_freq == 0) {
+    adapt_steps = 0;
+  }
+#endif
   for (iadapt = 0; iadapt < adapt_steps; iadapt++) {
     /* initial adapt */
     t8dg_advect_diff_problem_adapt (problem, 0);
@@ -463,6 +475,10 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
       t8dg_advect_diff_problem_adapt (problem, 1);
       t8dg_advect_diff_problem_partition (problem, 1);
     }
+
+    /* For test reasons, quit after first timestep */
+    t8dg_timestepping_data_set_current_time (problem->time_data, t8dg_timestepping_data_get_end_time (problem->time_data));
+
   }
   if (problem->vtk_data->vtk_freq) {
     t8dg_advect_diff_problem_write_vtk (problem);
@@ -544,16 +560,16 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
 
   t8dg_dof_values_add (dof_sum, dof_summand);
 
-  t8dg_debugf ("stiffnessmatrix:\n");
-  t8dg_dof_values_debug_print (dof_summand);
+  //t8dg_debugf ("stiffnessmatrix:\n");
+  //t8dg_dof_values_debug_print (dof_summand);
 
   t8dg_values_apply_boundary_integrals (problem->dg_values, dof_values, dof_summand, problem->description->velocity_field,
                                         problem->description->flux_data, problem->description->numerical_flux_advection,
                                         problem->description->numerical_flux_advection_data, t);
 
   t8dg_dof_values_subtract (dof_sum, dof_summand);      /*subtract function */
-  t8dg_debugf ("boundary_matrix:\n");
-  t8dg_dof_values_debug_print (dof_summand);
+  //t8dg_debugf ("boundary_matrix:\n");
+  //t8dg_dof_values_debug_print (dof_summand);
 
   if (problem->description->source_sink_fn != NULL) {
     t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->source_sink_fn, t,
@@ -565,8 +581,8 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
   /*apply massinverse */
   t8dg_values_apply_inverse_mass_matrix (problem->dg_values, dof_sum, dof_change);
 
-  t8_debugf ("du/dt = ");
-  t8dg_dof_values_debug_print (dof_change);
+  //t8_debugf ("du/dt = ");
+  //t8dg_dof_values_debug_print (dof_change);
 
   t8dg_dof_values_destroy (&gradient_component);
   t8dg_dof_values_destroy (&gradient_component_stiffness);
@@ -575,6 +591,110 @@ t8dg_advect_diff_time_derivative (t8dg_dof_values_t * dof_values, t8dg_dof_value
   t8dg_dof_values_destroy (&dof_sum);
   t8dg_dof_values_destroy (&dof_summand);
 }
+
+#if T8_WITH_PETSC
+void
+t8dg_advect_diff_problem_block_precon_time_derivative_variant (t8dg_dof_values_t * dof_values, t8dg_dof_values_t * dof_change,
+                                                               const double t, const void *application_data, int selector)
+{
+  /* this function can be applied once at each term the preconditioner is applied, and after that, all dof_values are set, and the element-local systems can be solved by a KSP method */
+
+  T8DG_ASSERT (application_data != NULL);
+  t8dg_linear_advection_diffusion_problem_t *problem = (t8dg_linear_advection_diffusion_problem_t *) application_data;
+  T8DG_ASSERT (dof_values == problem->dof_values);
+  T8DG_ASSERT (t == t8dg_timestepping_data_get_current_time (problem->time_data));
+
+  double              sqrt_diffusion_coefficient;
+  int                 icomp;
+  t8dg_dof_values_t  *dof_summand;
+  t8dg_dof_values_t  *dof_sum;
+  t8dg_dof_values_t  *bu;
+  t8dg_dof_values_t  *gradient_component;
+  t8dg_dof_values_t  *gradient_component_stiffness;
+  t8dg_dof_values_t  *gradient_component_boundary;
+
+  sqrt_diffusion_coefficient = sqrt (problem->description->diffusion_coefficient);
+
+  dof_summand = t8dg_dof_values_duplicate (dof_values);
+  dof_sum = t8dg_dof_values_duplicate (dof_values);
+  gradient_component = t8dg_dof_values_duplicate (dof_values);
+  gradient_component_stiffness = t8dg_dof_values_duplicate (dof_values);
+  gradient_component_boundary = t8dg_dof_values_duplicate (dof_values);
+
+  t8dg_dof_values_set_zero (dof_sum);
+
+  bu = t8dg_dof_values_clone (dof_values);
+  t8dg_dof_values_ax (bu, sqrt_diffusion_coefficient);
+
+  if (sqrt_diffusion_coefficient > 0) {
+    /* If diffusion is considered */
+    for (icomp = 0; icomp < problem->dim; ++icomp) {
+
+      /* Apply stiffnes matrix componentwise */
+      t8dg_values_apply_component_stiffness_matrix_dof (problem->dg_values, icomp, bu, gradient_component_stiffness);
+
+      /* Apply boundary integrals */
+      t8dg_values_block_precon_apply_component_boundary_integrals (problem->dg_values, bu, gradient_component_boundary, icomp,
+                                                                   problem->description->numerical_flux_diffusion_gradient,
+                                                                   problem->description->numerical_flux_diffusion_gradient_data, t,
+                                                                   selector);
+
+      t8dg_dof_values_axpyz (-1, gradient_component_stiffness, gradient_component_boundary, gradient_component);
+
+      t8dg_values_apply_inverse_mass_matrix (problem->dg_values, gradient_component, gradient_component);
+
+      t8dg_dof_values_ax (gradient_component, sqrt_diffusion_coefficient);
+
+      t8dg_values_block_precon_apply_component_boundary_integrals (problem->dg_values, gradient_component, dof_summand, icomp,
+                                                                   problem->description->numerical_flux_diffusion_concentration,
+                                                                   problem->description->numerical_flux_diffusion_concentration_data, t,
+                                                                   selector);
+      t8dg_dof_values_add (dof_sum, dof_summand);
+
+      t8dg_values_apply_component_stiffness_matrix_dof (problem->dg_values, icomp, gradient_component, dof_summand);
+
+      t8dg_dof_values_subtract (dof_sum, dof_summand);
+
+    }
+  }
+
+  /* Apply stiffness matrix to all dofs */
+  t8dg_values_apply_stiffness_matrix_linear_flux_fn3D (problem->dg_values, problem->description->velocity_field,
+                                                       problem->description->flux_data, t, dof_values, dof_summand);
+
+  /* add the application of the stiffnes matrix to the 'new' degrees of freedom */
+  t8dg_dof_values_add (dof_sum, dof_summand);
+
+  /* Apply only some neighbouring elements' flux values, depending on the block preconsitioner */
+  /* in the normal tim_derivative function, flux values from all neighrbouring elements are put into consideration, but for the system regarding the block preconditioner, e.g. block jacobi, one only needs to 'add' the flux values from the predecessor and succesor of the current element concerning the global ordering of the elements (see t8code's SFC) */
+
+  t8dg_values_block_precon_apply_boundary_integrals (problem->dg_values, dof_values, dof_summand, problem->description->velocity_field,
+                                                     problem->description->flux_data, problem->description->numerical_flux_advection,
+                                                     problem->description->numerical_flux_advection_data, t, selector);
+
+  /* Subtract considered flux values */
+  t8dg_dof_values_subtract (dof_sum, dof_summand);
+
+  /* Take possible source and sink terms into consideration */
+  if (problem->description->source_sink_fn != NULL) {
+    t8dg_values_interpolate_scalar_function_3d_time (problem->dg_values, problem->description->source_sink_fn, t,
+                                                     problem->description->source_sink_data, dof_summand);
+    t8dg_values_apply_mass_matrix (problem->dg_values, dof_summand, dof_summand);
+    t8dg_dof_values_add (dof_sum, dof_summand);
+  }
+
+  /* Apply the inverse mass matrix */
+  t8dg_values_apply_inverse_mass_matrix (problem->dg_values, dof_sum, dof_change);
+
+  /* Free allocated memory */
+  t8dg_dof_values_destroy (&dof_sum);
+  t8dg_dof_values_destroy (&dof_summand);
+  t8dg_dof_values_destroy (&gradient_component);
+  t8dg_dof_values_destroy (&gradient_component_stiffness);
+  t8dg_dof_values_destroy (&gradient_component_boundary);
+  t8dg_dof_values_destroy (&bu);
+}
+#endif
 
 int
 t8dg_advect_diff_problem_get_apx_total_steps (const t8dg_linear_advection_diffusion_problem_t * problem)
@@ -651,7 +771,9 @@ t8dg_advect_diff_problem_advance_timestep (t8dg_linear_advection_diffusion_probl
   t8dg_advect_diff_problem_set_time_step (problem);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_ELEM_AVG, t8_forest_get_global_num_elements (problem->forest));
   problem->description->flux_data->start_new_time_step (problem);
-  t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
+  t8dg_timestepping_choose_impl_expl_method (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
+  //t8dg_timestepping_runge_kutta_step (t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem);
+  //t8dg_timestepping_dirk(t8dg_advect_diff_time_derivative, problem->time_data, &(problem->dof_values), problem, 2);
   t8dg_timestepping_data_increase_step_number (problem->time_data);
   t8dg_advect_diff_problem_accumulate_stat (problem, ADVECT_DIFF_SOLVE, solve_time + sc_MPI_Wtime ());
 }
@@ -921,3 +1043,41 @@ t8dg_advect_diff_problem_endtime_reached (const t8dg_linear_advection_diffusion_
 {
   return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
 }
+
+#if T8_WITH_PETSC
+t8dg_adapt_data_t **
+t8dg_advect_diff_problem_get_adapt_data (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->adapt_data);
+}
+
+t8dg_dof_values_t **
+t8dg_advect_diff_problem_get_dof_values (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dof_values);
+}
+
+t8dg_dof_values_t **
+t8dg_advect_diff_problem_get_dof_values_adapt (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dof_values_adapt);
+}
+
+t8dg_values_t     **
+t8dg_advect_diff_problem_get_dg_values (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->dg_values);
+}
+
+t8_forest_t        *
+t8dg_advect_diff_problem_get_forest (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return &(problem->forest);
+}
+
+t8dg_timestepping_data_t *
+t8dg_advect_diff_problem_get_time_data (t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  return problem->time_data;
+}
+#endif

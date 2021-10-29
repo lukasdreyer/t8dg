@@ -188,6 +188,7 @@ void                t8dg_local_values_element_error_ana_l2_squared (t8dg_local_v
                                                                     t8_locidx_t ielement, double time, double *error_squared_summand,
                                                                     double *ana_norm_squared_summand);
 
+void                t8dg_local_values_set_forest (t8dg_local_values_t * local_values, t8_forest_t * forest);
 T8DG_EXTERN_C_END ();
 
 #endif /* SRC_T8DG_LOCAL_VALUES_H_ */

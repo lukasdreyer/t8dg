@@ -27,6 +27,7 @@ typedef struct t8dg_adapt_data
   t8dg_dof_values_t  *source_sink_dof;
   double              time;
   int                 dim;
+  int                 adapt_fn_arg;     /* needed this member for preconditioning purposes */
 } t8dg_adapt_data_t;
 
 t8_forest_adapt_t   t8dg_adapt_fn_arg (int adapt_arg);
@@ -98,6 +99,12 @@ int t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
                              t8_forest_t forest_from,
                              t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements,
                              t8_element_t * elements[]);
+
+int
+t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
+                                           t8_forest_t forest_from,
+                                           t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
+                                           t8_element_t * elements[]);
 
 T8DG_EXTERN_C_END ();
 

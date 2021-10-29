@@ -42,6 +42,7 @@ t8dg_adapt_data_new (t8dg_values_t * dg_values, int initial_level, int min_level
   adapt_data->minimum_refinement_level = min_level;
   adapt_data->initial_refinement_level = initial_level;
   adapt_data->maximum_refinement_level = max_level;
+  adapt_data->adapt_fn_arg = adapt_fn_arg;
   adapt_data->adapt_fn = t8dg_adapt_fn_arg (adapt_fn_arg);
   adapt_data->adapt_freq = adapt_freq;
   if (min_level == max_level) {
@@ -414,10 +415,8 @@ t8dg_adapt_replace (t8_forest_t forest_old,
   int                 ichild, num_children;
 
   adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest_new);
-
   first_idata_old = t8dg_itree_ielement_to_idata (forest_old, itree, first_ielem_old);
   first_idata_new = t8dg_itree_ielement_to_idata (forest_new, itree, first_ielem_new);
-
   if (num_elems_old == num_elems_new && num_elems_old == 1) {
     t8dg_values_copy_element_values (adapt_data->dg_values, first_idata_old, first_idata_new);
     t8dg_dof_values_copy_from_index_to_index (adapt_data->dof_values, first_idata_old, adapt_data->dof_values_adapt, first_idata_new);
@@ -440,4 +439,28 @@ t8dg_adapt_replace (t8_forest_t forest_old,
     t8dg_values_transform_child_dof_to_parent_dof (adapt_data->dg_values, adapt_data->dof_values, adapt_data->dof_values_adapt, itree,
                                                    num_children, first_ielem_old, first_ielem_new);
   }
+}
+
+/* Coarsens the mesh in order to apply a multigrid preconditioner */
+/* This functions coarsens every family of elements on level back down */
+int
+t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
+                                           t8_forest_t forest_from,
+                                           t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
+                                           t8_element_t * elements[])
+{
+  t8dg_adapt_data_t  *adapt_data;
+  adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+
+  if (num_elements == 1) {
+    /* If it is not a family, nothing happens */
+    return 0;
+  }
+  /* Right now: Refine at max. to the coarsest geometry possible */
+  if (ts->t8_element_level (elements[0]) > 0) {
+    return -1;
+  }
+
+  /* In case the element should not be coarsened and stays the same */
+  return 0;
 }

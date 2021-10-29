@@ -750,3 +750,27 @@ t8dg_dof_values_get_min_value (t8dg_dof_values_t * dof_values, t8_locidx_t itree
   t8dg_element_dof_values_destroy (&element_dof_values);
   return min_value;
 }
+
+t8_locidx_t
+t8dg_dof_get_num_total_elements (t8dg_dof_values_t * dof_values)
+{
+  return dof_values->num_total_elements;
+}
+
+t8_locidx_t
+t8dg_dof_get_num_local_elements (t8dg_dof_values_t * dof_values)
+{
+  return dof_values->num_local_elements;
+}
+
+t8dg_dofidx_t
+t8dg_dof_get_max_num_element_dof (t8dg_dof_values_t * dof_values)
+{
+  return dof_values->max_num_element_dof;
+}
+
+double             *
+t8dg_dof_get_double_pointer_to_array (t8dg_dof_values_t * dof_values)
+{
+  return ((double *) dof_values->dofs->array);
+}
