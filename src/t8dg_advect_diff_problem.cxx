@@ -453,7 +453,8 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
       t8dg_advect_diff_problem_write_vtk (problem);
     }
     if ((step_number + 1) % modulus == 0) {
-      t8dg_global_essentialf ("Step %i of apx. %i\n", step_number + 1, apx_total_steps);
+      t8dg_global_essentialf ("Step %i of apx. %i (%li elements)\n", step_number + 1, apx_total_steps,
+          t8_forest_get_global_num_elements(problem->forest));
     }
 
     t8dg_advect_diff_problem_advance_timestep (problem);
