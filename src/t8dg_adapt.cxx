@@ -219,6 +219,7 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   t8dg_adapt_data_t  *adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
   const int level = ts->t8_element_level (elements[0]);
 
+#if 0
   double midpoint[3];
   double corner_0[3];
   double corner_7[3];
@@ -233,6 +234,15 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   || t8dg_mptrac_box_source (corner_7, -1, adapt_data->source_sink_data)) {
     return 1 && level < adapt_data->maximum_refinement_level;
   }
+  /* If the above does not trigger, the box source may be too small to be detected
+   * by an element. Therefore, we also refine if the lower left corner of the box lies inside
+   * this element. */
+  const double box_point[3] = {0.5, 0.5, 0.5};
+  if (t8_forest_element_point_inside (forest_from, itree, element, box_point, 1e-3)) {
+    return 1 && level < adapt_data->maximum_refinement_level;
+  }
+#endif
+  /* Refine at top/bottom and poles */
 
   int is_upper_boundary = 0;
   int is_lower_boundary = 0;
@@ -261,7 +271,9 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   if ((is_at_top_or_bottom || is_at_pole) && level < adapt_data->maximum_refinement_level) {
     return 1;
   }
-  return 0;
+
+  /* Pass on to the rel min/max criterion to refine according to gradient. */
+  return t8dg_adapt_smooth_indicator (forest, forest_from, itree, ielement, ts, num_elements, elements);
 }                                       
 
 int
