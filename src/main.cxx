@@ -97,6 +97,7 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
   if (!(source_sink_arg >= 0 && source_sink_arg <= 2)) {
     t8_global_errorf ("Argument error. Invalid source/sink.\n");
     return 0;
+  }
   if (!(use_implicit_timestepping == 0 || use_implicit_timestepping == 1)) {
     t8_global_errorf ("Argument error. Invalid timestepping.\n");
     return 0;
