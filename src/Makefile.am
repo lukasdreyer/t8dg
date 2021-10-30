@@ -44,7 +44,7 @@ libt8dg_compiled_sources = \
   src/t8dg_coarse_geometry.c \
   src/t8dg_mortar.cxx	\
   src/t8dg_timestepping_dirk_coefficients.c \
-  src/t8dg_timestepping.c \
+  src/t8dg_timestepping.cxx \
   src/t8dg_dmatrix.c \
   src/t8dg_values.c \
   src/t8dg_dof.c \
@@ -58,7 +58,7 @@ libt8dg_compiled_sources = \
   src/t8dg_adapt.cxx \
   src/t8dg_output.c \
   src/t8dg_cmesh.cxx \
-  src/t8dg_preconditioner.c \
+  src/t8dg_preconditioner.cxx \
   src/t8dg_advect_diff_problem.cxx
 
 # this variable is used for headers that are not publicly installed

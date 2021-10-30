@@ -184,28 +184,28 @@ void                t8dg_precon_initialize_preconditioner (PC * pc, int selector
 void                t8dg_precon_destroy_preconditioner (PC * pc, int selector, t8dg_precon_general_preconditioner_t * general_precon);
 
 /* Initializes the without-preconditioning option */
-void                t8dg_precon_init_without_preconditioning (PC * pc);
+PetscErrorCode      t8dg_precon_init_without_preconditioning (PC * pc);
 
 /* Initializes a block jacobi preconditioner */
-void                t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat * A, PC * pc,
+PetscErrorCode      t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat * A, PC * pc,
                                              t8dg_block_preconditioner_ctx_t ** precon_jacobi_ctx, PetscInt * vec_global_index,
                                              int selector);
 
 /* Destroys the allocated memory from the block jacobi preconditioner */
-void                t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx);
+PetscErrorCode      t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx);
 
 /** A function that writes a t8dg_dof_values_t to a PETSc Vector
 * \param[in] dofs A pointer to the degrees of freedom whose element_dofs will be copied into \a p_vec
 * \param[in, out] p_vec A pointer to a PETSc Vector which entries will be filled 
 * \param[in] indexing A global indexing scheme which provides the corresponding global index in the PETSc Vector to an entry in the (local) t8dg_dof_values_t \a dofs
 */
-void                t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing, size_t num_dofs);
+PetscErrorCode      t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing, size_t num_dofs);
 
 /** A function that writes a PETSc Vector to a t8dg_dof_values_t 
 * \param[in] p_vec A pointer to a PETSc Vector which entries will be copied
 * \param[in, out] dofs A pointer to the degrees of freedom which will be filled with the entries of the PETSc Vector, specifically, the element_dofs of \a dofs will be overwritten with these entries 
 */
-void                t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_dofs);
+PetscErrorCode      t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_dofs);
 
 /** This function updates the preconditioner within the DIRK methods due to the varying coefficients of the different stages 
 * \param[in] selector An integer describing which preconditioner was selected 
@@ -226,12 +226,7 @@ double              t8dg_precon_get_setup_time (t8dg_precon_general_precondition
 * \param[in, out] mg_ctx A pointer to a pointer to the multigrid context, which contains the matrices, solvers, indexing_schemes, etc. This context and it's members are filled by this function
 * \note The maximum number of permitted multigrid levels is set by the \a T8DG_PRECON_MAX_MG_LVLS macro
 */
-void
- 
- 
- 
- 
- 
+PetscErrorCode
  
  
  t8dg_precon_init_multiple_level_mg (void *problem, t8dg_dof_values_t ** problem_dofs,
@@ -263,55 +258,52 @@ void
 * \param[in] coarsening_func The coarsening function which is used to construct the new forest
 * \param[in] num_lvl the level of the new coarse mesh in the multigrid hierachy 
 */
-void
- 
- 
- 
-         t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_corase_lvl_adapt_func_t coarsening_func, int num_lvl);
+PetscErrorCode
+     t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_corase_lvl_adapt_func_t coarsening_func, int num_lvl);
 
 /** This functions destroys the multigrid preconditioner and the space it allocated
 * \param[in] mg_ctx The reference of the pointer to the multigrid context which is going to be destroyed
 */
-void                t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx);
+PetscErrorCode      t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx);
 
 /** This function constructs the PETSc Matrix on the coarsest level within the multigrid preconditioner
 * \param[in, out] mg_lvls A pointer to the multigrid context
 */
-void                t8dg_mg_set_up_coarse_lvl_matrix (t8dg_mg_levels_ctx_t * mg_lvls);
+PetscErrorCode      t8dg_mg_set_up_coarse_lvl_matrix (t8dg_mg_levels_ctx_t * mg_lvls);
 
 /** This function sets up the prolonagtion operators between the levels, interpolating from the coarse to the fine level
 * \param[in, out] mg_lvls A pointer to the multigrid context
 */
-void                t8dg_mg_set_up_prolongation_operators (t8dg_mg_levels_ctx_t * mg_lvls);
+PetscErrorCode      t8dg_mg_set_up_prolongation_operators (t8dg_mg_levels_ctx_t * mg_lvls);
 
 /** This function sets up the restriction operators between the levels, interpolating from the fine to the coarse level
 * \param[in, out] mg_lvls A pointer to the multigrid context
 */
-void                t8dg_mg_set_up_restriction_operators (t8dg_mg_levels_ctx_t * mg_lvls);
+PetscErrorCode      t8dg_mg_set_up_restriction_operators (t8dg_mg_levels_ctx_t * mg_lvls);
 
 /** This function set up the smoothing operators(PETSc Mats, KSPs, ...) on each multigrid level (except on the coarsest)
 * \param[in, out] mg_ctx A pointer to the multigrid context
 * \param[in] A_fine A pointer to the fine/initial level matrix, because Smoothing on the finest level is in fact the application of the initial matrix
 */
-void                t8dg_mg_set_up_smoothing_operators (t8dg_mg_levels_ctx_t * mg_ctx, Mat * A_fine);
+PetscErrorCode      t8dg_mg_set_up_smoothing_operators (t8dg_mg_levels_ctx_t * mg_ctx, Mat * A_fine);
 
 /** This function assigns the correct smoothers to each level
 * \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
 * \param[in, out] mg_ctx A pointer to the multigrid context
 */
-void                t8dg_mg_initialize_smoothers (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+PetscErrorCode      t8dg_mg_initialize_smoothers (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
 
 /** This function assigns the correct prolongation operators between the levels
 * \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
 * \param[in, out] mg_ctx A pointer to the multigrid context
 */
-void                t8dg_mg_initialize_prolongations (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+PetscErrorCode      t8dg_mg_initialize_prolongations (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
 
 /** This function assigns the correct restriction operators between the levels
 * \param[in, out] mg_pc A pointer to the preconditioning context of the KSP which solves the initial problem (resulting from an implicit time-stepping method)
 * \param[in, out] mg_ctx A pointer to the multigrid context
 */
-void                t8dg_mg_initialize_restrictions (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
+PetscErrorCode      t8dg_mg_initialize_restrictions (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx);
 
 /* These following methods are currently not in use ---> p-multigrid is not yet possible */
 #if 0

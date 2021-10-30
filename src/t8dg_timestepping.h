@@ -78,17 +78,14 @@ typedef struct
 * \param[in] user_data       Contains the complete information regarding the problem, in fact it is a pointer to the initial problem 
 * The former dofs (from the last time step) \a pdof_array will be directly exchanged with the calculated dofs of the next time step
 */
-void
- 
- 
- 
- 
- 
+#if T8_WITH_PETSC
+PetscErrorCode
  
  
  t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
                                    t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
                                    int preconditioner_selection);
+#endif
 
 /** Initializes the apllication context needed by the matrix-free application of the system matrix resulting from the implicit euler method 
 * \param[in] time_derivative The function describing the time derivative of the coefficients in the degrees of freedom
@@ -98,12 +95,7 @@ void
 * \param[in, out] appctx A pointer to \a t8dg_timestepping_impl_euler_ctx_t context whose members will be filled by this function
 */
 #if T8_WITH_PETSC
-void
- 
- 
- 
- 
- 
+PetscErrorCode
  
  
  t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
@@ -114,7 +106,7 @@ void
 * \param[in] appctx The appctx which was used by the matrix application of the implicit euler method
 */
 #if T8_WITH_PETSC
-void                t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t * appctx);
+PetscErrorCode      t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t * appctx);
 #endif
 
 /** Advances a timestep using a DIRK method  
@@ -126,17 +118,14 @@ void                t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timesteppi
 * The former dofs (from the last time step) \a pdof_array will be directly exchanged with the calculated dofs of the next time step
 * The only DIRK methods implemented are DIRK(2,2) of order 2 using 2 steps and DIRK(3,3) of order 3 using 3 steps. Therefore, \a num_order_stages got to equal 2 or 3
 */
-void
- 
- 
- 
- 
- 
+#if T8_WITH_PETSC
+PetscErrorCode
  
  
  t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
                          t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_steps,
                          int preconditioner_selection);
+#endif
 
 #if T8_WITH_PETSC
 /** Allocates and fills members of t8dg_timestepping_dirk_ctx_t which are needed by the application of the DIRK methods 
@@ -146,13 +135,7 @@ void
 * \param[in] user_data       Contains the complete information regarding the problem, in fact it is a pointer to the initial problem 
 * \param[in, out] appctx     The application context of the DIRK methods; this function allocates and fills the members of the context needed in the DIRK routines
 */
-
-void
- 
- 
- 
- 
- 
+PetscErrorCode
  
  
  t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
@@ -163,7 +146,7 @@ void
 /** Deallocates/Destroys the application context needed by the application of the DIRK methods
 * \param[in] appctx The previous initialized \a t8dg_timestepping_dirk_ctx_t (by calling \a t8dg_timestepping_init_dirk_appctx()) which is going to be destroyed
 */
-void                t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx);
+PetscErrorCode      t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx);
 #endif
 
 /** implements a single step of runge kutta with a-values in the butcher-tableau only on the first minor diagonal

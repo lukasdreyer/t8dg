@@ -32,4 +32,37 @@ double              dirk33_a_coeff[3][3] =
 double              dirk33_b_coeff[3] = { dirk33_b1, dirk33_b2, dirk33_alpha };
 double              dirk33_c_coeff[3] = { dirk33_tau1, dirk33_tau2, 1.0 };
 
+double
+t8dg_timestepping_dirk_get_coeff_a (int order, int index_i, int index_j)
+{
+  if (order == 2) {
+    return dirk22_a_coeff[index_i][index_j];
+  }
+  else {
+    return dirk33_a_coeff[index_i][index_j];
+  }
+}
+
+double
+t8dg_timestepping_dirk_get_coeff_b (int order, int index)
+{
+  if (order == 2) {
+    return dirk22_b_coeff[index];
+  }
+  else {
+    return dirk33_b_coeff[index];
+  }
+}
+
+double
+t8dg_timestepping_dirk_get_coeff_c (int order, int index)
+{
+  if (order == 2) {
+    return dirk22_c_coeff[index];
+  }
+  else {
+    return dirk33_c_coeff[index];
+  }
+}
+
 #endif
