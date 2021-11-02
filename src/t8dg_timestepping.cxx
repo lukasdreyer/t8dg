@@ -254,13 +254,12 @@ t8dg_timestepping_data_get_time_left (const t8dg_timestepping_data_t * time_data
 }
 
 /* Calculates the approximation of the next time step by using the implicit Euler Method in a matrix-free fashion */
-PetscErrorCode
+
+#if T8_WITH_PETSC
 t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
                                   int preconditioner_selection)
 {
-#if T8_WITH_PETSC
-
   Mat                 A;
   Vec                 u, f;
   KSP                 ksp;
@@ -404,12 +403,8 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
 #endif
   t8dg_debugf ("\nImplicit Euler-Method has been completed\n");
   return 0;
-#else
-  t8dg_global_essentialf
-    ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
-  return 0;
-#endif
 }
+#endif
 
 #if T8_WITH_PETSC
 /* Function that mimics the multiplication of the system matrix resulting from the implicit Euler_Method */
@@ -451,13 +446,13 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
 }
 #endif
 
+#if T8_WITH_PETSC
 /* Calculates the approximation of the next time step using a DIRK method (either DIRK(2,2) or DIRK(3,3) can be selected) */
 PetscErrorCode
 t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
                         t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, const int num_order_stages,
                         const int preconditioner_selection)
 {
-#if T8_WITH_PETSC
   T8DG_ASSERT ((num_order_stages == 2 || num_order_stages == 3));
 
   int                 step_iter;
@@ -670,12 +665,8 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 #endif
 
   return 0;
-#else
-  t8dg_global_essentialf
-    ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
-  return o;
-#endif
 }
+#endif
 
 #if T8_WITH_PETSC
 /* Initializes the apllication context needed by the matrix-free application of the system matrix resulting from the implicit euler method */
@@ -860,6 +851,7 @@ t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_der
     t8dg_timestepping_runge_kutta_step (time_derivative, time_data, pdof_array, user_data);
   }
   else if (time_data->use_implicit_timestepping == 1) {
+#if T8_WITH_PETSC
     /* An implicit time stepping method has been chosen */
     switch (time_data->time_order) {
     case 1:
@@ -877,5 +869,7 @@ t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_der
     default:
       t8dg_debugf ("An implicit DIRK method of order %d has been called, which is not implemented.\n", time_data->time_order);
     }
+#endif
+    SC_ABORT ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
   }
 }
