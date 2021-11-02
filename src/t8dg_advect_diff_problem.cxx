@@ -1058,15 +1058,4 @@ t8dg_advect_diff_problem_get_dg_values (t8dg_linear_advection_diffusion_problem_
   return problem->dg_values;
 }
 
-t8_forest_t
-t8dg_advect_diff_problem_get_forest (t8dg_linear_advection_diffusion_problem_t * problem)
-{
-  return problem->forest;
-}
-
-t8dg_timestepping_data_t *
-t8dg_advect_diff_problem_get_time_data (t8dg_linear_advection_diffusion_problem_t * problem)
-{
-  return problem->time_data;
-}
 #endif

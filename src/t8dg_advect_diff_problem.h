@@ -145,10 +145,6 @@ t8dg_adapt_data_t  *t8dg_advect_diff_problem_get_adapt_data (t8dg_linear_advecti
 
 t8dg_values_t      *t8dg_advect_diff_problem_get_dg_values (t8dg_linear_advection_diffusion_problem_t * problem);
 
-t8_forest_t         t8dg_advect_diff_problem_get_forest (t8dg_linear_advection_diffusion_problem_t * problem);
-
-t8dg_timestepping_data_t *t8dg_advect_diff_problem_get_time_data (t8dg_linear_advection_diffusion_problem_t * problem);
-
 void                t8dg_advect_diff_problem_block_precon_time_derivative_variant (t8dg_dof_values_t * dof_values,
                                                                                    t8dg_dof_values_t * dof_change, const double t,
                                                                                    const void *application_data, int selector);
