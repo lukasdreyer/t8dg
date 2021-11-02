@@ -143,17 +143,19 @@ t8dg_precon_destroy_preconditioner (PC * pc, int selector, t8dg_precon_general_p
 
 #if T8DG_PRECON_MEASURE_PC_TIME
   destroy_time += sc_MPI_Wtime ();
-  t8dg_global_essentialf ("Time to destroy the preconditioner took:\n\t%fs\n", destroy_time);
+  //t8dg_global_essentialf ("Time to destroy the preconditioner took:\n\t%fs\n", destroy_time);
 #endif
 }
 
 /* Initializes the without-preconditioning option */
-void
+PetscErrorCode
 t8dg_precon_init_without_preconditioning (PC * pc)
 {
   PetscErrorCode      ierr;
   ierr = PCSetType (*pc, PCNONE);
   CHKERRQ (ierr);
+
+  return 0;
 }
 
 /**********************************************************************************************/
@@ -162,7 +164,7 @@ t8dg_precon_init_without_preconditioning (PC * pc)
 /****************************************** Take 2 ********************************************/
 
 /* Initializes a Block-Jacobi preconditioner */
-void
+PetscErrorCode
 t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat * A, PC * pc,
                          t8dg_block_preconditioner_ctx_t ** precon_jacobi_ctx, PetscInt * vec_global_index, int selector)
 {
@@ -173,7 +175,7 @@ t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat *
   CHKERRQ (ierr);
 
   /* Create an application context */
-  JacobiShellPCCreate (precon_jacobi_ctx, problem, problem_dofs, vec_global_index, selector);
+  JacobiShellPCCreate (precon_jacobi_ctx, (t8dg_linear_advection_diffusion_problem_t *) problem, problem_dofs, vec_global_index, selector);
 
   /* Assign the block preconditioner context to the preconditioner */
   ierr = PCShellSetContext (*pc, *precon_jacobi_ctx);
@@ -198,6 +200,8 @@ t8dg_precon_init_jacobi (void *problem, t8dg_dof_values_t ** problem_dofs, Mat *
   }
   /* Set up the preconditioner */
   JacobiShellPCSetUp (*pc);
+
+  return 0;
 }
 
 /* Creates a Jacobi preconditioner with corresponding 'preconditioning context' */
@@ -356,7 +360,7 @@ JacobiShellPCDestroy (PC pc)
 }
 
 /* Destroys/frees the allocated memory of the block preconditioner */
-void
+PetscErrorCode
 t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx)
 {
   PetscErrorCode      ierr;
@@ -376,6 +380,7 @@ t8dg_precon_destroy_block_preconditioner (t8dg_block_preconditioner_ctx_t * ctx)
   ierr = KSPDestroy (&ctx->jacobi_preconditioner);
   CHKERRQ (ierr);
 
+  return 0;
 }
 
 /* Matrix-free application which resembles the application of the function describing the block jacobi preconditioning process */
@@ -417,7 +422,7 @@ MatMult_MF_Jacobi_Preconditioner (Mat A, Vec in, Vec out)
 
 /******************/
 /******************/
-/* Lets try some p MG */
+/* p MG */
 /******************/
 /******************/
 /* Not yet implemented */
@@ -444,7 +449,7 @@ t8dg_p_mg_set_up_smoothing_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx, Mat * A_fine)
   mg_ctx->Smoothing_Mat = *A_fine;
 }
 
-void
+PetscErrorCode
 t8dg_p_mg_set_up_coarse_level (t8dg_p_mg_lvl_ctx_t * mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -459,7 +464,7 @@ t8dg_p_mg_set_up_coarse_level (t8dg_p_mg_lvl_ctx_t * mg_ctx)
   CHKERRQ (ierr);
 }
 
-void
+PetscErrorCode
 t8dg_p_mg_set_up_prolongation_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -475,7 +480,7 @@ t8dg_p_mg_set_up_prolongation_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx)
 }
 
 /* Creates the matrix-free restriction routines, interpolating from a fine level onto a coarse level */
-void
+PetscErrorCode
 t8dg_p_mg_set_up_restriction_operator (t8dg_p_mg_lvl_ctx_t * mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -539,7 +544,7 @@ t8dg_p_mg_set_up_coarse_lvl (t8dg_linear_advection_diffusion_problem_t * problem
   /* Initialize some members of the p_multigrid context */
   mg_ctx->p_mg_mat_ctx->mg_coarse_order = coarse_lvl_order;
   mg_ctx->p_mg_mat_ctx->problem_dofs = problem_dofs;
-  mg_ctx->p_mg_mat_ctx->initial_dg_values = *t8dg_advect_diff_problem_get_dg_values (problem);
+  mg_ctx->p_mg_mat_ctx->initial_dg_values = t8dg_advect_diff_problem_get_dg_values (problem);
 
   /* This constructs new dg_values, a new functionbasis, new globa_values and new local_values; given the new order of LGL points */
   mg_ctx->p_mg_mat_ctx->coarse_dg_values =
@@ -560,7 +565,7 @@ t8dg_p_mg_set_up_coarse_lvl (t8dg_linear_advection_diffusion_problem_t * problem
     t8dg_dof_get_max_num_element_dof (*(mg_ctx->p_mg_mat_ctx->problem_dofs));
 }
 
-void
+PetscErrorCode
 t8dg_precon_destroy_p_mg (t8dg_p_mg_lvl_ctx_t ** mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -577,6 +582,8 @@ t8dg_precon_destroy_p_mg (t8dg_p_mg_lvl_ctx_t ** mg_ctx)
   t8dg_values_destroy (&((*mg_ctx)->p_mg_mat_ctx->coarse_dg_values));
 
   T8DG_FREE ((*mg_ctx)->p_mg_mat_ctx);
+
+  return 0;
 }
 #endif
 /******************/
@@ -591,7 +598,7 @@ t8dg_precon_destroy_p_mg (t8dg_p_mg_lvl_ctx_t ** mg_ctx)
 /*****************/
 /*****************/
 /* Initialize a multigrid preconditioner with various coarse levels */
-void
+PetscErrorCode
 t8dg_precon_init_multiple_level_mg (void *problem, t8dg_dof_values_t ** problem_dofs,
                                     t8dg_time_derivation_matrix_application_t time_derivative, Mat * A_fine, PC * mg_pc,
                                     PetscInt * vec_global_index, int num_mg_levels, t8dg_mg_levels_ctx_t ** mg_ctx)
@@ -687,10 +694,12 @@ t8dg_precon_init_multiple_level_mg (void *problem, t8dg_dof_values_t ** problem_
   (*mg_ctx)->mg_general_data->preconditioner_application_time_coarse_lvl = 0.0;
   (*mg_ctx)->mg_general_data->preconditioner_application_time_smoothing = 0.0;
   (*mg_ctx)->mg_general_data->preconditioner_application_time_interpolation = 0.0;
+
+  return 0;
 }
 
 /* Assign matrix-free applications to the Prolongation matrices */
-void
+PetscErrorCode
 t8dg_mg_initialize_prolongations (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -702,10 +711,11 @@ t8dg_mg_initialize_prolongations (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
       PCMGSetInterpolation (*mg_pc, lvl_iter, (*mg_ctx)->Prolongation_Mats[(*mg_ctx)->interpolation_ctx->num_mg_levels - lvl_iter - 1]);
     CHKERRQ (ierr);
   }
+  return 0;
 }
 
 /* Assign matrix-free applications to the Restriction matrices */
-void
+PetscErrorCode
 t8dg_mg_initialize_restrictions (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -715,10 +725,11 @@ t8dg_mg_initialize_restrictions (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
     ierr = PCMGSetRestriction (*mg_pc, lvl_iter, (*mg_ctx)->Restriction_Mats[(*mg_ctx)->interpolation_ctx->num_mg_levels - lvl_iter - 1]);
     CHKERRQ (ierr);
   }
+  return 0;
 }
 
 /* Set up smoothing operators on each multigrid level (except the coarsest) */
-void
+PetscErrorCode
 t8dg_mg_set_up_smoothing_operators (t8dg_mg_levels_ctx_t * mg_lvls, Mat * A_fine)
 {
   PetscErrorCode      ierr;
@@ -739,6 +750,7 @@ t8dg_mg_set_up_smoothing_operators (t8dg_mg_levels_ctx_t * mg_lvls, Mat * A_fine
     ierr = MatShellSetOperation ((mg_lvls->Smoothing_Mats[lvl_iter]), MATOP_MULT, (void (*)(void)) MatMult_MF_MG_LVL_Smoothing);
     CHKERRQ (ierr);
   }
+  return 0;
 }
 
 /* Matrix-free application which resembles the smoothing on a multigrid level */
@@ -792,7 +804,7 @@ MatMult_MF_MG_LVL_Smoothing (Mat Smoother, Vec in, Vec out)
 }
 
 /* Initialize the smoother on each coarse level (except on the coarsest) */
-void
+PetscErrorCode
 t8dg_mg_initialize_smoothers (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
 {
   PetscErrorCode      ierr;
@@ -818,6 +830,7 @@ t8dg_mg_initialize_smoothers (PC * mg_pc, t8dg_mg_levels_ctx_t ** mg_ctx)
     t8dg_precon_init_without_preconditioning (&(*mg_ctx)->smoother_pcs[num_mg_smooth_levels - lvl_iter]);
 
   }
+  return 0;
 }
 
 /* Matrix-free routines which performs the restriction between consecutive levels */
@@ -977,7 +990,7 @@ MatMult_MF_MG_LVL_Coarse_Solver (Mat C_Mat, Vec in, Vec out)
 }
 
 /* Create the restriction matrices */
-void
+PetscErrorCode
 t8dg_mg_set_up_restriction_operators (t8dg_mg_levels_ctx_t * mg_lvls)
 {
   PetscErrorCode      ierr;
@@ -994,11 +1007,11 @@ t8dg_mg_set_up_restriction_operators (t8dg_mg_levels_ctx_t * mg_lvls)
     ierr = MatShellSetOperation ((mg_lvls->Restriction_Mats[num_lvl]), MATOP_MULT, (void (*)(void)) MatMult_MF_MG_LVL_Restriction);
     CHKERRQ (ierr);
   }
-
+  return 0;
 }
 
 /* Create the prolongation matrices */
-void
+PetscErrorCode
 t8dg_mg_set_up_prolongation_operators (t8dg_mg_levels_ctx_t * mg_lvls)
 {
   PetscErrorCode      ierr;
@@ -1016,11 +1029,11 @@ t8dg_mg_set_up_prolongation_operators (t8dg_mg_levels_ctx_t * mg_lvls)
     ierr = MatShellSetOperation ((mg_lvls->Prolongation_Mats[num_lvl]), MATOP_MULT, (void (*)(void)) MatMult_MF_MG_LVL_Prolongation);
     CHKERRQ (ierr);
   }
-
+  return 0;
 }
 
 /* Create coarse level matrix (on the coarsest level) */
-void
+PetscErrorCode
 t8dg_mg_set_up_coarse_lvl_matrix (t8dg_mg_levels_ctx_t * mg_lvls)
 {
   PetscErrorCode      ierr;
@@ -1034,7 +1047,7 @@ t8dg_mg_set_up_coarse_lvl_matrix (t8dg_mg_levels_ctx_t * mg_lvls)
   /* Define the (multiplicative) MatVec-Operation on the coarse level mesh */
   ierr = MatShellSetOperation ((mg_lvls->A_coarse_Mat), MATOP_MULT, (void (*)(void)) MatMult_MF_MG_LVL_Coarse_Solver);
   CHKERRQ (ierr);
-
+  return 0;
 }
 
 /* A function that sets up the components needed in order to perform a multigrid V-Cycle on various levels */
@@ -1060,13 +1073,13 @@ t8dg_mg_set_up_multiple_lvl_precon (t8dg_linear_advection_diffusion_problem_t * 
   mg_ctx->interpolation_ctx = T8DG_ALLOC_ZERO (t8dg_mg_lvl_interpolation_ctx_t, 1);
   mg_ctx->interpolation_ctx->current_lvl = 0;
   mg_ctx->interpolation_ctx->num_mg_levels = num_mg_levels;
-  mg_ctx->interpolation_ctx->adapt_data = *(t8dg_advect_diff_problem_get_adapt_data (problem));
-  mg_ctx->interpolation_ctx->dg_values = *t8dg_advect_diff_problem_get_dg_values (problem);
+  mg_ctx->interpolation_ctx->adapt_data = t8dg_advect_diff_problem_get_adapt_data (problem);
+  mg_ctx->interpolation_ctx->dg_values = t8dg_advect_diff_problem_get_dg_values (problem);
   mg_ctx->interpolation_ctx->adapt_data->dg_values = mg_ctx->interpolation_ctx->dg_values;
   mg_ctx->interpolation_ctx->mg_general_data = mg_ctx->mg_general_data;
 
   /* Initialize members with initial problem */
-  (mg_ctx->interpolation_ctx->coarse_level_forests)[0] = *(t8dg_advect_diff_problem_get_forest (problem));
+  (mg_ctx->interpolation_ctx->coarse_level_forests)[0] = t8dg_advect_diff_problem_get_forest (problem);
   t8_forest_set_user_data (mg_ctx->interpolation_ctx->coarse_level_forests[0], mg_ctx->interpolation_ctx->adapt_data);
   t8dg_adapt_data_set_time (mg_ctx->interpolation_ctx->adapt_data, mg_ctx->mg_general_data->current_point_in_time);
   mg_ctx->interpolation_ctx->indexing_scheme[0] = initial_forest_indexing;
@@ -1109,7 +1122,7 @@ t8dg_mg_set_up_multiple_lvl_precon (t8dg_linear_advection_diffusion_problem_t * 
 
 /* Constructs a coarse level */
 /* TODO: Eventually source and sink terms need to be considered */
-void
+PetscErrorCode
 t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_corase_lvl_adapt_func_t coarsening_func, int num_lvl)
 {
   PetscErrorCode      ierr;
@@ -1155,6 +1168,7 @@ t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_cora
   /* Create an indexing scheme on this level for the PETSc Vecs */
   /* Allocate space for an array which holds the global indices of the degrees of freedom */
   ierr = PetscMalloc1 (mg_lvls->interpolation_ctx->num_local_dofs[num_lvl], &(mg_lvls->interpolation_ctx->indexing_scheme[num_lvl]));
+  CHKERRQ (ierr);
 
   /* Compute the offset of the first local element concerning the forest and the amount of degrees of freedom per element */
   global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (mg_lvls->interpolation_ctx->coarse_level_forests[num_lvl]);
@@ -1172,10 +1186,11 @@ t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_cora
                t8_forest_get_num_element (((mg_lvls)->interpolation_ctx->coarse_level_forests)[num_lvl]),
                ((mg_lvls)->interpolation_ctx->num_local_dofs)[num_lvl]);
 
+  return 0;
 }
 
 /* Destroys the multigrid preconditioner and frees the allocated space */
-void
+PetscErrorCode
 t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx)
 {
   int                 num_lvl;
@@ -1216,6 +1231,7 @@ t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx)
   CHKERRQ (ierr);
   T8DG_FREE ((*mg_ctx)->coarse_matrix_ctx);
   T8DG_FREE ((*mg_ctx)->interpolation_ctx);
+  return 0;
 }
 
 /******************/
@@ -1229,7 +1245,7 @@ t8dg_precon_destroy_mg_levels (t8dg_mg_levels_ctx_t ** mg_ctx)
 /**********************************************************************************************/
 
 /* A function that writes a t8dg_dof_values_t to a PETSc Vector */
-void
+PetscErrorCode
 t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * indexing, size_t num_local_dofs)
 {
   PetscErrorCode      ierr;
@@ -1241,14 +1257,15 @@ t8dg_precon_write_dof_to_vec (t8dg_dof_values_t * dofs, Vec * p_vec, PetscInt * 
   CHKERRQ (ierr);
   ierr = VecAssemblyEnd (*p_vec);
   CHKERRQ (ierr);
+  return 0;
 }
 
 /* A function that writes a PETSc Vector to a t8dg_dof_values_t */
-void
+PetscErrorCode
 t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_local_dofs)
 {
   PetscErrorCode      ierr;
-  PetscScalar        *vec_reader;
+  const PetscScalar  *vec_reader;
   double             *dof_pointer;
   int                 dof_iter;
 
@@ -1266,6 +1283,8 @@ t8dg_precon_write_vec_to_dof (Vec * p_vec, t8dg_dof_values_t * dofs, size_t num_
   /* Restore the array entries in the petsc vector */
   ierr = VecRestoreArrayRead (*p_vec, &vec_reader);
   CHKERRQ (ierr);
+
+  return 0;
 }
 
 /* Thus function updates the preconditioner within the DIRK methods due to the varying coefficients of the different stages */

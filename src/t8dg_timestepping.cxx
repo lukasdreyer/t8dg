@@ -15,6 +15,7 @@
 #include "t8dg_preconditioner.h"
 
 #define T8DG_TIMESTEPPING_GMRES_ACC 1.0e-7
+#define T8DG_TIMESTEPPING_IMPL_MEASURE_TIME 1
 
 struct t8dg_timestepping_data
 {
@@ -253,7 +254,7 @@ t8dg_timestepping_data_get_time_left (const t8dg_timestepping_data_t * time_data
 }
 
 /* Calculates the approximation of the next time step by using the implicit Euler Method in a matrix-free fashion */
-void
+PetscErrorCode
 t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
                                   int preconditioner_selection)
@@ -268,10 +269,14 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   t8dg_timestepping_impl_euler_ctx_t appctx;
   t8dg_precon_general_preconditioner_t preconditioner;
   PetscInt            num_iterations;
+
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   double              average_iteration_time = 0.0;
   appctx.mf_app_count = 0;
   appctx.application_time = 0.0;
   double              implicit_step_duration = -sc_MPI_Wtime ();
+#endif
+
   /* Initialize the context needed by the matrix application */
   t8dg_timestepping_init_impl_euler_appctx (time_derivative, time_data, pdof_array, user_data, &appctx);
 
@@ -338,13 +343,17 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
 
   t8dg_debugf ("\nFGMRES got called\n");
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   average_iteration_time = -sc_MPI_Wtime ();
+#endif
 
   /* Solve the Linear System */
   ierr = KSPSolve (ksp, f, u);
   CHKERRQ (ierr);
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   average_iteration_time += sc_MPI_Wtime ();
+#endif
 
   t8dg_debugf ("\nFGMRES solve completed\n");
 
@@ -361,16 +370,21 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   /* Write the solution from the PETSc Vector to degrees of freedom of the problem */
   t8dg_precon_write_vec_to_dof (&u, *pdof_array, appctx.num_local_dofs);
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   /* Duration of the setup plus solving time */
   implicit_step_duration += sc_MPI_Wtime ();
 
   t8dg_global_essentialf
-    ("\nThe elapsed time of one implicit time step was: %fs.\nWithin this, the setup of the preconditioner took: t%fs.\nThe number of outer FGMRES iterations was: %d\n",
-     implicit_step_duration, preconditioner.preconditioner_setup_time, num_iterations);
-  t8dg_global_essentialf ("The average iteration time (preconditioning inclusive) is: %fs\n", (average_iteration_time / num_iterations));
+    ("\nThe elapsed time of one implicit time step was: %fs.\nWithin this, the setup of the preconditioner took: %fs.\n",
+     implicit_step_duration, preconditioner.preconditioner_setup_time);
+  //t8dg_global_essentialf("The number of outer FGMRES iterations was: %d\n", num_iterations);
+  //t8dg_global_essentialf ("The average iteration time (preconditioning inclusive) is: %fs\n", (average_iteration_time / num_iterations));
 
   t8dg_global_essentialf ("One matrix free application of the system matrix of the Impl EV took: %fs\n",
                           (appctx.application_time / appctx.mf_app_count));
+
+#endif
+
   /* Free used matrix-application related components */
   t8dg_timestepping_destroy_impl_euler_appctx (&appctx);
 
@@ -389,9 +403,11 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   CHKERRQ (ierr);
 #endif
   t8dg_debugf ("\nImplicit Euler-Method has been completed\n");
+  return 0;
 #else
-  t8dg_global_productionf
+  t8dg_global_essentialf
     ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
+  return 0;
 #endif
 }
 
@@ -408,8 +424,10 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   CHKERRQ (ierr);
 
   /* Measure application time */
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   ++(appctx->mf_app_count);
   appctx->application_time -= sc_MPI_Wtime ();
+#endif
 
   /* Write the entries into the degrees of freedom of the problem, so that they can be derived by the time_derivate function */
   t8dg_precon_write_vec_to_dof (&in, *(appctx->future_local_dofs), appctx->num_local_dofs);
@@ -425,25 +443,22 @@ MatMult_MF_Impl_Euler (Mat A, Vec in, Vec out)
   t8dg_precon_write_dof_to_vec (*(appctx->future_local_dofs), &out, appctx->global_indexing, appctx->num_local_dofs);
 
   /* Measure application time */
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   appctx->application_time += sc_MPI_Wtime ();
+#endif
 
   return 0;
 }
 #endif
 
 /* Calculates the approximation of the next time step using a DIRK method (either DIRK(2,2) or DIRK(3,3) can be selected) */
-void
+PetscErrorCode
 t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
-                        t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, int num_order_stages,
-                        int preconditioner_selection)
+                        t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data, const int num_order_stages,
+                        const int preconditioner_selection)
 {
 #if T8_WITH_PETSC
   T8DG_ASSERT ((num_order_stages == 2 || num_order_stages == 3));
-
-  /* Declare the general DIRK coefficients */
-  double              (*dirk_a_coeff)[num_order_stages][num_order_stages];
-  double              (*dirk_b_coeff)[num_order_stages];
-  double              (*dirk_c_coeff)[num_order_stages];
 
   int                 step_iter;
   int                 iter;
@@ -454,9 +469,11 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   /* This array holds the pointer to solution calculated of the different steps */
   t8dg_dof_values_t  *local_dofs_step[num_order_stages];
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   double              solve_time;
   double              average_iteration_time = 0.0;
   double              implicit_step_duration = -sc_MPI_Wtime ();
+#endif
 
   /* Initial point in time when the DIRK method got called */
   double              initial_time = t8dg_timestepping_data_get_current_time (time_data);
@@ -469,18 +486,6 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   /* Declaration Preconditioner */
   t8dg_precon_general_preconditioner_t preconditioner;
-
-  /* Select whether the order 2 or order 3 DIRK method has been choosen */
-  if (num_order_stages == 2) {
-    dirk_a_coeff = &dirk22_a_coeff;
-    dirk_b_coeff = &dirk22_b_coeff;
-    dirk_c_coeff = &dirk22_c_coeff;
-  }
-  else if (num_order_stages == 3) {
-    dirk_a_coeff = &dirk33_a_coeff;
-    dirk_b_coeff = &dirk33_b_coeff;
-    dirk_c_coeff = &dirk33_c_coeff;
-  }
 
   /* Initialize the context needed by the matrix application of the DIRK Method */
   t8dg_timestepping_init_dirk_appctx (time_derivative, time_data, pdof_array, user_data, &appctx);
@@ -546,18 +551,20 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   for (step_iter = 0; step_iter < num_order_stages; ++step_iter) {
 
     /* Set the next time point of the upcoming RKV step */
-    appctx.next_time_point = initial_time + (((*dirk_c_coeff)[step_iter]) * appctx.timestep);
+    appctx.next_time_point = initial_time + (t8dg_timestepping_dirk_get_coeff_c (num_order_stages, step_iter) * appctx.timestep);
     t8dg_timestepping_data_set_current_time (time_data, appctx.next_time_point);
 
     /* Set the current coefficient needed in the matrix-free application for the next step */
-    appctx.dirk_current_a_coeff = (*dirk_a_coeff)[step_iter][step_iter];
+    //appctx.dirk_current_a_coeff = (*dirk_a_coeff)[step_iter][step_iter];
+    appctx.dirk_current_a_coeff = t8dg_timestepping_dirk_get_coeff_a (num_order_stages, step_iter, step_iter);
 
     /* Fill the future_local_dofs_step with zeros, so that the axpy product will not be irritated */
     t8dg_dof_values_set_zero (appctx.future_local_dofs_step);
 
     /* Accumulate the (weighted) derivations of the degrees of freedom of the former stages */
     for (iter = 0; iter < step_iter; ++iter) {
-      t8dg_dof_values_axpy ((appctx.timestep * ((*dirk_a_coeff)[step_iter][iter])), local_dofs_step[iter], appctx.future_local_dofs_step);
+      t8dg_dof_values_axpy ((appctx.timestep * t8dg_timestepping_dirk_get_coeff_a (num_order_stages, step_iter, iter)),
+                            local_dofs_step[iter], appctx.future_local_dofs_step);
     }
     /* Add the (weighted) derivations of the degrees of freedom of the former stages to the right-hand side */
     if (step_iter > 0) {
@@ -565,7 +572,9 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
       t8dg_precon_write_dof_to_vec (appctx.future_local_dofs_step, &f, appctx.global_indexing, appctx.num_local_dofs);
     }
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
     solve_time = -sc_MPI_Wtime ();
+#endif
 
     /* Update the coarse level solver by assigning the current leading a_coeff */
     t8dg_precon_dirk_update_preconditioner (preconditioner_selection, &preconditioner, appctx.dirk_current_a_coeff, appctx.next_time_point);
@@ -574,10 +583,11 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
     ierr = KSPSolve (ksp, f, u);
     CHKERRQ (ierr);
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
     solve_time += sc_MPI_Wtime ();
-
     /* Add the time for solving the system to the average_iteration_time */
     average_iteration_time += solve_time;
+#endif
 
     /* Get the iteration count */
     ierr = KSPGetIterationNumber (ksp, &iteration_count[step_iter]);
@@ -603,7 +613,8 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   /* Add the values of the stages to the former approximation to obtain the degrees of freedom of the next step */
   for (iter = 0; iter < num_order_stages; ++iter) {
-    t8dg_dof_values_axpy ((appctx.timestep * (*dirk_b_coeff)[iter]), local_dofs_step[iter], appctx.current_local_dofs);
+    t8dg_dof_values_axpy ((appctx.timestep * t8dg_timestepping_dirk_get_coeff_b (num_order_stages, iter)), local_dofs_step[iter],
+                          appctx.current_local_dofs);
   }
 
   /* Swap the former degrees of freedom with the newly calculated degrees of freedom */
@@ -611,12 +622,14 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   t8dg_debugf ("\nDIRK Method completed\n");
 
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   /* Duration of the setup plus solving time */
   implicit_step_duration += sc_MPI_Wtime ();
 
   t8dg_global_essentialf
     ("\nThe elapsed time of one implicit time step was: %fs.\nWithin this, the setup of the preconditioner took: %fs.\n",
      implicit_step_duration, preconditioner.preconditioner_setup_time);
+#endif
 
   /* Destroy the application context */
   t8dg_timestepping_destroy_dirk_appctx (&appctx);
@@ -641,24 +654,32 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 
   if (num_order_stages == 2) {
     t8dg_global_essentialf ("Iteration Count:\nStage 1: %d\nStage 2: %d\n", iteration_count[0], iteration_count[1]);
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
     average_iteration_time = average_iteration_time / (iteration_count[0] + iteration_count[1]);
+#endif
   }
   else if (num_order_stages == 3) {
     t8dg_global_essentialf ("Iteration Count:\nStage 1: %d\nStage 2: %d\nStage 3: %d\n", iteration_count[0], iteration_count[1],
                             iteration_count[2]);
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
     average_iteration_time = average_iteration_time / (iteration_count[0] + iteration_count[1] + iteration_count[2]);
+#endif
   }
+#if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
   t8dg_global_essentialf ("Avergae iteration time is: %f\n", average_iteration_time);
+#endif
 
+  return 0;
 #else
-  t8dg_global_productionf
+  t8dg_global_essentialf
     ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
+  return o;
 #endif
 }
 
 #if T8_WITH_PETSC
 /* Initializes the apllication context needed by the matrix-free application of the system matrix resulting from the implicit euler method */
-void
+PetscErrorCode
 t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
                                           t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_impl_euler_ctx_t * appctx)
 {
@@ -689,7 +710,7 @@ t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_deri
 
   /* Allocate space for an array which holds the global indices of the degrees of freedom */
   ierr = PetscMalloc1 (appctx->num_local_dofs, &appctx->global_indexing);
-
+  CHKERRQ (ierr);
   /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
   global_offset_to_first_local_elem = t8_forest_get_first_local_element_id (t8dg_dof_values_get_forest (*(appctx->future_local_dofs)));
   if (global_offset_to_first_local_elem != 0) {
@@ -700,13 +721,13 @@ t8dg_timestepping_init_impl_euler_appctx (t8dg_time_matrix_application time_deri
   for (iter = 0; iter < appctx->num_local_dofs; ++iter) {
     (appctx->global_indexing)[iter] = iter + global_offset_to_first_local_elem;
   }
-
+  return 0;
 }
 #endif
 
 #if T8_WITH_PETSC
 /* Allocates and fills members of t8dg_timestepping_dirk_ctx_t which are needed by the application of the DIRK methods */
-void
+PetscErrorCode
 t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative, t8dg_timestepping_data_t * time_data,
                                     t8dg_dof_values_t ** pdof_array, void *user_data, t8dg_timestepping_dirk_ctx_t * appctx)
 {
@@ -735,6 +756,7 @@ t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative
 
   /* Allocate space for an array which holds the global indices of the degrees of freedom */
   ierr = PetscMalloc1 (appctx->num_local_dofs, &(appctx->global_indexing));
+  CHKERRQ (ierr);
 
   /* compute the offset of the first local element concerning the forest and the amout of degrees of freedom per element */
   global_offset_to_first_local_elem =
@@ -748,13 +770,13 @@ t8dg_timestepping_init_dirk_appctx (t8dg_time_matrix_application time_derivative
   for (iter = 0; iter < appctx->num_local_dofs; ++iter) {
     (appctx->global_indexing)[iter] = iter + global_offset_to_first_local_elem;
   }
-
+  return 0;
 }
 #endif
 
 #if T8_WITH_PETSC
 /* Destroys the allocated space needed by the matrix application of the implicit euler method */
-void
+PetscErrorCode
 t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t * appctx)
 {
   PetscErrorCode      ierr;
@@ -765,13 +787,13 @@ t8dg_timestepping_destroy_impl_euler_appctx (t8dg_timestepping_impl_euler_ctx_t 
   /* Free the PETSc indexing scheme */
   ierr = PetscFree (appctx->global_indexing);
   CHKERRQ (ierr);
-
+  return 0;
 }
 #endif
 
 #if T8_WITH_PETSC
 /* Destroys the allocated space needed by the matrix application of the DIRK method */
-void
+PetscErrorCode
 t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx)
 {
   PetscErrorCode      ierr;
@@ -784,6 +806,8 @@ t8dg_timestepping_destroy_dirk_appctx (t8dg_timestepping_dirk_ctx_t * appctx)
   /* Free the PETSc indexing scheme */
   ierr = PetscFree (appctx->global_indexing);
   CHKERRQ (ierr);
+
+  return 0;
 }
 #endif
 

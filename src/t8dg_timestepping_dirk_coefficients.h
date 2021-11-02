@@ -7,6 +7,8 @@
 
 #include "t8dg.h"
 
+T8DG_EXTERN_C_BEGIN ();
+
 #if T8_WITH_PETSC
 /* The resulting linear systems of the DIRK methods which has to be solved in each RKV step in order to obtain the intermediate/final solution is solved with the KSP implementation of PETSc. These coefficients are not needed otherwise, therefore they are surrunded by the T8_WITH_PETSC tags */
 
@@ -35,6 +37,12 @@ extern double       dirk33_a_coeff[3][3];
 extern double       dirk33_b_coeff[3];
 extern double       dirk33_c_coeff[3];
 
-#endif
+double              t8dg_timestepping_dirk_get_coeff_a (int order, int index_i, int index_j);
 
+double              t8dg_timestepping_dirk_get_coeff_b (int order, int index);
+
+double              t8dg_timestepping_dirk_get_coeff_c (int order, int index);
+
+#endif
+T8DG_EXTERN_C_END ();
 #endif

@@ -477,8 +477,9 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
     }
 
     /* For test reasons, quit after first timestep */
+#if 0
     t8dg_timestepping_data_set_current_time (problem->time_data, t8dg_timestepping_data_get_end_time (problem->time_data));
-
+#endif
   }
   if (problem->vtk_data->vtk_freq) {
     t8dg_advect_diff_problem_write_vtk (problem);
@@ -1045,34 +1046,22 @@ t8dg_advect_diff_problem_endtime_reached (const t8dg_linear_advection_diffusion_
 }
 
 #if T8_WITH_PETSC
-t8dg_adapt_data_t **
+t8dg_adapt_data_t  *
 t8dg_advect_diff_problem_get_adapt_data (t8dg_linear_advection_diffusion_problem_t * problem)
 {
-  return &(problem->adapt_data);
+  return problem->adapt_data;
 }
 
-t8dg_dof_values_t **
-t8dg_advect_diff_problem_get_dof_values (t8dg_linear_advection_diffusion_problem_t * problem)
-{
-  return &(problem->dof_values);
-}
-
-t8dg_dof_values_t **
-t8dg_advect_diff_problem_get_dof_values_adapt (t8dg_linear_advection_diffusion_problem_t * problem)
-{
-  return &(problem->dof_values_adapt);
-}
-
-t8dg_values_t     **
+t8dg_values_t      *
 t8dg_advect_diff_problem_get_dg_values (t8dg_linear_advection_diffusion_problem_t * problem)
 {
-  return &(problem->dg_values);
+  return problem->dg_values;
 }
 
-t8_forest_t        *
+t8_forest_t
 t8dg_advect_diff_problem_get_forest (t8dg_linear_advection_diffusion_problem_t * problem)
 {
-  return &(problem->forest);
+  return problem->forest;
 }
 
 t8dg_timestepping_data_t *
