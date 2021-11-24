@@ -13,25 +13,25 @@
 #include <t8dg_mptrac.h>
 
 
-t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads)
-: hours_between_file_reads(hours_between_file_reads)
+t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
+: comm (comm), hours_between_file_reads(hours_between_file_reads)
 {
   const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 8 MET_DY 8";
   const int dimension = 3;
   const int uniform_level = 3;
-  context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
+  context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level, comm);
 
   start_six_hours = 0;
   time2jsec (2017, 01, 01, start_six_hours, 00, 00, 00, &physical_time_s);
 
-  t8_mptrac_read_nc (context, 1, physical_time_s);
+  t8_mptrac_read_nc (context, 1, physical_time_s, comm);
   hours_since_last_file_read = 0;
   t8dg_debugf ("Initialized mptrac context.\n");
 }
 
 t8dg_mptrac_flux_data::~t8dg_mptrac_flux_data ()
 {
-  t8_mptrac_context_destroy (&context);
+  t8_mptrac_context_destroy (&context, comm);
 }
 
 void t8dg_mptrac_flux_data::initialize(const struct t8dg_linear_advection_diffusion_problem *problem)
@@ -98,7 +98,7 @@ void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advect
   if (hours_since_last_file_read > hours_between_file_reads) {
     /* Read the nc file. This will only update if physical is advanced to the
     * next file. */
-    t8_mptrac_read_nc (context, 1, physical_time_s);
+    t8_mptrac_read_nc (context, 1, physical_time_s, comm);
     /* Rescale physical time to interval [0, hours_between_file_reads] */
     hours_since_last_file_read -= (int)(hours_since_last_file_read/hours_between_file_reads) * hours_between_file_reads;
   }
@@ -129,16 +129,25 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 
   int                 ci[3];
   double              cw[3];
+  const met_t        *meteo1 =
+    (const met_t *) t8_shmem_array_index (mptrac_context->mptrac_meteo, 0);
+  const met_t        *meteo2 =
+    (const met_t *) t8_shmem_array_index (mptrac_context->mptrac_meteo, 0);
+  /* intpol_met_time_3d does not modify meteo1 and meteo2, but also does
+   * not declare them const. Hence we need to cast away the constness manually. */
+  met_t *meteo1_noconst = (met_t *)     meteo1;
+  met_t *meteo2_noconst = (met_t *)     meteo2;
+
 
   /* Compute interpolation of u (zonal wind east/west direction, x axis) */
-  intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->u,
-                      mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->u,
+  intpol_met_time_3d (meteo1_noconst, meteo1_noconst->u,
+                      meteo2_noconst, meteo2_noconst->u,
                       physical_time_s, pressure, lon, lat, flux_vec, ci, cw,
                       1);
   if (!mptrac_flux_data->is_current_element_at_pole()) {
     /* Compute interpolation of v (meridional wind north/south direction, y axis) */
-    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->v, 
-                        mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->v, 
+    intpol_met_time_3d (meteo1_noconst, meteo1_noconst->v, 
+                        meteo2_noconst, meteo2_noconst->v, 
                         physical_time_s, pressure, lon, lat, flux_vec + 1, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
   } 
   else {
@@ -146,8 +155,8 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   }
   if (!mptrac_flux_data->is_current_element_at_top_or_bottom()) {
     /* Compute interpolation of w (vertical velocity, z axis) */
-    intpol_met_time_3d (mptrac_context->mptrac_meteo1, mptrac_context->mptrac_meteo1->w,
-                        mptrac_context->mptrac_meteo2, mptrac_context->mptrac_meteo2->w, 
+    intpol_met_time_3d (meteo1_noconst, meteo1_noconst->w,
+                        meteo2_noconst, meteo2_noconst->w, 
                         physical_time_s, pressure, lon, lat, flux_vec + 2, ci, cw, 0);  /* 0 here since we can reuse the interpolation weights */
   }
   else {

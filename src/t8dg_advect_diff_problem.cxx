@@ -139,9 +139,10 @@ t8dg_advect_diff_problem_accumulate_stat (t8dg_linear_advection_diffusion_proble
   }
 }
 
-t8dg_linear_advection_diffusion_problem_description_t *
+static t8dg_linear_advection_diffusion_problem_description_t *
 t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t velocity_field_type, double flow_velocity, double diffusion_coefficient,
-                                          int numerical_flux_arg, int source_sink_arg, int dim)
+                                          int numerical_flux_arg, int source_sink_arg, int dim,
+                                          sc_MPI_Comm comm)
 {
   t8dg_linear_advection_diffusion_problem_description_t *description;
   description = T8DG_ALLOC_ZERO (t8dg_linear_advection_diffusion_problem_description_t, 1);
@@ -193,7 +194,7 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     *(double *) description->numerical_flux_advection_data = 1;
     /* To use the mptrac flow, we need to load the nc files and initial
      * interpolation first. */
-    flux_data = new t8dg_mptrac_flux_data ("ei_2017_01_01_00.nc", 6);
+    flux_data = new t8dg_mptrac_flux_data ("ei_2017_01_01_00.nc", 6, comm);
     break;
   default:
     T8DG_ABORT ("Invalid flow type.");
@@ -316,7 +317,7 @@ t8dg_advect_diff_problem_init_arguments (int icmesh,
 
   description =
     t8dg_advect_diff_problem_description_new (initial_cond_arg, velocity_field_type, flow_speed, diffusion_coefficient, numerical_flux_arg,
-                                              source_sink_arg, dim);
+                                              source_sink_arg, dim, comm);
 
   dg_values = t8dg_values_new_LGL_hypercube (dim, number_LGL_points, coarse_geometry, forest);
 

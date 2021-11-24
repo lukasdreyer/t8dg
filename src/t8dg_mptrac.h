@@ -21,7 +21,7 @@ class t8dg_mptrac_flux_data : public t8dg_flux_data_base
 {
     public:
 
-    t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads);
+    t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm);
 
     ~t8dg_mptrac_flux_data ();
 
@@ -45,6 +45,7 @@ class t8dg_mptrac_flux_data : public t8dg_flux_data_base
 
     protected:
     t8_mptrac_context_t * context;
+    sc_MPI_Comm comm; /*< MPI Communicator used for \a context. */
 
     /* How many simulation hours after 05.06.2011 00:00 to start. */
     double start_six_hours;
