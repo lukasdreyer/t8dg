@@ -74,10 +74,13 @@ t8dg_precon_initialize_preconditioner (PC * pc, int selector, t8dg_precon_genera
   case 4:
     /* MUltiple Level MG */
     general_precon->multiple_mg_lvls_ctx = T8DG_ALLOC_ZERO (t8dg_mg_levels_ctx_t, 1);
-    t8dg_precon_init_multiple_level_mg (problem, problem_dofs, time_derivative, A, pc, vec_global_index,
-                                        t8dg_timestepping_data_get_multigrid_levels (t8dg_advect_diff_problem_get_time_data
-                                                                                     ((t8dg_linear_advection_diffusion_problem_t *)
-                                                                                      problem)), &(general_precon->multiple_mg_lvls_ctx));
+    {
+      const t8dg_timestepping_data_t* time_data = 
+        t8dg_advect_diff_problem_get_time_data ((t8dg_linear_advection_diffusion_problem_t *) problem);
+      const int multigrid_levels = t8dg_timestepping_data_get_multigrid_levels (time_data);
+      t8dg_precon_init_multiple_level_mg (problem, problem_dofs, time_derivative, A, pc, vec_global_index,
+                                          multigrid_levels, &(general_precon->multiple_mg_lvls_ctx));
+    }
     break;
   default:
     /* Default equals no preconditioning */
