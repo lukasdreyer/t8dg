@@ -173,7 +173,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 double
 t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
 {
-  /* We only spit out material for the first hour. */
+  /* We only spit out material for the first minute. */
   if (t > 1./60) {
     return 0;
   }
