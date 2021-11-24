@@ -1186,7 +1186,7 @@ t8dg_mg_construct_coarse_level_forest (t8dg_mg_levels_ctx_t * mg_lvls, t8dg_cora
   }
 
   t8dg_debugf ("Der neue forest hat %d Elemente\nUnd die Anzahl Freiheitsgrade sind %d \n",
-               t8_forest_get_num_element (((mg_lvls)->interpolation_ctx->coarse_level_forests)[num_lvl]),
+               t8_forest_get_local_num_elements (((mg_lvls)->interpolation_ctx->coarse_level_forests)[num_lvl]),
                ((mg_lvls)->interpolation_ctx->num_local_dofs)[num_lvl]);
 
   return 0;
