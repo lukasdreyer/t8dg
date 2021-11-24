@@ -13,25 +13,25 @@
 #include <t8dg_mptrac.h>
 
 
-t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads)
-: hours_between_file_reads(hours_between_file_reads)
+t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
+: comm (comm), hours_between_file_reads(hours_between_file_reads)
 {
   const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 8 MET_DY 8";
   const int dimension = 3;
   const int uniform_level = 3;
-  context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level);
+  context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level, comm);
 
   start_six_hours = 0;
   time2jsec (2017, 01, 01, start_six_hours, 00, 00, 00, &physical_time_s);
 
-  t8_mptrac_read_nc (context, 1, physical_time_s);
+  t8_mptrac_read_nc (context, 1, physical_time_s, comm);
   hours_since_last_file_read = 0;
   t8dg_debugf ("Initialized mptrac context.\n");
 }
 
 t8dg_mptrac_flux_data::~t8dg_mptrac_flux_data ()
 {
-  t8_mptrac_context_destroy (&context);
+  t8_mptrac_context_destroy (&context, comm);
 }
 
 void t8dg_mptrac_flux_data::initialize(const struct t8dg_linear_advection_diffusion_problem *problem)
@@ -98,7 +98,7 @@ void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advect
   if (hours_since_last_file_read > hours_between_file_reads) {
     /* Read the nc file. This will only update if physical is advanced to the
     * next file. */
-    t8_mptrac_read_nc (context, 1, physical_time_s);
+    t8_mptrac_read_nc (context, 1, physical_time_s, comm);
     /* Rescale physical time to interval [0, hours_between_file_reads] */
     hours_since_last_file_read -= (int)(hours_since_last_file_read/hours_between_file_reads) * hours_between_file_reads;
   }
