@@ -256,6 +256,7 @@ t8dg_timestepping_data_get_time_left (const t8dg_timestepping_data_t * time_data
 /* Calculates the approximation of the next time step by using the implicit Euler Method in a matrix-free fashion */
 
 #if T8_WITH_PETSC
+PetscErrorCode
 t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
                                   t8dg_timestepping_data_t * time_data, t8dg_dof_values_t ** pdof_array, void *user_data,
                                   int preconditioner_selection)
