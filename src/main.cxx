@@ -168,7 +168,8 @@ main (int argc, char *argv[])
 #endif
 
 #if T8_WITH_PETSC
-  ierr = PetscInitialize (&argc, &argv, (char *) 0, NULL);
+  int petsc_argc = 1;
+  ierr = PetscInitialize (&petsc_argc, &argv, (char *) 0, NULL);
   if (ierr)
     return ierr;
 #endif
@@ -275,10 +276,10 @@ main (int argc, char *argv[])
 
   sc_options_destroy (opt);
   sc_finalize ();
-  mpiret = sc_MPI_Finalize ();
-  SC_CHECK_MPI (mpiret);
 #if T8_WITH_PETSC
   PetscFinalize ();
 #endif
+  mpiret = sc_MPI_Finalize ();
+  SC_CHECK_MPI (mpiret);
   return 0;
 }
