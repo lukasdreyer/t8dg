@@ -132,7 +132,7 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   const met_t        *meteo1 =
     (const met_t *) t8_shmem_array_index (mptrac_context->mptrac_meteo, 0);
   const met_t        *meteo2 =
-    (const met_t *) t8_shmem_array_index (mptrac_context->mptrac_meteo, 0);
+    (const met_t *) t8_shmem_array_index (mptrac_context->mptrac_meteo, 1);
   /* intpol_met_time_3d does not modify meteo1 and meteo2, but also does
    * not declare them const. Hence we need to cast away the constness manually. */
   met_t *meteo1_noconst = (met_t *)     meteo1;
