@@ -870,7 +870,8 @@ t8dg_timestepping_choose_impl_expl_method (t8dg_time_matrix_application time_der
     default:
       t8dg_debugf ("An implicit DIRK method of order %d has been called, which is not implemented.\n", time_data->time_order);
     }
-#endif
+#else
     SC_ABORT ("t8code/t8dg is currently not configured with PETSc.\n\nIn order to use this function t8dg needs to be configured with PETSc.\n");
+#endif
   }
 }
