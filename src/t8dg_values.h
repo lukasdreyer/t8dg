@@ -99,7 +99,7 @@ void                t8dg_values_interpolate_scalar_function_3d_time
 
 void                t8dg_values_block_precon_apply_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
                                                                        t8dg_dof_values_t * dest_dof, t8dg_linear_flux3D_fn linear_flux,
-                                                                       void *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
+                                                                       t8dg_flux_data_base *flux_data, t8dg_numerical_linear_flux3D_fn numerical_flux,
                                                                        void *numerical_flux_data, double time, int selector);
 
 void                t8dg_values_block_precon_apply_component_boundary_integrals (t8dg_values_t * values, t8dg_dof_values_t * src_dof,
