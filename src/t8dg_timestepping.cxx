@@ -836,7 +836,7 @@ MatMult_MF_DIRK (Mat A, Vec in, Vec out)
 #endif
 
 int
-t8dg_timestepping_data_get_multigrid_levels (t8dg_timestepping_data_t * time_data)
+t8dg_timestepping_data_get_multigrid_levels (const t8dg_timestepping_data_t * time_data)
 {
   return (time_data->multigrid_levels);
 }

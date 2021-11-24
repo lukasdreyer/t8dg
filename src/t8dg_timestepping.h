@@ -197,7 +197,7 @@ void                t8dg_timestepping_data_increase_step_number (t8dg_timesteppi
 
 double              t8dg_timestepping_data_get_time_left (const t8dg_timestepping_data_t * time_data);
 
-int                 t8dg_timestepping_data_get_multigrid_levels (t8dg_timestepping_data_t * time_data);
+int                 t8dg_timestepping_data_get_multigrid_levels (const t8dg_timestepping_data_t * time_data);
 
 T8DG_EXTERN_C_END ();
 
