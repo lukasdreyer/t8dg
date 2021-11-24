@@ -662,7 +662,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
 #endif
   }
 #if T8DG_TIMESTEPPING_IMPL_MEASURE_TIME
-  t8dg_global_essentialf ("Avergae iteration time is: %f\n", average_iteration_time);
+  t8dg_global_essentialf ("Average iteration time is: %f\n", average_iteration_time);
 #endif
 
   return 0;
