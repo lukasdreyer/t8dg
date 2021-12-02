@@ -102,6 +102,11 @@ t8dg_check_options (int icmesh, const char *mshfile_prefix, int mshfile_dim, int
     t8_global_errorf ("Argument error. Invalid timestepping.\n");
     return 0;
   }
+
+  if (icmesh == 8 && source_sink_arg != 2) {
+    t8_global_errorf ("Argument error. MPTRAC use case must use -s2\n");
+    return 0;
+  }
 #if T8_WITH_PETSC
   if (!(0 <= preconditioner_selection && preconditioner_selection <= 4)) {
     t8_global_errorf ("Argument error. Invalid preconditioner.\n");
