@@ -329,7 +329,7 @@ t8dg_timestepping_implicit_euler (t8dg_time_matrix_application time_derivative,
   ierr = KSPSetType (ksp, KSPFGMRES);
   CHKERRQ (ierr);
   /* Set error tolerances in the (outer) GMRES iteration */
-  ierr = KSPSetTolerances (ksp, T8DG_TIMESTEPPING_GMRES_ACC, T8DG_TIMESTEPPING_GMRES_ACC, PETSC_DEFAULT, PETSC_DEFAULT);
+  ierr = KSPSetTolerances (ksp, T8DG_TIMESTEPPING_GMRES_ACC, T8DG_TIMESTEPPING_GMRES_ACC, PETSC_DEFAULT, 500);
   CHKERRQ (ierr);
   t8dg_debugf ("KSPFGMRES was selected\n");
 
@@ -529,7 +529,7 @@ t8dg_timestepping_dirk (t8dg_time_matrix_application time_derivative,
   ierr = KSPSetType (ksp, KSPFGMRES);
   CHKERRQ (ierr);
   /* Set the convergence tolerances of the KSP solver */
-  ierr = KSPSetTolerances (ksp, T8DG_TIMESTEPPING_GMRES_ACC, T8DG_TIMESTEPPING_GMRES_ACC, PETSC_DEFAULT, PETSC_DEFAULT);
+  ierr = KSPSetTolerances (ksp, T8DG_TIMESTEPPING_GMRES_ACC, T8DG_TIMESTEPPING_GMRES_ACC, PETSC_DEFAULT, 500);
   CHKERRQ (ierr);
   /* Select and initialize a Preconditioner */
   t8dg_precon_initialize_preconditioner (&pc, preconditioner_selection, &preconditioner, user_data, appctx.local_derivation_degrees,
