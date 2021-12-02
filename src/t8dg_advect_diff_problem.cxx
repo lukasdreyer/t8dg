@@ -468,7 +468,7 @@ t8dg_advect_diff_solve (t8dg_linear_advection_diffusion_problem_t * problem)
   modulus = SC_MAX (apx_total_steps / 10, 1);
 
   /*Timeloop with Rungekutta timestepping: */
-  while (!t8dg_advect_diff_problem_endtime_reached (problem)) {
+  while (!t8dg_advect_diff_problem_endtime_reached (problem) && t8dg_advect_diff_norm_bounded (problem)) {
     step_number = t8dg_advect_diff_problem_get_stepnumber (problem);
 
     if (problem->vtk_data->vtk_freq && step_number % problem->vtk_data->vtk_freq == 0) {
@@ -1054,6 +1054,21 @@ int
 t8dg_advect_diff_problem_endtime_reached (const t8dg_linear_advection_diffusion_problem_t * problem)
 {
   return t8dg_timestepping_data_is_endtime_reached (problem->time_data);
+}
+
+static int
+t8dg_advect_diff_norm_bounded (const t8dg_linear_advection_diffusion_problem_t * problem)
+{
+  const double max_norm = 1e8;
+
+  const double norm = t8dg_values_norm_l2 (problem->dg_values, problem->dof_values, problem->comm);
+
+  t8dg_global_productionf ("Computed L2 norm: %g\n", norm);
+  if (norm >= max_norm) {
+    t8dg_global_errorf ("WARNING. L2 norm of %g is greater than %g.\n", norm, max_norm);
+  }
+
+  return norm < max_norm;
 }
 
 #if T8_WITH_PETSC
