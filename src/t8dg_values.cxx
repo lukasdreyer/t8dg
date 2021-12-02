@@ -805,6 +805,7 @@ t8dg_values_norm_l_infty_rel (t8dg_values_t * values, t8dg_dof_values_t * dof_va
   return global_error / global_ana_norm;
   t8dg_advect_problem_accumulate_stat (problem, ADVECT_ERROR_INF, 0);
 #endif
+  SC_ABORT_NOT_REACHED ();
   return -1;
 }
 
