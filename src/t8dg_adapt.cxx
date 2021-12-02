@@ -217,7 +217,7 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
                              t8_element_t * elements[])
 {
   const t8_element_t *element = elements[0];
-  t8dg_adapt_data_t  *adapt_data = (t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
+  const t8dg_adapt_data_t  *adapt_data = (const t8dg_adapt_data_t *) t8_forest_get_user_data (forest);
   const int level = ts->t8_element_level (elements[0]);
 
 #if 0
@@ -243,6 +243,8 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
     return 1 && level < adapt_data->maximum_refinement_level;
   }
 #endif
+
+#if 0
   /* Refine at top/bottom and poles */
 
   int is_upper_boundary = 0;
@@ -272,9 +274,29 @@ t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
   if ((is_at_top_or_bottom || is_at_pole) && level < adapt_data->maximum_refinement_level) {
     return 1;
   }
+#endif
+  const t8dg_mptrac_flux_data* flux_data = (const t8dg_mptrac_flux_data*) adapt_data->source_sink_data;
+
+  double midpoint[3];
+  double vert_dist_km, horiz_dist_deg;
+  const double vertical_distance_threshold_km = 50; /* Is halfed with each refinement level */
+  const double horiz_distance_threshold_deg = 720; /* Is halfed with each refinement level */
+  const double max_vert_distance = vertical_distance_threshold_km / (1 << level);
+  const double max_horiz_distance = horiz_distance_threshold_deg / (1 << level);
+
+  /* Compute midpoint and level of the current element. */
+  t8_forest_element_centroid (forest_from, itree, element, midpoint);
+
+  /* Determine the distance of the midpoint from the box. */  
+  flux_data->point_max_vert_and_horiz_distance_from_box (midpoint, &vert_dist_km, &horiz_dist_deg);
+
+  t8dg_debugf ("level %i distance_vert %f distance_horiz %f max_dist (%f, %f)\n", level, vert_dist_km, horiz_dist_deg, max_vert_distance, max_horiz_distance);
+  if (vert_dist_km < max_vert_distance && horiz_dist_deg < max_horiz_distance) {
+    return 1;
+  }
 
   /* Pass on to the rel min/max criterion to refine according to gradient. */
-  return t8dg_adapt_smooth_indicator (forest, forest_from, itree, ielement, ts, num_elements, elements);
+  return t8dg_adapt_rel_min_max (forest, forest_from, itree, ielement, ts, num_elements, elements);
 }                                       
 
 int
