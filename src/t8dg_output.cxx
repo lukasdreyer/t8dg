@@ -83,7 +83,7 @@ t8dg_output_write_vtk (const t8dg_dof_values_t * dof_values, t8dg_vtk_data_t * o
     vtk_data[1].data = flow_array;
   }
   /* Write filename */
-  snprintf (fileprefix, BUFSIZ, "%s_%03i", output_data->prefix, output_data->vtk_count);
+  snprintf (fileprefix, BUFSIZ, "%s_%05i", output_data->prefix, output_data->vtk_count);
   /* Write vtk files */
   if (t8_forest_vtk_write_file (forest, fileprefix, 1, 1, 1, 1, 0, num_data_fields, vtk_data)) {
     t8_debugf ("[Advect] Wrote pvtu to files %s\n", fileprefix);
