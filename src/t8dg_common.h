@@ -60,6 +60,9 @@ double              t8dg_smooth_indicator3Dfn (const double x[3], const double t
 
 double              t8dg_circle_ring_sin_product_fn (const double x[3], const double t, void *fn_data);
 
+
+double              t8dg_smooth_g (const double x);
+
 T8DG_EXTERN_C_END ();
 
 #endif

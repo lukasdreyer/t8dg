@@ -10,13 +10,55 @@
 #include <t8dg_advect_diff_problem.h>
 #include <t8dg_flux_implementation.h>
 #include <t8dg_timestepping.h>
+#include <t8dg_common.h>
 #include <t8dg_mptrac.h>
 
 
-t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
-: comm (comm), hours_between_file_reads(hours_between_file_reads)
+t8dg_mptrac_box::t8dg_mptrac_box (double center_lon, double center_lat, double center_p, double extend_lon_deg, double extend_lat_deg, double extend_p_km)
+ : box_center{center_lon, center_lat, center_p}, box_extend{extend_lon_deg, extend_lat_deg, extend_p_km}
+ {
+  pressure_center_in_km = Z(box_center[2]);
+  box_minimum[0] = box_center[0] - box_extend[0]/2;
+  box_minimum[1] = box_center[1] - box_extend[1]/2;
+  box_minimum[2] = pressure_center_in_km - box_extend[2]/2;
+  box_maximum[0] = box_center[0] + box_extend[0]/2;
+  box_maximum[1] = box_center[1] + box_extend[1]/2;
+  box_maximum[2] = pressure_center_in_km + box_extend[2]/2;
+ }
+
+int t8dg_mptrac_box::lon_lat_pressure_is_in (const double lon, const double lat, const double pressure) const
 {
-  const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 8 MET_DY 8";
+  const double pressure_in_km = Z(pressure);
+
+  if (box_minimum[0] <= lon && lon <= box_maximum[0]
+   && box_minimum[1] <= lat && lat <= box_maximum[1]
+   && box_minimum[2] <= pressure_in_km && pressure_in_km <= box_maximum[2])
+   {
+     /* The point is inside the box. */
+     return 1;
+   }
+   else return 0;
+}
+
+double t8dg_mptrac_box::vert_distance_from_center (const double pressure_km) const
+{
+  const double p_dist = fabs (pressure_km - pressure_center_in_km);
+
+  return p_dist;
+}
+
+double t8dg_mptrac_box::max_horiz_distance_from_center (const double lon, const double lat) const
+{
+  const double lon_dist = fabs (lon - box_center[0]);
+  const double lat_dist = fabs (lat - box_center[1]);
+
+  return SC_MAX (lon_dist, lat_dist);
+}
+
+t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
+: comm (comm), hours_between_file_reads(hours_between_file_reads), point_source(0, 0, 500, 10, 10, 1)
+{
+  const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 1 MET_DY 1";
   const int dimension = 3;
   const int uniform_level = 3;
   context = t8_mptrac_context_new (0, nc_filename, mptrac_input, dimension, uniform_level, comm);
@@ -26,7 +68,7 @@ t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours
 
   t8_mptrac_read_nc (context, 1, physical_time_s, comm);
   hours_since_last_file_read = 0;
-  t8dg_debugf ("Initialized mptrac context.\n");
+  t8dg_global_productionf ("Initialized mptrac context.\n");
 }
 
 t8dg_mptrac_flux_data::~t8dg_mptrac_flux_data ()
@@ -71,12 +113,12 @@ void t8dg_mptrac_flux_data::before_first_call_on_element (t8_forest_t forest, t8
   current_element_is_at_top_or_bottom = is_upper_boundary || is_lower_boundary;
 }
 
-inline bool t8dg_mptrac_flux_data::is_current_element_at_pole () const
+bool t8dg_mptrac_flux_data::is_current_element_at_pole () const
 {
   return current_element_is_at_pole;
 }
     
-inline bool t8dg_mptrac_flux_data::is_current_element_at_top_or_bottom () const
+bool t8dg_mptrac_flux_data::is_current_element_at_top_or_bottom () const
 {
   return current_element_is_at_top_or_bottom;
 }
@@ -104,14 +146,33 @@ void t8dg_mptrac_flux_data::start_new_time_step (const struct t8dg_linear_advect
   }
 }
 
-inline const double t8dg_mptrac_flux_data::get_time () const
+const double t8dg_mptrac_flux_data::get_time () const
 {
   return physical_time_s;
 }
 
-inline const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
+const t8_mptrac_context_t *t8dg_mptrac_flux_data::get_context() const
 {
   return context;
+}
+
+int t8dg_mptrac_flux_data::point_is_in_box (const double x[3]) const
+{
+  double lon, lat, pressure;
+
+  t8_mptrac_coords_to_lonlatpressure (context, x, &lon, &lat, &pressure);
+
+  return point_source.lon_lat_pressure_is_in (lon, lat, pressure);
+}
+
+void t8dg_mptrac_flux_data::point_max_vert_and_horiz_distance_from_box (const double x[3], double *vert_dist, double *horiz_dist) const
+{
+  double lon, lat, pressure;
+
+  t8_mptrac_coords_to_lonlatpressure (context, x, &lon, &lat, &pressure);
+
+  *vert_dist = point_source.vert_distance_from_center (Z(pressure));
+  *horiz_dist = point_source.max_horiz_distance_from_center (lon, lat);
 }
 
 void
@@ -182,37 +243,39 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
 double
 t8dg_mptrac_box_source (const double x[3], const double t, void *fn_data)
 {
+  /* Currently deactivated to properly test indicator function. */
+  return 0;
   /* We only spit out material for the first minute. */
   if (t > 1./60) {
     return 0;
   }
-  const double value_inside_box = 10;
-  /* Lon/Lat/pressure coordinates of the lower left corner of the box. */
-  const double box_lower_left[3] = {150, 0, 800};
-  const double pressure_lower_left_in_meter = Z(box_lower_left[2]);
-  //const double box_lower_left[3] = {0.5, 0.5, 0.5};
-  /* Dimensions of the box in degree x degree x km */
-  const double box_extend[3] = {10, 10, 1};
-  //const double box_extend[3] = {0.05, 0.05, 0.05};
-
-  double lat, lon, pressure;
+  /* The flux value inside the box */
+  const double value_inside_box = 1;
 
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
 
-  t8_mptrac_coords_to_lonlatpressure (mptrac_flux_data->get_context(), x, &lon, &lat, &pressure);
-  /* Temporarily, we do not use lat/lon/p coordinates. */
-  //lon = x[0];
-  //lat = x[1];
-  //pressure = x[2];
-  t8dg_debugf ("xyz -> llp: (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f/%.2f)\n",
-   x[0], x[1], x[2], lon, lat, pressure, Z(pressure));
-  /* TODO: How to translate meter of box_extend[3] back to pressure? */
-  if (box_lower_left[0] <= lon && lon <= box_lower_left[0] + box_extend[0]
-   && box_lower_left[1] <= lat && lat <= box_lower_left[1] + box_extend[1]
-   && pressure_lower_left_in_meter <= Z(pressure) && Z(pressure) <= pressure_lower_left_in_meter + box_extend[2])
-   {
-     /* The point x is inside the box. */
-     return value_inside_box;
-   }
-   else return 0;
+  return mptrac_flux_data->point_is_in_box (x) * value_inside_box;
+}
+
+double
+t8dg_mptrac_box_indicator_fn (const double x[3], const double t, void *fn_data)
+{
+  const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
+  double vert_dist, horiz_dist;
+  if (mptrac_flux_data->point_is_in_box (x)) {
+    return 1;
+  }
+  mptrac_flux_data->point_max_vert_and_horiz_distance_from_box (x, &vert_dist, &horiz_dist);
+  double              radius_vert = 0.1;
+  double              radius_horiz = 0.05;
+  double              smoothing_factor = 0.5;
+
+  if (vert_dist > (1 + smoothing_factor) * radius_vert 
+  || horiz_dist > (1 + smoothing_factor) * radius_horiz) {
+    return 0;
+  }
+  /* Smooth horiz and vert dist */
+  if (horiz_dist > radius_horiz);
+  horiz_dist = (horiz_dist - radius_horiz) / (radius_horiz * smoothing_factor); /* transform to [0,1] */
+  return t8dg_smooth_g (horiz_dist);
 }

@@ -108,6 +108,9 @@ struct t8dg_linear_advection_diffusion_problem
   sc_MPI_Comm         comm; /**< MPI Communicator */
 };
 
+/* Forward declaration of function below. */
+static int t8dg_advect_diff_norm_bounded (const t8dg_linear_advection_diffusion_problem_t * problem);
+
 const t8_forest_t
 t8dg_advect_diff_problem_get_forest (const t8dg_linear_advection_diffusion_problem_t *problem)
 {
@@ -201,6 +204,13 @@ t8dg_advect_diff_problem_description_new (int initial_cond_arg, t8dg_flow_type_t
     flux_data = NULL;
     break;
   }
+  if (initial_cond_arg == 18) {
+    /* MPTRAC use case */
+    T8DG_ASSERT (velocity_field_type == T8DG_FLOW_MPTRAC_3D);
+    description->initial_condition_data = flux_data;
+    description->analytical_sol_data = flux_data;
+    t8dg_debugf ("Set initial condition data to %p\n", flux_data);
+  }
 
   description->flux_data = flux_data;
   description->source_sink_fn = NULL;
@@ -256,13 +266,13 @@ t8dg_advect_diff_problem_description_destroy (t8dg_linear_advection_diffusion_pr
 {
   t8dg_linear_advection_diffusion_problem_description_t *description = *p_description;
   delete description->flux_data;
-  T8DG_FREE (description->analytical_sol_data);
-  T8DG_FREE (description->initial_condition_data);
   T8DG_FREE (description->numerical_flux_advection_data);
   T8DG_FREE (description->numerical_flux_diffusion_concentration_data);
   T8DG_FREE (description->numerical_flux_diffusion_gradient_data);
   if (description->source_sink_fn != t8dg_mptrac_box_source) {
     T8DG_FREE (description->source_sink_data);
+    T8DG_FREE (description->analytical_sol_data);
+    T8DG_FREE (description->initial_condition_data);
   }
   T8DG_FREE (description);
   *p_description = NULL;

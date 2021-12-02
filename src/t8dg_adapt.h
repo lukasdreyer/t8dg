@@ -50,42 +50,15 @@ int                 t8dg_adapt_rel_min_max
   (t8_forest_t forest, t8_forest_t forest_from,
    t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
-int
- 
- 
- 
- 
- 
- 
- 
- 
-t8dg_adapt_mass (t8_forest_t forest,
+int t8dg_adapt_mass (t8_forest_t forest,
                  t8_forest_t forest_from,
                  t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
-int
- 
- 
- 
- 
- 
- 
- 
- 
-t8dg_adapt_smooth_indicator (t8_forest_t forest,
+int t8dg_adapt_smooth_indicator (t8_forest_t forest,
                              t8_forest_t forest_from,
                              t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements, t8_element_t * elements[]);
 
-int
- 
- 
- 
- 
- 
- 
- 
- 
-t8dg_adapt_smooth_indicator_hypercube (t8_forest_t forest,
+int t8dg_adapt_smooth_indicator_hypercube (t8_forest_t forest,
                                        t8_forest_t forest_from,
                                        t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements,
                                        t8_element_t * elements[]);
@@ -100,8 +73,7 @@ int t8dg_adapt_mptrac_hypercube (t8_forest_t forest,
                              t8_locidx_t itree, t8_locidx_t ielement, t8_eclass_scheme_c * ts, int num_elements,
                              t8_element_t * elements[]);
 
-int
-t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
+int t8dg_adapt_multigrid_coarsen_finest_level (t8_forest_t forest,
                                            t8_forest_t forest_from,
                                            t8_locidx_t itree, t8_locidx_t lelement_id, t8_eclass_scheme_c * ts, int num_elements,
                                            t8_element_t * elements[]);
