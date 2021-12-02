@@ -57,7 +57,7 @@ libt8dg_compiled_sources = \
   src/t8dg_flux_implementation.cxx \
   src/t8dg_quadrature.c \
   src/t8dg_geometry.cxx \
-  src/t8dg_common.c \
+  src/t8dg_common.cxx \
   src/t8dg_adapt.cxx \
   src/t8dg_output.cxx \
   src/t8dg_cmesh.cxx \

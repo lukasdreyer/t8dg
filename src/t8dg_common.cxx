@@ -1,9 +1,10 @@
-#include "t8dg.h"
+
 #include <t8_cmesh.h>
 #include <t8_vec.h>
 #include <t8_cmesh_vtk.h>
+#include <t8dg.h>
+#include <t8dg_mptrac.h>
 #include "t8dg_common.h"
-#include <sc_mpi.h>
 
 t8dg_scalar_function_3d_time_fn
 t8dg_common_initial_cond_fn (int initial_cond_arg)
@@ -45,6 +46,8 @@ t8dg_common_initial_cond_fn (int initial_cond_arg)
     return t8dg_scalar3d_constant_zero;
   case (17):
     return t8dg_circle_ring_sin_product_fn;
+  case (18):
+    return t8dg_mptrac_box_indicator_fn;
   default:
     return NULL;
   }
@@ -83,7 +86,7 @@ t8dg_scalar2d_angle (const double x[3], const double t, void *fn_data)
 double
 t8dg_scalar3d_cos_product (const double x[3], const double t, void *fn_data)
 {
-  t8dg_scalar3d_cos_product_data_t *cos_data = fn_data;
+  t8dg_scalar3d_cos_product_data_t *cos_data = (t8dg_scalar3d_cos_product_data_t*) fn_data;
   int                 dimension = cos_data->dim;
   double              diffusion_coefficient = cos_data->diffusion_coefficient;
   return exp (-diffusion_coefficient * dimension * 4 * M_PI * M_PI * t) * cos (2 * M_PI * x[0]) * cos (2 * M_PI * x[1]) * cos (2 * M_PI *
@@ -180,7 +183,7 @@ t8dg_smooth_h (const double x)
   return exp (-1 / x);
 }
 
-static double
+double
 t8dg_smooth_g (const double x)
 {
   return t8dg_smooth_h (1 - x) / (t8dg_smooth_h (x) + t8dg_smooth_h (1 - x));
@@ -283,8 +286,8 @@ t8dg_smooth_indicator2Dfn (const double x[3], const double t, void *fn_data)
 double
 t8dg_smooth_indicator3Dfn (const double x[3], const double t, void *fn_data)
 {
-  double              radius = 0.2;
-  double              smoothing_factor = 0.5;
+  double              radius = 0.1;
+  double              smoothing_factor = 2;
   double              center[3] = { 0.5, 0.5, 0.5 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
