@@ -6,6 +6,7 @@
  */
 
 #include <t8_element_cxx.hxx>
+#include <t8_vec.h>
 #include <t8dg.h>
 #include <t8dg_advect_diff_problem.h>
 #include <t8dg_flux_implementation.h>
@@ -40,20 +41,94 @@ int t8dg_mptrac_box::lon_lat_pressure_is_in (const double lon, const double lat,
    else return 0;
 }
 
-double t8dg_mptrac_box::vert_distance_from_center (const double pressure_km) const
-{
-  const double p_dist = fabs (pressure_km - pressure_center_in_km);
 
-  return p_dist;
+double t8dg_mptrac_box::dist_from_center (const double lon, const double lat, const double pressure) const
+{
+  const double pressure_in_km = Z(pressure);
+  double coords_in_km[3], coords_center_in_km[3];
+
+
+  /* Convert coordinates from long lat to km */
+  geo2cart(pressure_in_km, lon, lat, coords_in_km);
+  geo2cart(pressure_center_in_km, box_center[0], box_center[1], coords_center_in_km);
+
+
+  /* Compute the distance and return */
+  return t8_vec_dist (coords_in_km, coords_center_in_km);
 }
 
-double t8dg_mptrac_box::max_horiz_distance_from_center (const double lon, const double lat) const
+double t8dg_mptrac_box::dist_from_center_maxnorm (const double lon, const double lat, const double pressure) const
 {
-  const double lon_dist = fabs (lon - box_center[0]);
-  const double lat_dist = fabs (lat - box_center[1]);
+  const double pressure_in_km = Z(pressure);
+  double coords_in_km[3], coords_center_in_km[3];
+  double diff[3];
 
-  return SC_MAX (lon_dist, lat_dist);
+  /* Convert coordinates from long lat to km */
+  geo2cart(pressure_in_km, lon, lat, coords_in_km);
+  geo2cart(pressure_center_in_km, box_center[0], box_center[1], coords_center_in_km);
+
+  /* Compute | x - y | */
+  diff[0] = fabs(coords_in_km[0] - coords_center_in_km[0]);
+  diff[1] = fabs(coords_in_km[1] - coords_center_in_km[1]);
+  diff[2] = fabs(coords_in_km[2] - coords_center_in_km[2]);
+
+  /* Return the maximum of diff */
+  return SC_MAX (diff[0], SC_MAX (diff[1], diff[2]));
 }
+
+double t8dg_mptrac_box::horiz_dist_from_center_maxnorm (const double lon, const double lat, const double pressure) const
+{
+  const double pressure_in_km = Z(pressure);
+  double coords_in_km[3], coords_center_in_km[3];
+  double diff[2];
+
+  /* Convert coordinates from long lat to km */
+  geo2cart(pressure_in_km, lon, lat, coords_in_km);
+  geo2cart(pressure_center_in_km, box_center[0], box_center[1], coords_center_in_km);
+
+  /* Compute the first 2 coordinates of | x - y | */
+  diff[0] = fabs(coords_in_km[0] - coords_center_in_km[0]);
+  diff[1] = fabs(coords_in_km[1] - coords_center_in_km[1]);
+
+  t8dg_debugf ("distance of (%f, %f) from (%f, %f): (%f, %f)\n", lon, lat, box_center[0], box_center[1], diff[0], diff[1]);
+
+  /* Return the maximum of diff */
+  return SC_MAX (diff[0], diff[1]);
+}
+
+double t8dg_mptrac_box::horiz_dist_from_center_maxnorm_deg (const double lon, const double lat) const
+{
+  double diff[2];
+
+  /* Compute the first 2 coordinates of | x - y | */
+  diff[0] = fabs(box_center[0] - lon);
+  diff[1] = fabs(box_center[1] - lat);
+
+  /* We need to calculate the diff for longitude modulo 360 */
+  if (diff[0] > 360) {
+    diff[0] -= 360; /* Normalize to [0,360) */
+  }
+  T8DG_ASSERT (0 <= diff[0] && diff[0] <= 360);
+  /* If > 180 we need to diff with 360 instead of 0
+   * (359 - 0 = 1 and not 359!)
+   */
+  diff[0] = diff[0] > 180 ? 360 - diff[0] : diff[0];
+  T8DG_ASSERT (diff[0] >= 0);
+
+  t8dg_debugf ("distance of (%f, %f) from (%f, %f): (%f, %f)\n", lon, lat, box_center[0], box_center[1], diff[0], diff[1]);
+
+  /* Return the maximum of diff */
+  return SC_MAX (diff[0], diff[1]);
+}
+
+double t8dg_mptrac_box::vert_dist_from_center_maxnorm (const double pressure) const
+{
+  const double pressure_in_km = Z(pressure);
+
+  /* Return the maximum of diff */
+  return fabs (pressure_in_km - pressure_center_in_km);
+}
+
 
 t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
 : comm (comm), hours_between_file_reads(hours_between_file_reads), point_source(0, 0, 500, 10, 10, 1)
@@ -165,14 +240,32 @@ int t8dg_mptrac_flux_data::point_is_in_box (const double x[3]) const
   return point_source.lon_lat_pressure_is_in (lon, lat, pressure);
 }
 
+double t8dg_mptrac_flux_data::point_distance_from_box_center (const double x[3]) const
+{
+  double lon, lat, pressure;
+
+  t8_mptrac_coords_to_lonlatpressure (context, x, &lon, &lat, &pressure);
+
+  return point_source.dist_from_center (lon, lat, pressure);
+}
+
+double t8dg_mptrac_flux_data::point_distance_from_box_center_maxnorm (const double x[3]) const
+{
+  double lon, lat, pressure;
+
+  t8_mptrac_coords_to_lonlatpressure (context, x, &lon, &lat, &pressure);
+
+  return point_source.dist_from_center_maxnorm (lon, lat, pressure);
+}
+
 void t8dg_mptrac_flux_data::point_max_vert_and_horiz_distance_from_box (const double x[3], double *vert_dist, double *horiz_dist) const
 {
   double lon, lat, pressure;
 
   t8_mptrac_coords_to_lonlatpressure (context, x, &lon, &lat, &pressure);
 
-  *vert_dist = point_source.vert_distance_from_center (Z(pressure));
-  *horiz_dist = point_source.max_horiz_distance_from_center (lon, lat);
+  *vert_dist = point_source.vert_dist_from_center_maxnorm (pressure);
+  *horiz_dist = point_source.horiz_dist_from_center_maxnorm_deg (lon, lat);
 }
 
 void

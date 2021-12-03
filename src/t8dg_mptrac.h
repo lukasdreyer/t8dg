@@ -25,15 +25,25 @@ class t8dg_mptrac_box
     /*< Query whether a given lon/lat/pressure point is inside the box. */
     int lon_lat_pressure_is_in (const double lon, const double lat, const double pressure) const;
 
-    /*< Determine the horizontal distance of a point from the center in maximum norm in degrees. */
-    double max_horiz_distance_from_center (const double lon, const double lat) const;
+    /*< Determine the distance of a point (in lon/lat/pressure) from the center of the box (in km). Euclidean norm (||.||_2) */
+    double dist_from_center (const double lon, const double lat, const double pressure) const;
 
-    /*< Determine the vertical distance of a point from the center in maximum norm in km. */
-    double vert_distance_from_center (const double pressure_km) const;
+    /*< Determine the distance of a point (in lon/lat/pressure) from the center of the box (in km). Maximum norm (||.||_infty) */
+    double dist_from_center_maxnorm (const double lon, const double lat, const double pressure) const;
+ 
+    /*< Determine the horizontal distance of a point (in lon/lat/pressure) from the center of the box (in km). Maximum norm (||.||_infty) */
+    double horiz_dist_from_center_maxnorm (const double lon, const double lat, const double pressure) const;
+
+    /*< Determine the horizontal distance of a point (in lon/lat/pressure) from the center of the box (in deg). Maximum norm (||.||_infty) */
+    double horiz_dist_from_center_maxnorm_deg (const double lon, const double lat) const;
+
+    /*< Determine the vertical distance of a point (in lon/lat/pressure) from the center of the box (in km). Maximum norm (||.||_infty) */
+    double vert_dist_from_center_maxnorm (const double pressure) const;
+
 
   protected:
-    const double box_center[3]; /* units are deg, deg, hpa */
-    const double box_extend[3]; /* units are deg, deg, km */
+    const double box_center[3]; /* units are lon in deg, lat in deg, p in hpa */
+    const double box_extend[3]; /* units are lon in deg, lat in deg, p in km */
     double box_minimum[3];
     double box_maximum[3];
     double pressure_center_in_km;
@@ -73,7 +83,13 @@ class t8dg_mptrac_flux_data : public t8dg_flux_data_base
 
     inline int point_is_in_box (const double x[3]) const;
 
-    /** Determin the maximum vertical distance in km and horizontal distance in degrees
+    /** Compute the euclidean distance of a point from the center of the box source (in km) */
+    double point_distance_from_box_center (const double x[3]) const;
+
+    /** Compute the maxnorm distance of a point from the center of the box source (in km) */
+    double point_distance_from_box_center_maxnorm (const double x[3]) const;
+
+    /** Determine the maximum vertical (in km) and horizontal (in deg) distance
      *  of a point x in [0,1]^3 from the box point source. */
     void point_max_vert_and_horiz_distance_from_box (const double x[3], double *vert_dist, double *horiz_dist) const;
 
