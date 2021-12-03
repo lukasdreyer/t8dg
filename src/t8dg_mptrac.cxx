@@ -316,6 +316,29 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   else {
     flux_vec[2] = 0;
   }
+  /* Convert units. u and v are in m/s, which we convert to km/h.
+   * w is in hPa/s which we convert to hPa/h */
+   /* X m/s = X * 0.001 km/s = X* 3600 * 0.001 km/h */
+   flux_vec[0] = flux_vec[0] * 3600 / 1000;
+   flux_vec[1] = flux_vec[1] * 3600 / 1000;
+   /* X hPa/s is X * 3600 hPa/h */
+   flux_vec[2] = flux_vec[2] * 3600;
+   t8dg_debugf ("Flow at %f %f %f = %f %f %f\n", x_vec[0], x_vec[1], x_vec[2], flux_vec[0], flux_vec[1], flux_vec[2]);
+   /* Scale down to [0,1]^3 */
+   /* So 1 km/h currently actually corresponds to 1 unit cube/hour.
+    * We thus need to scale with earth circumference in u,v and the height of the atmosphere in w */
+   static const double circumference_km = 40075.017;
+   /* Zonal wind (west-east) is scaled with the circumference. */
+   flux_vec[0] = flux_vec[0] / circumference_km;
+   /* Miridional wind (north-south) is scaled with half the circumference. */
+   flux_vec[1] = flux_vec[1] / (circumference_km / 2);
+   static const int           max_p_idx = meteo1->np;
+   static const double        pressure_min_in_km = Z (meteo1->p[0]);
+   static const double        pressure_max_in_km = Z (meteo1->p[max_p_idx - 1]);
+   static const double        height_of_atmosphere = pressure_max_in_km - pressure_min_in_km;
+   flux_vec[2] = flux_vec[2] / height_of_atmosphere;
+   t8dg_debugf ("Flow at %f %f %f = %f %f %f\n", x_vec[0], x_vec[1], x_vec[2], flux_vec[0], flux_vec[1], flux_vec[2]);
+   t8dg_debugf ("height of atmosphere [km] = %f\n", height_of_atmosphere);
 #if 0
 /* 2D Interpolation for ground pressure. Currently deactivated, may be useful later. */
   else {
