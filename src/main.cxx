@@ -168,13 +168,22 @@ main (int argc, char *argv[])
   t8dg_init (SC_LP_DEBUG);
   t8_init (SC_LP_DEBUG);
 #else
-  t8dg_init (SC_LP_ESSENTIAL);
+  t8dg_init (SC_LP_PRODUCTION);
   t8_init (SC_LP_ESSENTIAL);
 #endif
 
 #if T8_WITH_PETSC
-  int petsc_argc = 1;
-  ierr = PetscInitialize (&petsc_argc, &argv, (char *) 0, NULL);
+  int petsc_argc = 2;
+  char **petsc_ops;
+  petsc_ops = T8_ALLOC (char *, petsc_argc);
+  petsc_ops[0] = T8_ALLOC (char, BUFSIZ);
+  petsc_ops[1] = T8_ALLOC (char, BUFSIZ);
+  snprintf (petsc_ops[0], BUFSIZ, "%s", argv[0]);
+  snprintf (petsc_ops[1], BUFSIZ, "%s", "-ksp_monitor");
+  ierr = PetscInitialize (&petsc_argc, &petsc_ops, (char *) 0, NULL);
+  T8_FREE (petsc_ops[0]);
+  T8_FREE (petsc_ops[1]);
+  T8_FREE (petsc_ops);
   if (ierr)
     return ierr;
 #endif
