@@ -377,21 +377,27 @@ double
 t8dg_mptrac_box_indicator_fn (const double x[3], const double t, void *fn_data)
 {
   const t8dg_mptrac_flux_data *mptrac_flux_data = static_cast<const t8dg_mptrac_flux_data *> (fn_data);
-  double vert_dist, horiz_dist;
-  if (mptrac_flux_data->point_is_in_box (x)) {
+ 
+  double vert_dist_from_center, horiz_dist_from_center;
+  mptrac_flux_data->point_max_vert_and_horiz_distance_from_box (x, &vert_dist_from_center, &horiz_dist_from_center);
+  const double              radius_horiz_deg = 2;
+  const double              radius_vert_km = 1;
+  const double              smoothing_factor_horiz = 0;//0.2; //0.5; TODO: values != 0 result in kind of weird shape
+  const double              smoothing_factor_vert = 0;
+
+  if (vert_dist_from_center < radius_vert_km
+   && horiz_dist_from_center < radius_horiz_deg) {
     return 1;
   }
-  mptrac_flux_data->point_max_vert_and_horiz_distance_from_box (x, &vert_dist, &horiz_dist);
-  double              radius_vert = 0.1;
-  double              radius_horiz = 0.05;
-  double              smoothing_factor = 0.5;
 
-  if (vert_dist > (1 + smoothing_factor) * radius_vert 
-  || horiz_dist > (1 + smoothing_factor) * radius_horiz) {
+  if (horiz_dist_from_center > (1 + smoothing_factor_horiz) * radius_horiz_deg ||
+    vert_dist_from_center > (1 + smoothing_factor_vert) * radius_vert_km) {
     return 0;
   }
+  /* transform to [0,1] */
+  horiz_dist_from_center = smoothing_factor_horiz == 0 ? 0 : (horiz_dist_from_center - radius_horiz_deg) / (radius_horiz_deg * smoothing_factor_horiz); 
+  vert_dist_from_center = smoothing_factor_vert == 0 ? 0 : (vert_dist_from_center - radius_vert_km) / (radius_vert_km * smoothing_factor_vert);
+  const double dist = sqrt(horiz_dist_from_center*horiz_dist_from_center + vert_dist_from_center*vert_dist_from_center);
   /* Smooth horiz and vert dist */
-  if (horiz_dist > radius_horiz);
-  horiz_dist = (horiz_dist - radius_horiz) / (radius_horiz * smoothing_factor); /* transform to [0,1] */
-  return t8dg_smooth_g (horiz_dist);
+  return t8dg_smooth_g (dist);
 }
