@@ -316,29 +316,89 @@ t8dg_mptrac_flow_3D_fn (double x_vec[3], double flux_vec[3], double t, const t8d
   else {
     flux_vec[2] = 0;
   }
+#if 0
+  {
+    /* TODO: Testing only. Use this, when you need to know the result of the
+     *        flux computation (checking conversion formula etc. 
+     *        The final result should be (1,1,p) 
+     */
+    flux_vec[0] = 11111.1111111 * cos (lat/360 * 2*M_PI); /* circumference km/h in [m/s] */
+    flux_vec[1] = 5555.55555556; /* 20k */
+    flux_vec[2] = 0.277777777778; /* 1000 hPa/h in [hPa/s]  */
+  }
+#endif
   /* Convert units. u and v are in m/s, which we convert to km/h.
    * w is in hPa/s which we convert to hPa/h */
-   /* X m/s = X * 0.001 km/s = X* 3600 * 0.001 km/h */
-   flux_vec[0] = flux_vec[0] * 3600 / 1000;
-   flux_vec[1] = flux_vec[1] * 3600 / 1000;
+   /* X m/s = X * 0.001 km/s = X * 3600 * 0.001 km/h */
+   static const double sec_per_hour = 3600;
+   static const double m_per_km = 1000;
+   flux_vec[0] = flux_vec[0] * sec_per_hour / m_per_km;
+   flux_vec[1] = flux_vec[1] * sec_per_hour / m_per_km;
    /* X hPa/s is X * 3600 hPa/h */
-   flux_vec[2] = flux_vec[2] * 3600;
+   flux_vec[2] = flux_vec[2] * sec_per_hour;
    t8dg_debugf ("Flow at %f %f %f = %f %f %f\n", x_vec[0], x_vec[1], x_vec[2], flux_vec[0], flux_vec[1], flux_vec[2]);
    /* Scale down to [0,1]^3 */
    /* So 1 km/h currently actually corresponds to 1 unit cube/hour.
-    * We thus need to scale with earth circumference in u,v and the height of the atmosphere in w */
-   static const double circumference_km = 40075.017;
-   /* Zonal wind (west-east) is scaled with the circumference. */
-   flux_vec[0] = flux_vec[0] / circumference_km;
-   /* Miridional wind (north-south) is scaled with half the circumference. */
-   flux_vec[1] = flux_vec[1] / (circumference_km / 2);
+    * We thus need to scale with length of a latitude in u.
+    * The length of a longitude in v and the height of the atmosphere in w */
+   static const double circumference_equator_km = RE * 2 * M_PI; /* U = 2Pi * radius */
+   /* Circumference of latitude is circumference * cos(lat) */
+   double circumference_lat_km = circumference_equator_km * cos (lat/360. * 2.* M_PI);
+   if (circumference_lat_km <= 0) {
+     /* Prevent division by 0. 1m is minimum circumference */
+     circumference_lat_km = 1e-3;
+   }
+   /* Zonal wind (west-east) is scaled with the circumference of the latitude. */
+   /* U [Cubelength/h] = U [km/h] / cubelength [km] */
+   flux_vec[0] = flux_vec[0] / circumference_lat_km;
+   /* Meridional wind (north-south) is scaled with half the circumference. */
+   /* V [Cubelength/h] = V [km/h] / cubelength [km] */
+   flux_vec[1] = flux_vec[1] / (circumference_equator_km / 2);
+
+  /* To compute the speed in z direction we need to convert the pressure
+   * gradient in hPa/h to km/h.
+   * This is not the same as converting hPa to km.
+   * 
+   * We have: P[hPa] + v[hPa/h] = P_1[hPa]
+   *  for the pressure P_1 in 1 hour in hPa.
+   * we need v_x such that
+   *          P_x[] + v_x[] = P_1[]
+   * for the pressure in [0,1] coordinates.
+   * With F    = t8_mptrac_coords_to_lonlatpressure
+   * and  F^-1 = t8_mptrac_pressure_to_coord
+   * we have P[hPa] = F(P_x[]) and get
+   *  v_x[] = F^-1(P[hPa] + v[hPa/h]) - P_x[]
+   */
+  /* TODO: Use DP2DZ */
+  double pressure_temp;
+  /* Compute F^-1(P[hPa] + v[hPa/h]) */
+  t8_mptrac_pressure_to_coord (mptrac_context, pressure + flux_vec[2], &pressure_temp);
+  /* Subtract P_x */
+  flux_vec[2] = pressure_temp - x_vec[2];
+#if T8_ENABLE_DEBUG
+  /* Check that F(F^-1) = id */
+  double pressure_inv;
+  t8_mptrac_pressure_to_coord (mptrac_context, pressure, &pressure_inv);
+  T8_ASSERT (fabs (pressure_inv - x_vec[2]) < 1e-5);
+  double x_vec_inv[3] = {x_vec[0], x_vec[1], pressure_inv};
+  double pressure_inv_orig;
+  t8_mptrac_coords_to_lonlatpressure (mptrac_context, x_vec_inv, &lon, &lat, &pressure_inv_orig);
+  T8_ASSERT (fabs (pressure_inv_orig - pressure) < 1e-5);
+#endif
+
+#ifdef T8_ENABLE_DEBUG
    static const int           max_p_idx = meteo1->np;
    static const double        pressure_min_in_km = Z (meteo1->p[0]);
    static const double        pressure_max_in_km = Z (meteo1->p[max_p_idx - 1]);
    static const double        height_of_atmosphere = pressure_max_in_km - pressure_min_in_km;
+#if 0
    flux_vec[2] = flux_vec[2] / height_of_atmosphere;
+#endif
    t8dg_debugf ("Flow at %f %f %f = %f %f %f\n", x_vec[0], x_vec[1], x_vec[2], flux_vec[0], flux_vec[1], flux_vec[2]);
    t8dg_debugf ("height of atmosphere [km] = %f\n", height_of_atmosphere);
+   t8dg_debugf ("circumference of lat [km] = %f\n", circumference_lat_km);
+   t8dg_debugf ("lon/lat coords %f %f\n", lon, lat);
+#endif
 #if 0
 /* 2D Interpolation for ground pressure. Currently deactivated, may be useful later. */
   else {
