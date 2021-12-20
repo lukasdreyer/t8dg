@@ -440,7 +440,7 @@ t8dg_mptrac_box_indicator_fn (const double x[3], const double t, void *fn_data)
  
   double vert_dist_from_center, horiz_dist_from_center;
   mptrac_flux_data->point_max_vert_and_horiz_distance_from_box (x, &vert_dist_from_center, &horiz_dist_from_center);
-  const double              radius_horiz_deg = 2;
+  const double              radius_horiz_deg = 1;
   const double              radius_vert_km = 1;
   const double              smoothing_factor_horiz = 0;//0.2; //0.5; TODO: values != 0 result in kind of weird shape
   const double              smoothing_factor_vert = 0;
