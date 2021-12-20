@@ -15,7 +15,7 @@
 #include "t8dg_preconditioner.h"
 
 #define T8DG_TIMESTEPPING_GMRES_ACC 1.0e-3
-#define T8DG_TIMESTEPPING_GMRES_MAX_IT 50
+#define T8DG_TIMESTEPPING_GMRES_MAX_IT 25
 #define T8DG_TIMESTEPPING_IMPL_MEASURE_TIME 1
 
 struct t8dg_timestepping_data
