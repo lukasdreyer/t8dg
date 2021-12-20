@@ -131,7 +131,7 @@ double t8dg_mptrac_box::vert_dist_from_center_maxnorm (const double pressure) co
 
 
 t8dg_mptrac_flux_data::t8dg_mptrac_flux_data (const char *nc_filename, int hours_between_file_reads, sc_MPI_Comm comm)
-: comm (comm), hours_between_file_reads(hours_between_file_reads), point_source(0, 0, 500, 10, 10, 1)
+: comm (comm), hours_between_file_reads(hours_between_file_reads), point_source(0, 45, 100, 10, 10, 1)
 {
   const char *mptrac_input = "blub DT_MET 21600 METBASE ei MET_DX 1 MET_DY 1";
   const int dimension = 3;
