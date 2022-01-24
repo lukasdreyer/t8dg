@@ -51,10 +51,70 @@
 #ifndef GTEST_INCLUDE_GTEST_GTEST_H_
 #define GTEST_INCLUDE_GTEST_GTEST_H_
 
+// Some MPI vendors require the mpi.h to be included before anything else,
+// hence we need to include the gtest-mpi header (that - if enabled - includes mpi.h) first.
+// Copyright 2021, Johannes Holke.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+//     * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+//     * Neither the name of Google Inc. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Authors: johannes.holke@dlr.de (Johannes Holke)
+//
+// Low-level types and utilities for extending Google Test with MPI support.
+// This file should be included in each internal Google Test file that requires 
+// MPI. If MPI support is enabled the MPI headers will be included together
+// with this file.
+// Since some MPI vendors require MPI to be included first 
+// ALWAYS INCLUDE THISE HEADER FIRST before including other headers.
+//
+// Why are the contents of this file not part of gtest-port.h?
+//   Because the gtest-port.h is not required to be included first and
+//   we do not want to change this requirement.
+
+#ifndef GTEST_INCLUDE_GTEST_INTERNAL_GTEST_MPI_H_
+#define GTEST_INCLUDE_GTEST_INTERNAL_GTEST_MPI_H_
+
+//   GTEST_HAS_MPI            - Define it to 1/0 to indicate that <mpi.h>
+//                              is/isn't available.
+
+// Enable MPI
+// To enable MPI define GTEST_HAS_MPI to 1 before
+// including this header.
+#ifndef GTEST_HAS_MPI
+#define GTEST_HAS_MPI 0
+#endif
+
+// Include the MPI header
 #if GTEST_HAS_MPI
-// Some MPI vendors require the mpi.h to be included before anything else.
 #include <mpi.h>
 #endif
+
+#endif // GTEST_INCLUDE_GTEST_INTERNAL_GTEST_MPI_H_
+
 
 #include <limits>
 #include <ostream>
@@ -184,7 +244,7 @@
 //   GTEST_HAS_PTHREAD        - Define it to 1/0 to indicate that <pthread.h>
 //                              is/isn't available.
 //   GTEST_HAS_MPI            - Define it to 1/0 to indicate that <mpi.h>
-//                              is/isn't available.
+//                              is/isn't available. Defined in "gtest/internal/gtest-mpi.h"
 //   GTEST_HAS_RTTI           - Define it to 1/0 to indicate that RTTI is/isn't
 //                              enabled.
 //   GTEST_HAS_STD_WSTRING    - Define it to 1/0 to indicate that
@@ -212,14 +272,6 @@
 //   GTEST_CREATE_SHARED_LIBRARY
 //                            - Define to 1 when compiling Google Test itself
 //                              as a shared library.
-
-// Enable MPI
-// To disable MPI define GTEST_HAS_MPI to 0 before
-// including this header.
-#ifndef GTEST_HAS_MPI
-#define GTEST_HAS_MPI 1
-#endif
-
 
 // Platform-indicating macros
 // --------------------------
@@ -367,13 +419,10 @@
 //   Int32FromGTestEnv()  - parses an Int32 environment variable.
 //   StringFromGTestEnv() - parses a string environment variable.
 
-#if GTEST_HAS_MPI
 // gtest-port.h guarantees to #include <mpi.h> when GTEST_HAS_MPI is
 // true.
 // Some MPI vendors require this include to be the *first* include
 // (e.g. before system headers!)
-#include <mpi.h> //NOLINT
-#endif
 
 #include <ctype.h>   // for isspace, etc
 #include <stddef.h>  // for ptrdiff_t
