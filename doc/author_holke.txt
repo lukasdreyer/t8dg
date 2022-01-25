@@ -1,4 +1,0 @@
-The contributions of Johannes Holke restrict to
- - Setting up the build process
- - Adding googletest and setting up the googletest build process
- - Adding t8dg_test_main.cxx and t8dg_test_example.cxx
