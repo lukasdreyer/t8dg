@@ -43,13 +43,10 @@ TEST (dmatrix, mult)
   *(double *) sc_array_index (array, 1) = -3;
   *(double *) sc_array_index (array, 2) = 6;
   t8dg_dmatrix_mult_sc_array (matrix, array, res_array);
-#ifdef T8DG_ENABLE_MPI
-  EXPECT_EQ_MPI (*(double *) sc_array_index (res_array, 0), 13);
-  EXPECT_EQ_MPI (*(double *) sc_array_index (res_array, 1), 25);
-#else
+
   EXPECT_EQ (*(double *) sc_array_index (res_array, 0), 13);
   EXPECT_EQ (*(double *) sc_array_index (res_array, 1), 25);
-#endif
+
   t8dg_dmatrix_destroy (&matrix);
   sc_array_destroy (array);
   sc_array_destroy (res_array);

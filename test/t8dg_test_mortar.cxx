@@ -93,11 +93,9 @@ TEST (mortar_arrray1D, creation)
       flux_value = t8dg_face_dof_values_get_value (t8dg_mortar_array_get_oriented_flux (mortar_array, ielement, iface), 0);
       element_result_dof = t8dg_dof_values_new_element_dof_values_view (result_dof, 0, ielement);
       result_value = t8dg_element_dof_values_get_value (element_result_dof, iface);
-#ifdef T8DG_ENABLE_MPI
-      EXPECT_DOUBLE_EQ_MPI (flux_value, result_value);
-#else
+
       EXPECT_DOUBLE_EQ (flux_value, result_value);
-#endif
+
       t8dg_element_dof_values_destroy (&element_result_dof);
     }
   }
