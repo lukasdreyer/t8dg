@@ -1,6 +1,6 @@
 ### Introduction
 
-t8dg (spoken as "tetdege") is a C/C++ software to use a discontinuous galerkin method on adaptive meshes.
+t8dg (spoken as "tet-de-ge") is a C/C++ software to use a discontinuous galerkin method on adaptive meshes.
 t8dg uses t8code as a mesh managing library. 
 It is licensed under the GNU General Public License 3.0 or later. Copyright (c) 2020 the developers.
 
