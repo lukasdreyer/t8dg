@@ -23,7 +23,6 @@ make -j V=0
 6. make check
 make check -j V=0
 If any errors occur, please contact the developers
-Currently, the tests only work when t8dg is configured with --enable-mpi
 
 7. Try it out
 cd exec
