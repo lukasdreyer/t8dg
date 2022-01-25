@@ -4,24 +4,19 @@ t8dg (spoken as "tetdege") is a C/C++ software to use a discontinuous galerkin m
 t8dg uses t8code as a mesh managing library. 
 It is licensed under the GNU General Public License 3.0 or later. Copyright (c) 2020 the developers.
 
-<!---
+
 <table>
     <tr>
-        <td><img src="*.png?raw=true" height="200" /></td> 
-        <td><img src="*?raw=true" height="181" /></td>
-    </tr>
-      <tr>
-        <td><img src="*?raw=true" height="200" /></td>
-        <td><img src="*?raw=true" height="200" /></td>
+        <td><img src="https://github.com/lukasdreyer/t8dg/blob/main/doc/pictures/adapt_2D.png?raw=true" height="300" /></td> 
+        <td><img src="https://github.com/lukasdreyer/t8dg/blob/main/doc/pictures/cylinder_cut83.png?raw=true" height="300" /></td>
     </tr>
 </table>
---->
 
 ### Setup
 
-We provide a short guide to install t8code. 
+We provide a short guide to install t8dg. 
 
-For a more detailed description, please see the [Installation guide](https://github.com/lukasdreyer/t8dg/blob/master/INSTALL).
+For a more detailed description, please see the [Installation guide](https://github.com/lukasdreyer/t8dg/blob/main/INSTALL).
 
 #### Requirements
 
@@ -90,12 +85,12 @@ For a debugging mode with static linkage (makes using gdb and valgrind more comf
 
   ### Publications
   
-  An (incomplete) list of publications related to t8code:
+  An (incomplete) list of publications related to t8dg:
     
   [1] Lukas Dreyer, The local discontinuous galerkin method for the advection-diffusion equation on adaptive meshes, Master thesis at University of Bonn, 2021,
       [Full text available](https://elib.dlr.de/143969/)
       
   
-  ### Citing t8code
+  ### Citing t8dg
   
-  If you use t8code in any of your publications, please cite the [github repository](https://github.com/lukasdreyer/t8dg) and [1].
+  If you use t8dg in any of your publications, please cite the [github repository](https://github.com/lukasdreyer/t8dg) and [1].
