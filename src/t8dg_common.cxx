@@ -286,8 +286,8 @@ t8dg_smooth_indicator2Dfn (const double x[3], const double t, void *fn_data)
 double
 t8dg_smooth_indicator3Dfn (const double x[3], const double t, void *fn_data)
 {
-  double              radius = 0.1;
-  double              smoothing_factor = 2;
+  double              radius = 1./(2 * 360); // 0.5 deg
+  double              smoothing_factor = 50; // 2.5 deg
   double              center[3] = { 0.5, 0.5, 0.5 };
   double              dist = t8_vec_dist (x, center);
   if (dist < radius)
