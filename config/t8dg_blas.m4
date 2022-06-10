@@ -14,6 +14,7 @@ dnl SAVE_LIBS="$LIBS"
 dnl T8DG_CHECK_LIB([cblas], [nc_open], [CBLAS])
 dnl LIBS="$SAVE_LIBS"
 dnl AC_MSG_CHECKING([for cblas linkage])
+AC_MSG_CHECKING([for cblas library])
 
 T8DG_ARG_DISABLE([cblas],
   [cblas library (optionally use --enable-cblas=<CBLAS_LIBS>)],
@@ -28,8 +29,9 @@ if test "x$T8DG_ENABLE_CBLAS" != xno ; then
   LIBS="$LIBS $T8DG_CBLAS_LIBS"
   AC_LINK_IFELSE([AC_LANG_PROGRAM(
 [[
-]],[[
+  #include <stddef.h>
   #include <cblas.h>
+]],[[
 
   cblas_snrm2(0, NULL, 0);
 ]])],,
